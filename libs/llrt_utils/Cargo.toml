@@ -34,9 +34,6 @@ windows-sys = { version = "0.61", features = [
 llrt_test = { version = "0.9.0-beta", path = "../llrt_test" }
 tokio = { version = "1", features = ["full"] }
 
-[build-dependencies]
-llrt_build = { version = "0.9.0-beta", path = "../llrt_build" }
-
 [[bench]]
 name = "lossy_string"
 harness = false

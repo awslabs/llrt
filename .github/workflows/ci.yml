@@ -72,80 +72,80 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
-            toolchain: nightly
+            toolchain: stable
             crypto: ring
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
-            toolchain: nightly
+            toolchain: stable
             crypto: aws-lc
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
-            toolchain: nightly
+            toolchain: stable
             crypto: graviola
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
-            toolchain: nightly
+            toolchain: stable
             crypto: openssl
           # Ubuntu arm64
           - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: ring
           - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: aws-lc
           - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: graviola
           - os: ubuntu-24.04-arm
             platform: linux
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: openssl
           # macOS arm64
           - os: macos-latest
             platform: darwin
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: ring
           - os: macos-latest
             platform: darwin
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: aws-lc
           - os: macos-latest
             platform: darwin
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: graviola
           - os: macos-latest
             platform: darwin
             arch: aarch64
-            toolchain: nightly
+            toolchain: stable
             crypto: openssl
           # Windows x64 (ring, openssl, graviola - no aws-lc)
           - os: windows-latest
             platform: windows
             arch: x86_64
-            toolchain: nightly-x86_64-pc-windows-gnu
+            toolchain: stable-x86_64-pc-windows-gnu
             crypto: ring
           - os: windows-latest
             platform: windows
             arch: x86_64
-            toolchain: nightly-x86_64-pc-windows-gnu
+            toolchain: stable-x86_64-pc-windows-gnu
             crypto: openssl
           - os: windows-latest
             platform: windows
             arch: x86_64
-            toolchain: nightly-x86_64-pc-windows-gnu
+            toolchain: stable-x86_64-pc-windows-gnu
             crypto: graviola
     uses: ./.github/workflows/build.yml
     with:

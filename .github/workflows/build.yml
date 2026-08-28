@@ -17,7 +17,7 @@ on:
       toolchain:
         required: false
         type: string
-        default: "nightly"
+        default: "stable"
       crypto:
         required: false
         type: string

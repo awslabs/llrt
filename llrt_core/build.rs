@@ -36,8 +36,6 @@ macro_rules! rerun_if_changed {
 include!("src/compiler_common.rs");
 
 fn main() -> StdResult<(), Box<dyn Error>> {
-    llrt_build::set_nightly_cfg();
-
     rerun_if_changed!(BUNDLE_JS_DIR);
     rerun_if_changed!("Cargo.toml");
 

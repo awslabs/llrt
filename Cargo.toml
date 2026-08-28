@@ -2,7 +2,6 @@
 resolver = "2"
 
 members = [
-  "libs/llrt_build",
   "libs/llrt_compression",
   "libs/llrt_context",
   "libs/llrt_encoding",

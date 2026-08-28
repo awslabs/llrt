@@ -1750,13 +1750,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "llrt_build"
-version = "0.9.0-beta"
-dependencies = [
- "rustc_version",
-]
-
-[[package]]
 name = "llrt_child_process"
 version = "0.9.0-beta"
 dependencies = [
@@ -1795,7 +1788,6 @@ dependencies = [
 name = "llrt_context"
 version = "0.9.0-beta"
 dependencies = [
- "llrt_build",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
@@ -1815,7 +1807,6 @@ dependencies = [
  "itoa",
  "jiff",
  "libc",
- "llrt_build",
  "llrt_context",
  "llrt_encoding",
  "llrt_hooking",
@@ -1936,7 +1927,6 @@ version = "0.9.0-beta"
 dependencies = [
  "base64-simd",
  "hex-simd",
- "llrt_build",
  "memchr",
  "phf",
 ]
@@ -2053,7 +2043,6 @@ version = "0.9.0-beta"
 dependencies = [
  "criterion",
  "itoa",
- "llrt_build",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
@@ -2350,7 +2339,6 @@ version = "0.9.0-beta"
 dependencies = [
  "half",
  "libc",
- "llrt_build",
  "llrt_test",
  "memchr",
  "rquickjs",

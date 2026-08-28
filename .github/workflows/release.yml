@@ -29,7 +29,7 @@ jobs:
             platform: windows
             arch: x86_64
             release: x64
-            toolchain: nightly-x86_64-pc-windows-gnu
+            toolchain: stable-x86_64-pc-windows-gnu
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
