@@ -4,7 +4,10 @@ TARGET_darwin_x86_64 = x86_64-apple-darwin
 TARGET_darwin_arm64 = aarch64-apple-darwin
 TARGET_windows_x86_64 = x86_64-pc-windows-gnu
 TARGET_windows_arm64 = aarch64-is-not-yet-supported
-RUST_VERSION = nightly
+# Pinned nightly. LLRT needs nightly for -Z build-std (see .cargo/config.toml),
+# and an unpinned channel means any upstream nightly regression breaks every
+# build. Bump this deliberately after checking the new nightly builds std.
+RUST_VERSION = nightly-2026-08-26
 TOOLCHAIN = +$(RUST_VERSION)
 BUILD_ARG = $(TOOLCHAIN) build -r
 BUILD_DIR = ./target/release
