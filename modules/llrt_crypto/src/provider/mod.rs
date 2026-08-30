@@ -130,6 +130,12 @@ pub trait SimpleDigest: Send {
         Self: Sized;
 }
 
+pub const MAX_HMAC_KEY_LENGTH_BITS: u32 = 1024;
+
+pub(crate) fn hmac_length_is_byte_aligned(length_bits: u32) -> bool {
+    length_bits.is_multiple_of(8)
+}
+
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub enum AesMode {
@@ -836,7 +842,7 @@ impl_hybrid_provider!(
     graviola::GraviolaRustHmac::new,
     |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| {
         if graviola_aes_supported()
-            && matches!(m, AesMode::Gcm { .. })
+            && matches!(m, AesMode::Gcm { tag_length: 128 })
             && matches!(k.len(), 16 | 32)
         {
             graviola::GraviolaProvider.aes_encrypt(m, k, iv, d, aad)
@@ -846,7 +852,7 @@ impl_hybrid_provider!(
     },
     |m: AesMode, k: &[u8], iv: &[u8], d: &[u8], aad: Option<&[u8]>| {
         if graviola_aes_supported()
-            && matches!(m, AesMode::Gcm { .. })
+            && matches!(m, AesMode::Gcm { tag_length: 128 })
             && matches!(k.len(), 16 | 32)
         {
             graviola::GraviolaProvider.aes_decrypt(m, k, iv, d, aad)
@@ -1019,6 +1025,21 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[cfg(all(feature = "crypto-graviola", not(feature = "crypto-graviola-rust")))]
+    #[test]
+    fn test_graviola_rejects_unsupported_aes_gcm_tag_length() {
+        let p = provider();
+        let result = p.aes_encrypt(
+            AesMode::Gcm { tag_length: 64 },
+            &[0; 16],
+            &[0; 12],
+            b"hello world",
+            None,
+        );
+
+        assert!(matches!(result, Err(CryptoError::UnsupportedAlgorithm)));
     }
 
     // Key generation tests - only for providers that support key generation

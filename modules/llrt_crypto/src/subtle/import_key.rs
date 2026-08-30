@@ -1,24 +1,37 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use llrt_exceptions::DOMException;
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
-use rquickjs::{Array, Class, Ctx, FromJs, Result, Value};
+#[cfg(feature = "_subtle-full")]
+use llrt_utils::bytes::ObjectBytes;
+use llrt_utils::object::ObjectExt;
+#[cfg(feature = "_subtle-full")]
+use rquickjs::FromJs;
+use rquickjs::{Array, Class, Ctx, Result, Value};
 
+#[cfg(feature = "_subtle-full")]
+use super::key_algorithm::KeyFormat;
 use super::{
     crypto_key::{CryptoKey, KeyKind},
-    key_algorithm::{
-        KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormat, KeyFormatData,
-    },
+    key_algorithm::{KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyFormatData},
 };
 
+#[cfg(feature = "_subtle-full")]
 pub async fn subtle_import_key<'js>(
     ctx: Ctx<'js>,
-    format: KeyFormat,
+    format: Value<'js>,
     key_data: Value<'js>,
     algorithm: Value<'js>,
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
+    let format = KeyFormat::from_js(&ctx, format)?;
+    validate_import_algorithm(
+        &ctx,
+        &format,
+        algorithm.clone(),
+        extractable,
+        key_usages.clone(),
+    )?;
     let format = match format {
         KeyFormat::Raw => KeyFormatData::Raw(ObjectBytes::from_js(&ctx, key_data)?),
         KeyFormat::Pkcs8 => KeyFormatData::Pkcs8(ObjectBytes::from_js(&ctx, key_data)?),
@@ -36,13 +49,10 @@ pub fn import_key<'js>(
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
-    if extractable {
-        if let KeyFormatData::Jwk(jwk) = &format {
-            if matches!(jwk.get_optional::<_, bool>("ext")?, Some(false)) {
-                return Err(DOMException::data_error(&ctx, "JWK is not extractable"));
-            }
-        }
-    }
+    let jwk = match &format {
+        KeyFormatData::Jwk(value) => Some(value.clone()),
+        _ => None,
+    };
 
     let mut kind = KeyKind::Public;
     let mut data = Vec::new();
@@ -62,14 +72,112 @@ pub fn import_key<'js>(
         algorithm,
         key_usages,
     )?;
+    if extractable
+        && matches!(
+            &key_algorithm,
+            KeyAlgorithm::HkdfImport | KeyAlgorithm::Pbkdf2Import
+        )
+    {
+        return Err(DOMException::syntax_error(
+            &ctx,
+            format!("{name} keys must not be extractable"),
+        ));
+    }
 
     let usages = match kind {
         KeyKind::Public | KeyKind::Secret => public_usages,
         KeyKind::Private => private_usages,
     };
+    if let Some(jwk) = jwk {
+        if let Some(key_ops) = parse_jwk_key_ops(&ctx, &jwk)? {
+            validate_requested_jwk_key_ops(&ctx, &key_ops, &usages)?;
+        }
+        validate_jwk_extractable(&ctx, &jwk, extractable)?;
+    }
 
     Class::instance(
         ctx,
         CryptoKey::new(kind, name, extractable, key_algorithm, usages, data),
     )
+}
+
+#[cfg(feature = "_subtle-full")]
+fn validate_import_algorithm<'js>(
+    ctx: &Ctx<'js>,
+    format: &KeyFormat,
+    algorithm: Value<'js>,
+    extractable: bool,
+    key_usages: Array<'js>,
+) -> Result<()> {
+    let normalized =
+        KeyAlgorithm::from_js(ctx, KeyAlgorithmMode::ValidateImport, algorithm, key_usages)?;
+    if matches!(
+        normalized.algorithm,
+        super::key_algorithm::KeyAlgorithm::HkdfImport
+            | super::key_algorithm::KeyAlgorithm::Pbkdf2Import
+    ) {
+        if !matches!(format, KeyFormat::Raw) {
+            return Err(DOMException::not_supported_error(
+                ctx,
+                [
+                    normalized.name.as_str(),
+                    " only supports 'raw' import format",
+                ]
+                .concat(),
+            ));
+        }
+        if extractable {
+            return Err(DOMException::syntax_error(
+                ctx,
+                format!("{} keys must not be extractable", normalized.name),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_jwk_extractable(
+    ctx: &Ctx<'_>,
+    jwk: &rquickjs::Object<'_>,
+    extractable: bool,
+) -> Result<()> {
+    if extractable && matches!(jwk.get_optional::<_, bool>("ext")?, Some(false)) {
+        return Err(DOMException::data_error(ctx, "JWK is not extractable"));
+    }
+    Ok(())
+}
+
+fn parse_jwk_key_ops(ctx: &Ctx<'_>, jwk: &rquickjs::Object<'_>) -> Result<Option<Vec<String>>> {
+    let Some(key_ops) = jwk.get_optional::<_, Array>("key_ops")? else {
+        return Ok(None);
+    };
+    let mut operations = Vec::with_capacity(key_ops.len());
+    for operation in key_ops.iter::<String>() {
+        let operation = operation?;
+        if operations.contains(&operation) {
+            return Err(DOMException::data_error(
+                ctx,
+                "JWK 'key_ops' contains a duplicate operation",
+            ));
+        }
+        operations.push(operation);
+    }
+    Ok(Some(operations))
+}
+
+fn validate_requested_jwk_key_ops(
+    ctx: &Ctx<'_>,
+    operations: &[String],
+    requested_usages: &[String],
+) -> Result<()> {
+    if requested_usages
+        .iter()
+        .any(|usage| !operations.contains(usage))
+    {
+        return Err(DOMException::data_error(
+            ctx,
+            "JWK 'key_ops' does not contain all requested usages",
+        ));
+    }
+    Ok(())
 }

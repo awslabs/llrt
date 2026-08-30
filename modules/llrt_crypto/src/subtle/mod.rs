@@ -10,7 +10,6 @@ mod encryption_algorithm;
 #[cfg(feature = "_subtle-full")]
 mod export_key;
 mod generate_key;
-#[cfg(feature = "_subtle-full")]
 mod import_key;
 #[cfg(feature = "_subtle-full")]
 mod key_algorithm;
@@ -49,7 +48,9 @@ use key_algorithm::KeyAlgorithm;
 
 use llrt_exceptions::DOMException;
 use llrt_utils::{object::ObjectExt, str_enum};
-use rquickjs::{atom::PredefinedAtom, Ctx, Error, Exception, Object, Result, Value};
+use rquickjs::{
+    atom::PredefinedAtom, Coerced, Ctx, Error, Exception, FromJs, Object, Result, Value,
+};
 
 use crate::provider::{CryptoProvider, SimpleDigest};
 
@@ -114,6 +115,42 @@ pub fn rsa_hash_digest<'a>(
     Ok((hash, digest))
 }
 
+pub fn validate_rsa_pss_salt_length(
+    ctx: &Ctx<'_>,
+    key: &CryptoKey<'_>,
+    hash: &HashAlgorithm,
+    salt_length: u32,
+) -> Result<()> {
+    let KeyAlgorithm::Rsa { modulus_length, .. } = key.algorithm else {
+        return algorithm_mismatch_error(ctx, "RSA-PSS");
+    };
+    if !rsa_pss_salt_length_fits(modulus_length, hash, salt_length) {
+        return Err(DOMException::operation_error(
+            ctx,
+            "RSA-PSS saltLength exceeds the key limit",
+        ));
+    }
+    Ok(())
+}
+
+pub fn rsa_pss_salt_length_is_valid(
+    key: &CryptoKey<'_>,
+    hash: &HashAlgorithm,
+    salt_length: u32,
+) -> bool {
+    let KeyAlgorithm::Rsa { modulus_length, .. } = key.algorithm else {
+        return false;
+    };
+    rsa_pss_salt_length_fits(modulus_length, hash, salt_length)
+}
+
+fn rsa_pss_salt_length_fits(modulus_length: u32, hash: &HashAlgorithm, salt_length: u32) -> bool {
+    let encoded_message_length = modulus_length.saturating_sub(1).div_ceil(8) as usize;
+    encoded_message_length
+        .checked_sub(hash.digest_len() + 2)
+        .is_some_and(|maximum| salt_length as usize <= maximum)
+}
+
 pub fn to_name_and_maybe_object<'js>(
     ctx: &Ctx<'js>,
     value: Value<'js>,
@@ -146,6 +183,64 @@ pub fn normalize_algorithm_name(name: &str) -> String {
         "RSASSA-PKCS1-V1_5" => "RSASSA-PKCS1-v1_5".to_string(),
         _ => name,
     }
+}
+
+pub fn get_required_dictionary_value<'js>(
+    object: &Object<'js>,
+    name: &str,
+    object_name: &str,
+) -> Result<Value<'js>> {
+    let value: Value = object.get(name)?;
+    if value.is_undefined() {
+        return Err(Exception::throw_type(
+            object.ctx(),
+            &[object_name, " '", name, "' property required"].concat(),
+        ));
+    }
+    Ok(value)
+}
+
+pub fn get_optional_dictionary_value<'js>(
+    object: &Object<'js>,
+    name: &str,
+) -> Result<Option<Value<'js>>> {
+    let value: Value = object.get(name)?;
+    Ok((!value.is_undefined()).then_some(value))
+}
+
+fn enforce_range_unsigned<'js>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+    name: &str,
+    upper_bound: f64,
+) -> Result<f64> {
+    let number = Coerced::<f64>::from_js(ctx, value)?.0;
+    if !number.is_finite() {
+        return Err(Exception::throw_type(
+            ctx,
+            &format!("{name} must be finite"),
+        ));
+    }
+    let integer = number.trunc();
+    if integer < 0.0 || integer > upper_bound {
+        return Err(Exception::throw_type(
+            ctx,
+            &format!("{name} is outside the accepted range"),
+        ));
+    }
+    Ok(integer)
+}
+
+pub fn enforce_range_u16<'js>(ctx: &Ctx<'js>, value: Value<'js>, name: &str) -> Result<u16> {
+    Ok(enforce_range_unsigned(ctx, value, name, u16::MAX as f64)? as u16)
+}
+
+pub fn enforce_range_u8<'js>(ctx: &Ctx<'js>, value: Value<'js>, name: &str) -> Result<u8> {
+    Ok(enforce_range_unsigned(ctx, value, name, u8::MAX as f64)? as u8)
+}
+
+pub fn enforce_range_u32<'js>(ctx: &Ctx<'js>, value: Value<'js>, name: &str) -> Result<u32> {
+    Ok(enforce_range_unsigned(ctx, value, name, u32::MAX as f64)? as u32)
 }
 
 pub fn algorithm_mismatch_error<T>(ctx: &Ctx<'_>, expected_algorithm: &str) -> Result<T> {

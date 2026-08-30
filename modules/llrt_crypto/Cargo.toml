@@ -55,6 +55,7 @@ crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
 [dependencies]
 crc32c = { version = "0.6", default-features = false }
 crc32fast = { version = "1", default-features = false }
+ctutils = { version = "0.4", default-features = false }
 llrt_buffer = { version = "0.9.0-beta", path = "../llrt_buffer" }
 llrt_context = { version = "0.9.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.9.0-beta", path = "../../libs/llrt_encoding" }

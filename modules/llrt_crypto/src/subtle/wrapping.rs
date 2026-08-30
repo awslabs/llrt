@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_json::{parse::json_parse, stringify::json_stringify};
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use rquickjs::{Array, ArrayBuffer, Class, Ctx, Result, Value};
+use rquickjs::{Array, ArrayBuffer, Class, Ctx, FromJs, Result, Value};
 
 use super::{
     crypto_key::CryptoKey,
@@ -16,11 +16,12 @@ use super::{
 
 pub async fn subtle_wrap_key<'js>(
     ctx: Ctx<'js>,
-    format: KeyFormat,
+    format: Value<'js>,
     key: Class<'js, CryptoKey<'js>>,
     wrapping_key: Class<'js, CryptoKey<'js>>,
     wrap_algo: EncryptionAlgorithm,
 ) -> Result<ArrayBuffer<'js>> {
+    let format = KeyFormat::from_js(&ctx, format)?;
     let key = key.borrow();
 
     let export = export_key(&ctx, format, &key)?;
@@ -50,7 +51,7 @@ pub async fn subtle_wrap_key<'js>(
 
 //cant take more than 7 args
 pub async fn subtle_unwrap_key<'js>(
-    format: KeyFormat,
+    format: Value<'js>,
     wrapped_key: Value<'js>,
     unwrapping_key: Class<'js, CryptoKey<'js>>,
     unwrap_algo: EncryptionAlgorithm,
@@ -58,8 +59,9 @@ pub async fn subtle_unwrap_key<'js>(
     extractable: bool,
     key_usages: Array<'js>,
 ) -> Result<Class<'js, CryptoKey<'js>>> {
+    let ctx = format.ctx().clone();
+    let format = KeyFormat::from_js(&ctx, format)?;
     let unwrapping_key = unwrapping_key.borrow();
-    let ctx = wrapped_key.ctx().clone();
     unwrapping_key.check_validity("unwrapKey").or_throw(&ctx)?;
 
     let bytes = ObjectBytes::from(&ctx, &wrapped_key)?;

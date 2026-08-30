@@ -12,6 +12,7 @@ use super::{
     algorithm_invalid_access_error, algorithm_mismatch_error,
     crypto_key::{CryptoKey, KeyKind},
     derive_algorithm::DeriveAlgorithm,
+    enforce_range_u32,
     key_algorithm::{EcAlgorithm, KeyAlgorithm, KeyDerivation},
     util::ResultDomExt,
     EllipticCurve,
@@ -62,14 +63,7 @@ pub(super) fn derive_bits(
                     && base_key.kind == KeyKind::Private
                     && matches!(algorithm, EcAlgorithm::Ecdh)
                 {
-                    let length = match length {
-                        DeriveBitsLength::Default => match curve {
-                            EllipticCurve::P256 => 256,
-                            EllipticCurve::P384 => 384,
-                            EllipticCurve::P521 => 528,
-                        },
-                        DeriveBitsLength::Specified(length) => length,
-                    };
+                    let length = validate_ecdh_length(ctx, *curve, length)?;
                     let bytes = CRYPTO_PROVIDER
                         .ecdh_derive_bits(*curve, &base_key.handle, public_key)
                         .or_throw_dom(ctx)?;
@@ -104,13 +98,7 @@ pub(super) fn derive_bits(
             if !matches!(base_key.algorithm, KeyAlgorithm::HkdfImport) {
                 return algorithm_invalid_access_error(ctx, "HKDF");
             }
-            let length = match length {
-                DeriveBitsLength::Specified(length) if length % 8 == 0 => length,
-                _ => {
-                    return Err(DOMException::operation_error(ctx, "Invalid length"));
-                },
-            };
-            let out_length = (length / 8).try_into().or_throw(ctx)?;
+            let out_length = validate_hkdf_length(ctx, hash, length)?;
             CRYPTO_PROVIDER
                 .hkdf_derive_key(&base_key.handle, salt, info, out_length, *hash)
                 .or_throw(ctx)
@@ -122,6 +110,12 @@ pub(super) fn derive_bits(
         }) => {
             if !matches!(base_key.algorithm, KeyAlgorithm::Pbkdf2Import) {
                 return algorithm_invalid_access_error(ctx, "PBKDF2");
+            }
+            if *iterations == 0 {
+                return Err(DOMException::operation_error(
+                    ctx,
+                    "PBKDF2 iterations must be greater than zero",
+                ));
             }
             let length = match length {
                 DeriveBitsLength::Specified(length) if length % 8 == 0 => length,
@@ -166,6 +160,42 @@ pub(super) enum DeriveBitsLength {
     Specified(u32),
 }
 
+pub(super) fn validate_ecdh_length(
+    ctx: &Ctx<'_>,
+    curve: EllipticCurve,
+    length: DeriveBitsLength,
+) -> Result<u32> {
+    let maximum_length = match curve {
+        EllipticCurve::P256 => 256,
+        EllipticCurve::P384 => 384,
+        EllipticCurve::P521 => 528,
+    };
+    match length {
+        DeriveBitsLength::Default => Ok(maximum_length),
+        DeriveBitsLength::Specified(length) if length <= maximum_length => Ok(length),
+        DeriveBitsLength::Specified(_) => Err(DOMException::operation_error(ctx, "Invalid length")),
+    }
+}
+
+pub(super) fn validate_hkdf_length(
+    ctx: &Ctx<'_>,
+    hash: &crate::hash::HashAlgorithm,
+    length: DeriveBitsLength,
+) -> Result<usize> {
+    let length = match length {
+        DeriveBitsLength::Specified(length) if length % 8 == 0 => length,
+        _ => return Err(DOMException::operation_error(ctx, "Invalid length")),
+    };
+    let maximum_length = (hash.digest_len() * 8 * 255) as u32;
+    if length > maximum_length {
+        return Err(DOMException::operation_error(
+            ctx,
+            "HKDF output exceeds 255 hash blocks",
+        ));
+    }
+    (length / 8).try_into().or_throw(ctx)
+}
+
 fn parse_derive_bits_length<'js>(
     ctx: &Ctx<'js>,
     length: Opt<Value<'js>>,
@@ -174,9 +204,7 @@ fn parse_derive_bits_length<'js>(
         None => Ok(DeriveBitsLength::Default),
         Some(value) if value.is_null() || value.is_undefined() => Ok(DeriveBitsLength::Default),
         Some(value) => {
-            let length = u32::from_js(ctx, value)
-                .map_err(|_| DOMException::operation_error(ctx, "Invalid length"))?;
-
+            let length = enforce_range_u32(ctx, value, "length")?;
             Ok(DeriveBitsLength::Specified(length))
         },
     }

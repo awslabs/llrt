@@ -14,40 +14,45 @@ use ed25519_dalek::SigningKey;
 #[cfg(feature = "_subtle-full")]
 use llrt_encoding::bytes_from_b64_url_safe;
 use llrt_exceptions::DOMException;
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt, str_enum};
+#[cfg(feature = "_subtle-full")]
+use llrt_utils::result::ResultExt;
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, str_enum};
 #[cfg(feature = "_subtle-full")]
 use pkcs8::PrivateKeyInfoRef;
 use rquickjs::{
-    atom::PredefinedAtom, Array, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
+    atom::PredefinedAtom, Array, Coerced, Ctx, Exception, FromJs, Object, Result, TypedArray, Value,
 };
 #[cfg(feature = "_subtle-full")]
 use spki::{AlgorithmIdentifier, ObjectIdentifier};
 #[cfg(feature = "_subtle-full")]
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use crate::{hash::HashAlgorithm, provider::parse_rsa_public_exponent};
+use crate::{
+    hash::HashAlgorithm,
+    provider::{hmac_length_is_byte_aligned, parse_rsa_public_exponent, MAX_HMAC_KEY_LENGTH_BITS},
+};
 
 #[cfg(feature = "_subtle-full")]
-use super::{algorithm_mismatch_error, util::DataError};
+use super::util::DataError;
 use super::{
-    algorithm_not_supported_error,
+    algorithm_mismatch_error, algorithm_not_supported_error,
     crypto_key::KeyKind,
-    normalize_algorithm_name, to_name_and_maybe_object,
+    enforce_range_u16, enforce_range_u32, get_optional_dictionary_value,
+    get_required_dictionary_value, normalize_algorithm_name, to_name_and_maybe_object,
     util::{NotSupportedError, ResultDomExt},
     EllipticCurve,
 };
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum KeyUsage {
-    //7 values, can be max 255 (u8) 0b11111111
     Encrypt,
     Decrypt,
-    WrapKey,
-    UnwrapKey,
     Sign,
     Verify,
     DeriveKey,
     DeriveBits,
+    WrapKey,
+    UnwrapKey,
 }
 
 impl TryFrom<&str> for KeyUsage {
@@ -69,6 +74,30 @@ impl TryFrom<&str> for KeyUsage {
 }
 
 impl KeyUsage {
+    const CANONICAL_ORDER: [Self; 8] = [
+        Self::Encrypt,
+        Self::Decrypt,
+        Self::Sign,
+        Self::Verify,
+        Self::DeriveKey,
+        Self::DeriveBits,
+        Self::WrapKey,
+        Self::UnwrapKey,
+    ];
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Encrypt => "encrypt",
+            Self::Decrypt => "decrypt",
+            Self::Sign => "sign",
+            Self::Verify => "verify",
+            Self::DeriveKey => "deriveKey",
+            Self::DeriveBits => "deriveBits",
+            Self::WrapKey => "wrapKey",
+            Self::UnwrapKey => "unwrapKey",
+        }
+    }
+
     fn classify_and_check_usages<'js>(
         ctx: &Ctx<'js>,
         key_usage_algorithm: KeyUsageAlgorithm,
@@ -91,25 +120,36 @@ impl KeyUsage {
         let mut generated_private_usages = Vec::with_capacity(4);
 
         let mut has_any_usages = false;
+        let mut seen_usages = 0;
 
         for usage in key_usages.iter::<String>() {
             has_any_usages = true;
             let value = usage?;
-            let usage = KeyUsage::try_from(value.as_str()).or_throw(ctx)?;
+            let usage = KeyUsage::try_from(value.as_str()).map_err(|_| {
+                DOMException::syntax_error(ctx, ["Invalid key usage '", &value, "'"].concat())
+            })?;
             let usage = usage.mask();
             if allowed_usages & usage != usage {
-                return Err(Exception::throw_syntax(
+                return Err(DOMException::syntax_error(
                     ctx,
-                    &["Invalid key usage '", &value, "'"].concat(),
+                    ["Invalid key usage '", &value, "'"].concat(),
                 ));
             }
+            seen_usages |= usage;
+        }
 
+        for usage in Self::CANONICAL_ORDER {
+            let usage_mask = usage.mask();
+            if seen_usages & usage_mask == 0 {
+                continue;
+            }
+            let value = usage.as_str().to_string();
             if private_usages_mask == public_usages_mask {
                 generated_private_usages.push(value.clone());
                 generated_public_usages.push(value);
-            } else if private_usages_mask & usage == usage {
+            } else if private_usages_mask & usage_mask == usage_mask {
                 generated_private_usages.push(value);
-            } else if public_usages_mask & usage == usage {
+            } else if public_usages_mask & usage_mask == usage_mask {
                 generated_public_usages.push(value);
             }
         }
@@ -121,7 +161,7 @@ impl KeyUsage {
             && key_usage_algorithm.requires_non_empty_usages()
             && !matches!(kind, Some(KeyKind::Public))
         {
-            return Err(Exception::throw_syntax(ctx, "Key usages empty"));
+            return Err(DOMException::syntax_error(ctx, "Key usages empty"));
         }
 
         if private_usages != public_usages {
@@ -134,7 +174,7 @@ impl KeyUsage {
             };
 
             if !valid_usage {
-                return Err(Exception::throw_syntax(ctx, "Invalid key usage"));
+                return Err(DOMException::syntax_error(ctx, "Invalid key usage"));
             }
         }
 
@@ -234,7 +274,8 @@ impl KeyDerivation {
             .into_bytes(ctx)?
             .into_boxed_slice();
 
-        let iterations = obj.get_required("iterations", "algorithm")?;
+        let value = get_required_dictionary_value(&obj, "iterations", "algorithm")?;
+        let iterations = enforce_range_u32(ctx, value, "iterations")?;
         Ok(KeyDerivation::Pbkdf2 {
             hash,
             salt,
@@ -271,7 +312,7 @@ pub enum KeyAlgorithm {
     Ed25519,
     Hmac {
         hash: HashAlgorithm,
-        length: u16,
+        length: u32,
     },
     Rsa {
         modulus_length: u32,
@@ -294,20 +335,10 @@ str_enum!(KeyFormat, Jwk => "jwk", Raw => "raw", Spki => "spki", Pkcs8 => "pkcs8
 
 impl<'js> FromJs<'js> for KeyFormat {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
-        if let Some(string) = value.as_string() {
-            let string = string.to_string()?;
-            match string.as_str() {
-                "jwk" => return Ok(KeyFormat::Jwk),
-                "raw" => return Ok(KeyFormat::Raw),
-                "spki" => return Ok(KeyFormat::Spki),
-                "pkcs8" => return Ok(KeyFormat::Pkcs8),
-                _ => {},
-            };
-        }
-        Err(DOMException::not_supported_error(
-            ctx,
-            "Key import/export format must be 'jwk','raw','spki' or 'pkcs8'",
-        ))
+        let string = Coerced::<String>::from_js(ctx, value)?.0;
+        Self::try_from(string.as_str()).map_err(|_| {
+            Exception::throw_type(ctx, &format!("'{string}' is not a valid KeyFormat"))
+        })
     }
 }
 
@@ -326,6 +357,7 @@ pub enum KeyAlgorithmMode<'a, 'js> {
         kind: &'a mut KeyKind,
         data: &'a mut Vec<u8>,
     },
+    ValidateImport,
     Generate,
     Derive,
 }
@@ -452,7 +484,6 @@ fn from_aes<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
@@ -460,26 +491,19 @@ fn from_aes<'js>(
         obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(u16, Option<KeyKind>)> {
-        if let KeyAlgorithmMode::Import { data, format, kind } = mode {
-            let length =
-                import_symmetric_key(ctx, format, kind, data, algorithm_name, None)? as u16;
-            Ok((length, Some(*kind)))
-        } else {
-            let length: u16 = obj?.get_required("length", "algorithm")?;
-            Ok((length, None))
+        match mode {
+            KeyAlgorithmMode::Import { data, format, kind } => {
+                let length =
+                    import_symmetric_key(ctx, format, kind, data, algorithm_name, None)? as u16;
+                Ok((length, Some(*kind)))
+            },
+            KeyAlgorithmMode::ValidateImport => Ok((128, None)),
+            _ => {
+                let value = get_required_dictionary_value(&obj?, "length", "algorithm")?;
+                let length = enforce_range_u16(ctx, value, "length")?;
+                Ok((length, None))
+            },
         }
-    }
-
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        _ctx: &Ctx<'js>,
-        _mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
-        _algorithm_name: &str,
-    ) -> Result<(u16, Option<KeyKind>)> {
-        let length: u16 = obj?.get_required("length", "algorithm")?;
-        Ok((length, None))
     }
 
     let (length, key_kind) = import(ctx, mode, obj, algorithm_name)?;
@@ -538,28 +562,75 @@ fn from_hmac<'js>(
             "Unsupported HMAC hash algorithm",
         ));
     }
-    let mut length = match obj.get_optional::<_, u16>("length")? {
-        Some(length) => length,
-        None => match mode {
-            KeyAlgorithmMode::Import { .. } => 0,
-            _ => (hash.block_len() * 8) as u16,
+    let length = get_optional_dictionary_value(&obj, "length")?
+        .map(|value| enforce_range_u32(ctx, value, "length"))
+        .transpose()?;
+    if matches!(length, Some(length) if !hmac_length_is_byte_aligned(length)) {
+        return Err(DOMException::not_supported_error(
+            ctx,
+            "HMAC key length must be a multiple of 8",
+        ));
+    }
+    let validating_import = mode == KeyAlgorithmMode::ValidateImport;
+    let enforce_implementation_limit =
+        matches!(&mode, KeyAlgorithmMode::Generate | KeyAlgorithmMode::Derive);
+    let mut length = match mode {
+        KeyAlgorithmMode::Import { .. } | KeyAlgorithmMode::ValidateImport => {
+            if length == Some(0) {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "HMAC import length must be greater than zero",
+                ));
+            }
+            if validating_import {
+                Some(length.unwrap_or(8))
+            } else {
+                length
+            }
+        },
+        KeyAlgorithmMode::Generate => match length {
+            Some(0) => {
+                return Err(DOMException::operation_error(
+                    ctx,
+                    "HMAC generation length must be greater than zero",
+                ));
+            },
+            Some(length) => Some(length),
+            None => Some((hash.block_len() * 8) as u32),
+        },
+        KeyAlgorithmMode::Derive => match length {
+            Some(0) => return Err(Exception::throw_type(ctx, "Invalid HMAC key length")),
+            Some(length) => Some(length),
+            None => Some((hash.block_len() * 8) as u32),
         },
     };
 
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
         algorithm_name: &str,
         hash: &HashAlgorithm,
-        length: &mut u16,
+        length: &mut Option<u32>,
     ) -> Result<Option<KeyKind>> {
         if let KeyAlgorithmMode::Import { data, format, kind } = mode {
             let data_length =
                 import_symmetric_key(ctx, format, kind, data, algorithm_name, Some(hash))?;
-            if *length == 0 {
-                *length = data_length as u16;
+            let data_length: u32 = data_length.try_into().map_err(|_| {
+                DOMException::data_error(ctx, "HMAC key length exceeds unsigned long")
+            })?;
+            if data_length == 0 {
+                return Err(DOMException::data_error(ctx, "HMAC key data is empty"));
+            }
+            if let Some(requested_length) = *length {
+                if requested_length != data_length {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "HMAC length does not match the key data",
+                    ));
+                }
+            } else {
+                *length = Some(data_length);
             }
             Ok(Some(*kind))
         } else {
@@ -567,19 +638,16 @@ fn from_hmac<'js>(
         }
     }
 
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        _ctx: &Ctx<'js>,
-        _mode: KeyAlgorithmMode<'_, 'js>,
-        _algorithm_name: &str,
-        _hash: &HashAlgorithm,
-        _length: &mut u16,
-    ) -> Result<Option<KeyKind>> {
-        Ok(None)
-    }
-
     let key_kind = import(ctx, mode, algorithm_name, &hash, &mut length)?;
+    let length = length.ok_or_else(|| {
+        DOMException::operation_error(ctx, "HMAC key length could not be resolved")
+    })?;
+    if enforce_implementation_limit && length > MAX_HMAC_KEY_LENGTH_BITS {
+        return Err(DOMException::operation_error(
+            ctx,
+            "HMAC key length exceeds the implementation limit",
+        ));
+    }
 
     KeyUsage::classify_and_check_usages(
         ctx,
@@ -615,21 +683,27 @@ fn from_rsa<'js>(
         algorithm_name: &str,
         hash: &HashAlgorithm,
     ) -> Result<(u32, Box<[u8]>, Option<KeyKind>)> {
-        if let KeyAlgorithmMode::Import { format, kind, data } = mode {
-            let (mod_length, exp) = import_rsa_key(ctx, format, kind, data, algorithm_name, hash)?;
-            Ok((mod_length, exp, Some(*kind)))
-        } else {
-            let modulus_length = obj.get_required("modulusLength", "algorithm")?;
-            let public_exponent: TypedArray<u8> =
-                obj.get_required("publicExponent", "algorithm")?;
-            let public_exponent = public_exponent
-                .as_bytes()
-                .ok_or_else(|| {
-                    DOMException::not_supported_error(ctx, "Array buffer has been detached")
-                })?
-                .to_owned()
-                .into_boxed_slice();
-            Ok((modulus_length, public_exponent, None))
+        match mode {
+            KeyAlgorithmMode::Import { format, kind, data } => {
+                let (mod_length, exp) =
+                    import_rsa_key(ctx, format, kind, data, algorithm_name, hash)?;
+                Ok((mod_length, exp, Some(*kind)))
+            },
+            KeyAlgorithmMode::ValidateImport => Ok((0, Box::new([]), None)),
+            _ => {
+                let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
+                let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
+                let public_exponent: TypedArray<u8> =
+                    obj.get_required("publicExponent", "algorithm")?;
+                let public_exponent = public_exponent
+                    .as_bytes()
+                    .ok_or_else(|| {
+                        DOMException::not_supported_error(ctx, "Array buffer has been detached")
+                    })?
+                    .to_owned()
+                    .into_boxed_slice();
+                Ok((modulus_length, public_exponent, None))
+            },
         }
     }
 
@@ -637,12 +711,16 @@ fn from_rsa<'js>(
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
-        _mode: KeyAlgorithmMode<'_, 'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
         obj: &Object<'js>,
         _algorithm_name: &str,
         _hash: &HashAlgorithm,
     ) -> Result<(u32, Box<[u8]>, Option<KeyKind>)> {
-        let modulus_length = obj.get_required("modulusLength", "algorithm")?;
+        if matches!(mode, KeyAlgorithmMode::ValidateImport) {
+            return Ok((0, Box::new([]), None));
+        }
+        let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
+        let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
         let public_exponent: TypedArray<u8> = obj.get_required("publicExponent", "algorithm")?;
         let public_exponent = public_exponent
             .as_bytes()
@@ -657,7 +735,7 @@ fn from_rsa<'js>(
     let (modulus_length, public_exponent, key_kind) =
         import(ctx, mode, &obj, algorithm_name, &hash)?;
 
-    if is_generate {
+    if is_generate && usages.is_empty() {
         parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx)?;
     }
 
@@ -673,6 +751,10 @@ fn from_rsa<'js>(
         public_usages,
         key_kind.as_ref(),
     )?;
+
+    if is_generate && !usages.is_empty() {
+        parse_rsa_public_exponent(&public_exponent).or_throw_dom(ctx)?;
+    }
 
     Ok(KeyAlgorithm::Rsa {
         modulus_length,
@@ -690,12 +772,11 @@ fn from_hkdf<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
+        _obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
@@ -703,33 +784,8 @@ fn from_hkdf<'js>(
                 import_derive_key(ctx, format, kind, data, algorithm_name)?;
                 Ok((KeyAlgorithm::HkdfImport, Some(*kind)))
             },
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
-                    None,
-                ))
-            },
-            _ => algorithm_not_supported_error(ctx),
-        }
-    }
-
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
-        _algorithm_name: &str,
-    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
-        match mode {
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_hkdf_object(ctx, obj)?),
-                    None,
-                ))
-            },
+            KeyAlgorithmMode::Derive => Ok((KeyAlgorithm::HkdfImport, None)),
+            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::HkdfImport, None)),
             _ => algorithm_not_supported_error(ctx),
         }
     }
@@ -757,12 +813,11 @@ fn from_pbkdf2<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    #[cfg(feature = "_subtle-full")]
     #[inline]
     fn import<'js>(
         ctx: &Ctx<'js>,
         mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
+        _obj: Result<Object<'js>>,
         algorithm_name: &str,
     ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
         match mode {
@@ -770,33 +825,8 @@ fn from_pbkdf2<'js>(
                 import_derive_key(ctx, format, kind, data, algorithm_name)?;
                 Ok((KeyAlgorithm::Pbkdf2Import, Some(*kind)))
             },
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
-                    None,
-                ))
-            },
-            _ => algorithm_not_supported_error(ctx),
-        }
-    }
-
-    #[cfg(not(feature = "_subtle-full"))]
-    #[inline]
-    fn import<'js>(
-        ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode<'_, 'js>,
-        obj: Result<Object<'js>>,
-        _algorithm_name: &str,
-    ) -> Result<(KeyAlgorithm, Option<KeyKind>)> {
-        match mode {
-            KeyAlgorithmMode::Derive => {
-                let obj = obj?;
-                Ok((
-                    KeyAlgorithm::Derive(KeyDerivation::for_pbkf2_object(&ctx, obj)?),
-                    None,
-                ))
-            },
+            KeyAlgorithmMode::Derive => Ok((KeyAlgorithm::Pbkdf2Import, None)),
+            KeyAlgorithmMode::ValidateImport => Ok((KeyAlgorithm::Pbkdf2Import, None)),
             _ => algorithm_not_supported_error(ctx),
         }
     }
@@ -822,17 +852,35 @@ impl KeyAlgorithm {
         value: Value<'js>,
         usages: Array<'js>,
     ) -> Result<KeyAlgorithmWithUsages> {
-        // When _subtle-full is not enabled, Import mode is not supported
+        let (name, obj) = to_name_and_maybe_object(ctx, value)?;
+        let name = normalize_algorithm_name(&name);
         #[cfg(not(feature = "_subtle-full"))]
-        if matches!(mode, KeyAlgorithmMode::Import { .. }) {
+        if matches!(mode, KeyAlgorithmMode::Import { .. })
+            && !matches!(
+                name.as_str(),
+                "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" | "HMAC" | "HKDF" | "PBKDF2"
+            )
+        {
             return Err(DOMException::not_supported_error(
                 ctx,
                 "Key import is not supported with this crypto provider",
             ));
         }
-
-        let (name, obj) = to_name_and_maybe_object(ctx, value)?;
-        let name = normalize_algorithm_name(&name);
+        let usages = if mode == KeyAlgorithmMode::Derive
+            || (mode == KeyAlgorithmMode::ValidateImport && usages.is_empty())
+        {
+            let synthetic_usages = Array::new(ctx.clone())?;
+            let usage = match name.as_str() {
+                "AES-KW" => "wrapKey",
+                "AES-CBC" | "AES-CTR" | "AES-GCM" | "RSA-OAEP" => "encrypt",
+                "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
+                _ => "sign",
+            };
+            synthetic_usages.set(0, usage)?;
+            synthetic_usages
+        } else {
+            usages
+        };
         let mut public_usages = vec![];
         let mut private_usages = vec![];
         let algorithm_name = name.as_ref();
@@ -1026,7 +1074,6 @@ impl KeyAlgorithm {
     }
 }
 
-#[cfg(feature = "_subtle-full")]
 fn import_derive_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -1167,18 +1214,18 @@ fn import_rsa_key<'js>(
     Ok((modulus_length as u32, public_exponent))
 }
 
-#[cfg(feature = "_subtle-full")]
 fn import_symmetric_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
-    hash: Option<&HashAlgorithm>,
+    _hash: Option<&HashAlgorithm>,
 ) -> Result<usize> {
     *kind = KeyKind::Secret;
 
     match format {
+        #[cfg(feature = "_subtle-full")]
         KeyFormatData::Jwk(object) => {
             validate_jwk_kty(ctx, &object, "oct")?;
 
@@ -1187,7 +1234,7 @@ fn import_symmetric_key<'js>(
 
             let prefix = &alg[..1];
 
-            match (prefix, hash) {
+            match (prefix, _hash) {
                 //HMAC - HS256, HS512 etc
                 ("H", Some(hash)) => {
                     if &alg[2..] != hash.as_numeric_str() {

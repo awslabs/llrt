@@ -3,7 +3,7 @@
 use llrt_exceptions::DOMException;
 use rquickjs::{object::Property, Array, Class, Ctx, Object, Result, Value};
 
-use crate::{hash::HashAlgorithm, provider::CryptoProvider, CRYPTO_PROVIDER};
+use crate::{provider::CryptoProvider, CRYPTO_PROVIDER};
 
 use super::{
     algorithm_not_supported_error,
@@ -90,7 +90,7 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
         },
         KeyAlgorithm::Hmac { hash, length } => {
             let key = CRYPTO_PROVIDER
-                .generate_hmac_key(*hash, *length)
+                .generate_hmac_key(*hash, *length as u16)
                 .or_throw_dom_with_msg(ctx, "HMAC key generation failed")?;
             Ok((vec![], key))
         },
@@ -117,20 +117,4 @@ fn generate_key(ctx: &Ctx<'_>, algorithm: &KeyAlgorithm) -> Result<(Vec<u8>, Vec
 #[allow(dead_code)]
 fn generate_symmetric_key(_ctx: &Ctx<'_>, length: usize) -> Result<Vec<u8>> {
     Ok(crate::random_byte_array(length))
-}
-
-#[allow(dead_code)]
-pub fn get_hash_length(ctx: &Ctx, hash: &HashAlgorithm, length: u16) -> Result<usize> {
-    if length == 0 {
-        return Ok(hash.block_len());
-    }
-
-    if !length.is_multiple_of(8) || (length / 8) as usize > 128 {
-        return Err(DOMException::not_supported_error(
-            ctx,
-            "Invalid HMAC key length",
-        ));
-    }
-
-    Ok((length / 8) as usize)
 }

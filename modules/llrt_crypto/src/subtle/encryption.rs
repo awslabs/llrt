@@ -145,6 +145,12 @@ pub fn encrypt_decrypt(
             additional_data,
         } => {
             validate_aes_length(ctx, key, handle, AesAlgorithm::Gcm)?;
+            if iv.len() != 12 {
+                return Err(DOMException::operation_error(
+                    ctx,
+                    "AES-GCM IV must be 12 bytes",
+                ));
+            }
             let aad = additional_data.as_deref();
 
             match operation {

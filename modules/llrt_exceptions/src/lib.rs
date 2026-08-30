@@ -251,6 +251,10 @@ impl<'js> DOMException {
         Self::create_error(ctx, DOMExceptionName::InvalidAccessError, message)
     }
 
+    pub fn syntax_error(ctx: &Ctx<'js>, message: impl Into<String>) -> Error {
+        Self::create_error(ctx, DOMExceptionName::SyntaxError, message)
+    }
+
     fn define_quota_exceeded_error(ctx: &Ctx<'js>) -> Result<()> {
         let dom_exception: Constructor = ctx.globals().get(Self::NAME)?;
         let quota_exceeded_error = define_subclass(

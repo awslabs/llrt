@@ -15,6 +15,7 @@ use super::{
     rsa_hash_digest,
     sign_algorithm::SigningAlgorithm,
     util::ResultDomExt,
+    validate_rsa_pss_salt_length,
 };
 
 pub fn subtle_sign<'js>(
@@ -98,6 +99,7 @@ fn sign(
         },
         SigningAlgorithm::RsaPss { salt_length } => {
             let (hash, digest) = rsa_hash_digest(ctx, key, data, "RSA-PSS")?;
+            validate_rsa_pss_salt_length(ctx, key, hash, *salt_length)?;
             crate::CRYPTO_PROVIDER
                 .rsa_pss_sign(&key.handle, digest.as_ref(), *salt_length as usize, *hash)
                 .or_throw_dom(ctx)?
