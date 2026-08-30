@@ -100,7 +100,7 @@ fn sign(
         SigningAlgorithm::MlDsa { variant, context } => {
             if !matches!(&key.algorithm, KeyAlgorithm::MlDsa(key_variant) if key_variant == variant)
             {
-                return algorithm_invalid_access_error(ctx, variant.name());
+                return algorithm_invalid_access_error(ctx, variant.as_str());
             }
             modern::ml_dsa_sign(*variant, handle, data, context).or_throw_dom(ctx)?
         },

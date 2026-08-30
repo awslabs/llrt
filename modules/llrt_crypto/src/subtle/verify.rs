@@ -123,7 +123,7 @@ fn verify(
         SigningAlgorithm::MlDsa { variant, context } => {
             if !matches!(&key.algorithm, KeyAlgorithm::MlDsa(key_variant) if key_variant == variant)
             {
-                return algorithm_invalid_access_error(ctx, variant.name());
+                return algorithm_invalid_access_error(ctx, variant.as_str());
             }
             modern::ml_dsa_verify(*variant, handle, signature, data, context)
                 .into_verification(ctx)?

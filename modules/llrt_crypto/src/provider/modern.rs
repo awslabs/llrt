@@ -5,11 +5,10 @@ use chacha20poly1305::{
     aead::{Aead, Payload},
     ChaCha20Poly1305, KeyInit, Nonce,
 };
+#[cfg(feature = "_subtle-full")]
+use ml_dsa::pkcs8::{DecodePrivateKey, EncodePrivateKey, EncodePublicKey};
 use ml_dsa::{
-    pkcs8::{
-        der::AnyRef, spki::AssociatedAlgorithmIdentifier, DecodePrivateKey, DecodePublicKey,
-        EncodePrivateKey, EncodePublicKey,
-    },
+    pkcs8::{der::AnyRef, spki::AssociatedAlgorithmIdentifier, DecodePublicKey},
     Keypair, MlDsa44, MlDsa65, MlDsa87, MlDsaParams, Seed, Signature, SigningKey, VerifyingKey,
 };
 use ml_kem::{
@@ -187,6 +186,7 @@ pub(crate) fn ml_dsa_verify(
     )
 }
 
+#[cfg(feature = "_subtle-full")]
 fn import_ml_dsa_public_key_for<P: MlDsaParameterSet>(
     data: &[u8],
     spki: bool,
@@ -199,6 +199,7 @@ fn import_ml_dsa_public_key_for<P: MlDsaParameterSet>(
     Ok(key.encode().to_vec())
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn import_ml_dsa_public_key(
     variant: MlDsaVariant,
     data: &[u8],
@@ -207,6 +208,7 @@ pub(crate) fn import_ml_dsa_public_key(
     dispatch_ml_dsa!(variant, import_ml_dsa_public_key_for, data, spki)
 }
 
+#[cfg(feature = "_subtle-full")]
 fn import_ml_dsa_private_key_for<P: MlDsaParameterSet>(
     data: &[u8],
     pkcs8: bool,
@@ -219,6 +221,7 @@ fn import_ml_dsa_private_key_for<P: MlDsaParameterSet>(
     Ok(key.to_seed().to_vec())
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn import_ml_dsa_private_key(
     variant: MlDsaVariant,
     data: &[u8],
@@ -227,6 +230,7 @@ pub(crate) fn import_ml_dsa_private_key(
     dispatch_ml_dsa!(variant, import_ml_dsa_private_key_for, data, pkcs8)
 }
 
+#[cfg(feature = "_subtle-full")]
 fn export_ml_dsa_public_key_spki_for<P: MlDsaParameterSet>(
     public_key: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
@@ -236,6 +240,7 @@ fn export_ml_dsa_public_key_spki_for<P: MlDsaParameterSet>(
         .map_err(|_| CryptoError::InvalidKey(None))
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn export_ml_dsa_public_key_spki(
     variant: MlDsaVariant,
     public_key: &[u8],
@@ -243,6 +248,7 @@ pub(crate) fn export_ml_dsa_public_key_spki(
     dispatch_ml_dsa!(variant, export_ml_dsa_public_key_spki_for, public_key,)
 }
 
+#[cfg(feature = "_subtle-full")]
 fn export_ml_dsa_private_key_pkcs8_for<P: MlDsaParameterSet>(
     seed: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
@@ -252,6 +258,7 @@ fn export_ml_dsa_private_key_pkcs8_for<P: MlDsaParameterSet>(
         .map_err(|_| CryptoError::InvalidKey(None))
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn export_ml_dsa_private_key_pkcs8(
     variant: MlDsaVariant,
     seed: &[u8],
@@ -333,6 +340,7 @@ pub(crate) fn import_ml_kem_public_key(
     })
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn import_ml_kem_private_key(
     variant: MlKemVariant,
     data: &[u8],
@@ -352,6 +360,7 @@ pub(crate) fn import_ml_kem_private_key(
     })
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn export_ml_kem_public_key_spki(
     variant: MlKemVariant,
     public_key: &[u8],
@@ -367,6 +376,7 @@ pub(crate) fn export_ml_kem_public_key_spki(
     })
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn export_ml_kem_private_key_pkcs8(
     variant: MlKemVariant,
     seed: &[u8],
@@ -633,6 +643,7 @@ pub(crate) fn import_hybrid_kem_public_key(
     Ok(normalized)
 }
 
+#[cfg(feature = "_subtle-full")]
 pub(crate) fn import_hybrid_kem_private_key(
     variant: HybridKemVariant,
     data: &[u8],

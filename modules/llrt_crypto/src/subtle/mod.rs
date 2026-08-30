@@ -58,7 +58,8 @@ use key_algorithm::KeyAlgorithm;
 use llrt_exceptions::DOMException;
 use llrt_utils::{object::ObjectExt, str_enum};
 use rquickjs::{
-    atom::PredefinedAtom, Coerced, Ctx, Error, Exception, FromJs, Object, Result, Value,
+    atom::PredefinedAtom, prelude::Opt, Array, Class, Coerced, Ctx, Error, Exception, FromJs,
+    Object, Result, Value,
 };
 
 use crate::provider::{CryptoProvider, SimpleDigest};
@@ -85,9 +86,9 @@ impl SubtleCrypto {
     pub async fn get_public_key<'js>(
         &self,
         ctx: Ctx<'js>,
-        key: rquickjs::Class<'js, CryptoKey<'js>>,
-        usages: rquickjs::Array<'js>,
-    ) -> Result<rquickjs::Class<'js, CryptoKey<'js>>> {
+        key: Class<'js, CryptoKey<'js>>,
+        usages: Array<'js>,
+    ) -> Result<Class<'js, CryptoKey<'js>>> {
         subtle_get_public_key(ctx, key, usages).await
     }
 
@@ -96,7 +97,7 @@ impl SubtleCrypto {
         ctx: Ctx<'js>,
         operation: Coerced<String>,
         algorithm: Value<'js>,
-        additional: rquickjs::prelude::Opt<Value<'js>>,
+        additional: Opt<Value<'js>>,
     ) -> Result<bool> {
         subtle_supports(ctx, operation, algorithm, additional)
     }

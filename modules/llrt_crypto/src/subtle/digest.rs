@@ -2,8 +2,8 @@ use std::future::Future;
 
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use rquickjs::{ArrayBuffer, Ctx, Object, Result, Value};
+use llrt_utils::bytes::ObjectBytes;
+use rquickjs::{ArrayBuffer, Ctx, Exception, Object, Result, Value};
 use sha3::{Digest, Sha3_256, Sha3_384, Sha3_512};
 
 use crate::{
@@ -14,8 +14,35 @@ use crate::{
 
 use super::{
     algorithm_not_supported_error, enforce_range_u32, enforce_range_u8,
-    get_optional_dictionary_value, get_required_dictionary_value,
+    get_optional_dictionary_value, get_required_dictionary_value, to_name_and_maybe_object,
 };
+
+enum DigestAlgorithmName {
+    Fixed(HashAlgorithm),
+    Sha3_256,
+    Sha3_384,
+    Sha3_512,
+    CShake(u16),
+    TurboShake(u16),
+}
+
+impl TryFrom<&str> for DigestAlgorithmName {
+    type Error = ();
+
+    fn try_from(name: &str) -> std::result::Result<Self, Self::Error> {
+        let name = name.to_ascii_uppercase();
+        Ok(match name.as_str() {
+            "CSHAKE128" => Self::CShake(128),
+            "CSHAKE256" => Self::CShake(256),
+            "TURBOSHAKE128" => Self::TurboShake(128),
+            "TURBOSHAKE256" => Self::TurboShake(256),
+            "SHA3-256" => Self::Sha3_256,
+            "SHA3-384" => Self::Sha3_384,
+            "SHA3-512" => Self::Sha3_512,
+            _ => Self::Fixed(HashAlgorithm::from_strict_str(&name).map_err(|_| ())?),
+        })
+    }
+}
 
 enum DigestAlgorithm {
     Fixed(HashAlgorithm),
@@ -78,22 +105,16 @@ fn prepare_digest<'js>(
     algorithm: Value<'js>,
     data: ObjectBytes<'js>,
 ) -> Result<(DigestAlgorithm, Vec<u8>)> {
-    let (name, object) = if let Some(s) = algorithm.as_string() {
-        (s.to_string().or_throw(ctx)?, None)
-    } else if let Some(object) = algorithm.into_object() {
-        let name = object.get_required::<_, String>("name", "algorithm")?;
-        (name, Some(object))
-    } else {
-        return Err(rquickjs::Exception::throw_type(
-            ctx,
-            "Algorithm 'name' property required",
-        ));
+    let (name, object) = to_name_and_maybe_object(ctx, algorithm)?;
+    let name = match DigestAlgorithmName::try_from(name.as_str()) {
+        Ok(name) => name,
+        Err(()) => return algorithm_not_supported_error(ctx),
     };
-    let name = name.to_ascii_uppercase();
-    let algorithm = match name.as_str() {
-        "CSHAKE128" | "CSHAKE256" => {
-            let object = required_object(ctx, object)?;
-            let output_length = required_u32(ctx, &object, "outputLength")?;
+    let algorithm = match name {
+        DigestAlgorithmName::CShake(strength) => {
+            let object = object?;
+            let value = get_required_dictionary_value(&object, "outputLength", "algorithm")?;
+            let output_length = enforce_range_u32(ctx, value, "outputLength")?;
             if u64::from(output_length).div_ceil(8) * 8 > u64::from(u32::MAX) {
                 return Err(llrt_exceptions::DOMException::operation_error(
                     ctx,
@@ -103,15 +124,16 @@ fn prepare_digest<'js>(
             let function_name = optional_bytes(ctx, &object, "functionName")?;
             let customization = optional_bytes(ctx, &object, "customization")?;
             DigestAlgorithm::CShake {
-                strength: if name == "CSHAKE128" { 128 } else { 256 },
+                strength,
                 output_length,
                 function_name,
                 customization,
             }
         },
-        "TURBOSHAKE128" | "TURBOSHAKE256" => {
-            let object = required_object(ctx, object)?;
-            let output_length = required_u32(ctx, &object, "outputLength")?;
+        DigestAlgorithmName::TurboShake(strength) => {
+            let object = object?;
+            let value = get_required_dictionary_value(&object, "outputLength", "algorithm")?;
+            let output_length = enforce_range_u32(ctx, value, "outputLength")?;
             if output_length == 0 || !output_length.is_multiple_of(8) {
                 return Err(llrt_exceptions::DOMException::operation_error(
                     ctx,
@@ -129,18 +151,15 @@ fn prepare_digest<'js>(
                 ));
             }
             DigestAlgorithm::TurboShake {
-                strength: if name == "TURBOSHAKE128" { 128 } else { 256 },
+                strength,
                 output_length,
                 domain_separation,
             }
         },
-        "SHA3-256" => DigestAlgorithm::Sha3_256,
-        "SHA3-384" => DigestAlgorithm::Sha3_384,
-        "SHA3-512" => DigestAlgorithm::Sha3_512,
-        name => match HashAlgorithm::from_strict_str(name) {
-            Ok(hash) => DigestAlgorithm::Fixed(hash),
-            Err(_) => return algorithm_not_supported_error(ctx),
-        },
+        DigestAlgorithmName::Sha3_256 => DigestAlgorithm::Sha3_256,
+        DigestAlgorithmName::Sha3_384 => DigestAlgorithm::Sha3_384,
+        DigestAlgorithmName::Sha3_512 => DigestAlgorithm::Sha3_512,
+        DigestAlgorithmName::Fixed(hash) => DigestAlgorithm::Fixed(hash),
     };
     let input = data.as_bytes_opt().map(<[u8]>::to_vec).unwrap_or_default();
     Ok((algorithm, input))
@@ -154,22 +173,13 @@ pub(super) fn supports_digest_algorithm<'js>(
     Ok(true)
 }
 
-fn required_object<'js>(ctx: &Ctx<'js>, object: Option<Object<'js>>) -> Result<Object<'js>> {
-    object.ok_or_else(|| rquickjs::Exception::throw_type(ctx, "algorithm must be an object"))
-}
-
-fn required_u32<'js>(ctx: &Ctx<'js>, object: &Object<'js>, name: &str) -> Result<u32> {
-    let value = get_required_dictionary_value(object, name, "algorithm")?;
-    enforce_range_u32(ctx, value, name)
-}
-
 fn optional_bytes<'js>(ctx: &Ctx<'js>, object: &Object<'js>, name: &str) -> Result<Vec<u8>> {
     let value = object.get::<_, Value>(name)?;
     if value.is_undefined() {
         return Ok(Vec::new());
     }
     if value.is_null() {
-        return Err(rquickjs::Exception::throw_type(
+        return Err(Exception::throw_type(
             ctx,
             &[name, " must be a BufferSource"].concat(),
         ));

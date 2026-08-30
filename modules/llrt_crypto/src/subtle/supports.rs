@@ -4,6 +4,8 @@
 use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{prelude::Opt, Array, Coerced, Ctx, FromJs, IntoJs, Result, Value};
 
+use crate::provider::{HybridKemVariant, MlDsaVariant, MlKemVariant};
+
 use super::{
     algorithm_not_supported_error,
     crypto_key::KeyKind,
@@ -13,8 +15,8 @@ use super::{
     encryption_algorithm::EncryptionAlgorithm,
     enforce_range_u32,
     key_algorithm::{
-        EcAlgorithm, KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages, KeyDerivation,
-        KeyFormatData,
+        synthetic_key_usage, EcAlgorithm, KeyAlgorithm, KeyAlgorithmMode, KeyAlgorithmWithUsages,
+        KeyDerivation, KeyFormatData,
     },
     normalize_algorithm_name,
     sign_algorithm::SigningAlgorithm,
@@ -85,19 +87,6 @@ fn provider_supports_encryption(algorithm: &EncryptionAlgorithm) -> bool {
 fn algorithm_name<'js>(ctx: &Ctx<'js>, algorithm: Value<'js>) -> Result<String> {
     let (name, _) = to_name_and_maybe_object(ctx, algorithm)?;
     Ok(normalize_algorithm_name(&name))
-}
-
-fn synthetic_key_usage(name: &str) -> Option<&'static str> {
-    Some(match name {
-        "AES-KW" => "wrapKey",
-        "AES-CBC" | "AES-CTR" | "AES-GCM" | "ChaCha20-Poly1305" | "RSA-OAEP" => "encrypt",
-        "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
-        "ECDSA" | "Ed25519" | "HMAC" | "ML-DSA-44" | "ML-DSA-65" | "ML-DSA-87" | "RSA-PSS"
-        | "RSASSA-PKCS1-v1_5" => "sign",
-        "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" | "MLKEM768-P256" | "MLKEM768-X25519"
-        | "MLKEM1024-P384" => "encapsulateKey",
-        _ => return None,
-    })
 }
 
 fn normalize_key_algorithm_with_synthetic_usage<'js>(
@@ -333,39 +322,21 @@ fn supports_shared_key<'js>(
 }
 
 fn supports_get_public_key(name: &str) -> bool {
-    let supported = matches!(
-        name,
-        "ECDH"
-            | "ECDSA"
-            | "Ed25519"
-            | "X25519"
-            | "RSA-OAEP"
-            | "RSA-PSS"
-            | "RSASSA-PKCS1-v1_5"
-            | "ML-DSA-44"
-            | "ML-DSA-65"
-            | "ML-DSA-87"
-            | "ML-KEM-512"
-            | "ML-KEM-768"
-            | "ML-KEM-1024"
-            | "MLKEM768-P256"
-            | "MLKEM768-X25519"
-            | "MLKEM1024-P384"
-    );
-    supported
-        && (cfg!(feature = "_subtle-full")
-            || matches!(
+    let modern = MlDsaVariant::try_from(name).is_ok()
+        || MlKemVariant::try_from(name).is_ok()
+        || HybridKemVariant::try_from(name).is_ok();
+    modern
+        || cfg!(feature = "_subtle-full")
+            && matches!(
                 name,
-                "ML-DSA-44"
-                    | "ML-DSA-65"
-                    | "ML-DSA-87"
-                    | "ML-KEM-512"
-                    | "ML-KEM-768"
-                    | "ML-KEM-1024"
-                    | "MLKEM768-P256"
-                    | "MLKEM768-X25519"
-                    | "MLKEM1024-P384"
-            ))
+                "ECDH"
+                    | "ECDSA"
+                    | "Ed25519"
+                    | "X25519"
+                    | "RSA-OAEP"
+                    | "RSA-PSS"
+                    | "RSASSA-PKCS1-v1_5"
+            )
 }
 
 fn supports_inner<'js>(
@@ -429,8 +400,6 @@ pub fn subtle_supports<'js>(
 #[cfg(all(test, any(feature = "crypto-ring", feature = "crypto-graviola")))]
 mod tests {
     use super::*;
-    #[cfg(feature = "crypto-ring")]
-    use crate::provider::MlDsaVariant;
     use crate::subtle::key_algorithm::AesAlgorithm;
 
     #[cfg(feature = "crypto-ring")]

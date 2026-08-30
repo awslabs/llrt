@@ -36,12 +36,21 @@ impl<'js> FromJs<'js> for SigningAlgorithm {
         let algorithm = match name.as_str() {
             "Ed25519" => SigningAlgorithm::Ed25519,
             "HMAC" => SigningAlgorithm::Hmac,
-            "ML-DSA-44" | "ML-DSA-65" | "ML-DSA-87" => {
-                let variant = match name.as_str() {
-                    "ML-DSA-44" => MlDsaVariant::MlDsa44,
-                    "ML-DSA-65" => MlDsaVariant::MlDsa65,
-                    "ML-DSA-87" => MlDsaVariant::MlDsa87,
-                    _ => unreachable!(),
+            "RSASSA-PKCS1-v1_5" => SigningAlgorithm::RsassaPkcs1v15,
+            "ECDSA" => {
+                let obj = obj?;
+                let hash = extract_sha_hash(ctx, &obj)?;
+                SigningAlgorithm::Ecdsa { hash }
+            },
+            "RSA-PSS" => {
+                let value = get_required_dictionary_value(&obj?, "saltLength", "algorithm")?;
+                let salt_length = enforce_range_u32(ctx, value, "saltLength")?;
+
+                SigningAlgorithm::RsaPss { salt_length }
+            },
+            _ => {
+                let Ok(variant) = MlDsaVariant::try_from(name.as_str()) else {
+                    return algorithm_not_supported_error(ctx);
                 };
                 let context = if let Ok(obj) = obj {
                     obj.get_optional::<_, ObjectBytes>("context")?
@@ -62,19 +71,6 @@ impl<'js> FromJs<'js> for SigningAlgorithm {
                     context: context.into_boxed_slice(),
                 }
             },
-            "RSASSA-PKCS1-v1_5" => SigningAlgorithm::RsassaPkcs1v15,
-            "ECDSA" => {
-                let obj = obj?;
-                let hash = extract_sha_hash(ctx, &obj)?;
-                SigningAlgorithm::Ecdsa { hash }
-            },
-            "RSA-PSS" => {
-                let value = get_required_dictionary_value(&obj?, "saltLength", "algorithm")?;
-                let salt_length = enforce_range_u32(ctx, value, "saltLength")?;
-
-                SigningAlgorithm::RsaPss { salt_length }
-            },
-            _ => return algorithm_not_supported_error(ctx),
         };
         Ok(algorithm)
     }
@@ -88,7 +84,7 @@ impl SigningAlgorithm {
             SigningAlgorithm::RsaPss { .. } => "RSA-PSS",
             SigningAlgorithm::RsassaPkcs1v15 => "RSASSA-PKCS1-v1_5",
             SigningAlgorithm::Hmac => "HMAC",
-            SigningAlgorithm::MlDsa { variant, .. } => variant.name(),
+            SigningAlgorithm::MlDsa { variant, .. } => variant.as_str(),
         }
     }
 }

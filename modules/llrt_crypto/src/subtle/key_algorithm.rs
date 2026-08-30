@@ -1301,6 +1301,22 @@ fn from_pbkdf2<'js>(
     Ok(algorithm)
 }
 
+pub(super) fn synthetic_key_usage(name: &str) -> Option<&'static str> {
+    if MlKemVariant::try_from(name).is_ok() || HybridKemVariant::try_from(name).is_ok() {
+        return Some("encapsulateKey");
+    }
+    if MlDsaVariant::try_from(name).is_ok() {
+        return Some("sign");
+    }
+    Some(match name {
+        "AES-KW" => "wrapKey",
+        "AES-CBC" | "AES-CTR" | "AES-GCM" | "ChaCha20-Poly1305" | "RSA-OAEP" => "encrypt",
+        "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
+        "ECDSA" | "Ed25519" | "HMAC" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => "sign",
+        _ => return None,
+    })
+}
+
 impl KeyAlgorithm {
     pub fn from_js<'js>(
         ctx: &Ctx<'js>,
@@ -1333,13 +1349,8 @@ impl KeyAlgorithm {
             || (mode == KeyAlgorithmMode::ValidateImport && usages.is_empty())
         {
             let synthetic_usages = Array::new(ctx.clone())?;
-            let usage = match name.as_str() {
-                "AES-KW" => "wrapKey",
-                "AES-CBC" | "AES-CTR" | "AES-GCM" | "ChaCha20-Poly1305" | "RSA-OAEP" => "encrypt",
-                "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
-                "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" | "MLKEM768-P256"
-                | "MLKEM768-X25519" | "MLKEM1024-P384" => "encapsulateKey",
-                _ => "sign",
+            let Some(usage) = synthetic_key_usage(&name) else {
+                return algorithm_not_supported_error(ctx);
             };
             synthetic_usages.set(0, usage)?;
             synthetic_usages
@@ -1423,45 +1434,6 @@ impl KeyAlgorithm {
                 &mut private_usages,
                 &mut public_usages,
             )?,
-            "ML-DSA-44" | "ML-DSA-65" | "ML-DSA-87" => from_ml_dsa(
-                ctx,
-                mode,
-                algorithm_name,
-                match algorithm_name {
-                    "ML-DSA-44" => MlDsaVariant::MlDsa44,
-                    "ML-DSA-65" => MlDsaVariant::MlDsa65,
-                    _ => MlDsaVariant::MlDsa87,
-                },
-                &usages,
-                &mut private_usages,
-                &mut public_usages,
-            )?,
-            "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" => from_ml_kem(
-                ctx,
-                mode,
-                algorithm_name,
-                match algorithm_name {
-                    "ML-KEM-512" => MlKemVariant::MlKem512,
-                    "ML-KEM-768" => MlKemVariant::MlKem768,
-                    _ => MlKemVariant::MlKem1024,
-                },
-                &usages,
-                &mut private_usages,
-                &mut public_usages,
-            )?,
-            "MLKEM768-P256" | "MLKEM768-X25519" | "MLKEM1024-P384" => from_hybrid_kem(
-                ctx,
-                mode,
-                algorithm_name,
-                match algorithm_name {
-                    "MLKEM768-P256" => HybridKemVariant::MlKem768P256,
-                    "MLKEM768-X25519" => HybridKemVariant::MlKem768X25519,
-                    _ => HybridKemVariant::MlKem1024P384,
-                },
-                &usages,
-                &mut private_usages,
-                &mut public_usages,
-            )?,
             "HKDF" => from_hkdf(
                 ctx,
                 mode,
@@ -1480,7 +1452,41 @@ impl KeyAlgorithm {
                 &mut private_usages,
                 &mut public_usages,
             )?,
-            _ => return algorithm_not_supported_error(ctx),
+            _ => {
+                if let Ok(variant) = MlDsaVariant::try_from(algorithm_name) {
+                    from_ml_dsa(
+                        ctx,
+                        mode,
+                        algorithm_name,
+                        variant,
+                        &usages,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?
+                } else if let Ok(variant) = MlKemVariant::try_from(algorithm_name) {
+                    from_ml_kem(
+                        ctx,
+                        mode,
+                        algorithm_name,
+                        variant,
+                        &usages,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?
+                } else if let Ok(variant) = HybridKemVariant::try_from(algorithm_name) {
+                    from_hybrid_kem(
+                        ctx,
+                        mode,
+                        algorithm_name,
+                        variant,
+                        &usages,
+                        &mut private_usages,
+                        &mut public_usages,
+                    )?
+                } else {
+                    return algorithm_not_supported_error(ctx);
+                }
+            },
         };
 
         Ok(KeyAlgorithmWithUsages {

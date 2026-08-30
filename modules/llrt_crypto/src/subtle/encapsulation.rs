@@ -4,7 +4,7 @@
 use std::future::Future;
 
 use llrt_utils::bytes::ObjectBytes;
-use rquickjs::{Array, ArrayBuffer, Class, Ctx, Result, Value};
+use rquickjs::{Array, ArrayBuffer, Class, Ctx, Object, Result, Value};
 
 use crate::provider::{modern, HybridKemVariant, MlKemVariant};
 
@@ -26,8 +26,8 @@ pub(super) enum EncapsulationAlgorithm {
 impl EncapsulationAlgorithm {
     fn name(self) -> &'static str {
         match self {
-            Self::MlKem(variant) => variant.name(),
-            Self::HybridKem(variant) => variant.name(),
+            Self::MlKem(variant) => variant.as_str(),
+            Self::HybridKem(variant) => variant.as_str(),
         }
     }
 
@@ -66,20 +66,13 @@ pub(super) fn normalize_encapsulation_algorithm<'js>(
     value: Value<'js>,
 ) -> Result<EncapsulationAlgorithm> {
     let (name, _) = to_name_and_maybe_object(ctx, value)?;
-    match normalize_algorithm_name(&name).as_str() {
-        "ML-KEM-512" => Ok(EncapsulationAlgorithm::MlKem(MlKemVariant::MlKem512)),
-        "ML-KEM-768" => Ok(EncapsulationAlgorithm::MlKem(MlKemVariant::MlKem768)),
-        "ML-KEM-1024" => Ok(EncapsulationAlgorithm::MlKem(MlKemVariant::MlKem1024)),
-        "MLKEM768-P256" => Ok(EncapsulationAlgorithm::HybridKem(
-            HybridKemVariant::MlKem768P256,
-        )),
-        "MLKEM768-X25519" => Ok(EncapsulationAlgorithm::HybridKem(
-            HybridKemVariant::MlKem768X25519,
-        )),
-        "MLKEM1024-P384" => Ok(EncapsulationAlgorithm::HybridKem(
-            HybridKemVariant::MlKem1024P384,
-        )),
-        _ => algorithm_not_supported_error(ctx),
+    let name = normalize_algorithm_name(&name);
+    if let Ok(variant) = MlKemVariant::try_from(name.as_str()) {
+        Ok(EncapsulationAlgorithm::MlKem(variant))
+    } else if let Ok(variant) = HybridKemVariant::try_from(name.as_str()) {
+        Ok(EncapsulationAlgorithm::HybridKem(variant))
+    } else {
+        algorithm_not_supported_error(ctx)
     }
 }
 
@@ -106,15 +99,11 @@ fn check_encapsulation_key(
     usage: &str,
     kind: KeyKind,
 ) -> Result<()> {
-    let matches_algorithm = matches!(
-        (algorithm, &key.algorithm),
-        (EncapsulationAlgorithm::MlKem(variant), KeyAlgorithm::MlKem(key_variant))
-            if variant == *key_variant
-    ) || matches!(
-        (algorithm, &key.algorithm),
-        (EncapsulationAlgorithm::HybridKem(variant), KeyAlgorithm::HybridKem(key_variant))
-            if variant == *key_variant
-    );
+    let matches_algorithm = match (algorithm, &key.algorithm) {
+        (EncapsulationAlgorithm::MlKem(a), KeyAlgorithm::MlKem(b)) => a == *b,
+        (EncapsulationAlgorithm::HybridKem(a), KeyAlgorithm::HybridKem(b)) => a == *b,
+        _ => false,
+    };
     if key.name.as_ref() != algorithm.name() || !matches_algorithm {
         return algorithm_invalid_access_error(ctx, algorithm.name());
     }
@@ -126,7 +115,7 @@ pub fn subtle_encapsulate_bits<'js>(
     ctx: Ctx<'js>,
     algorithm: Value<'js>,
     key: Class<'js, CryptoKey<'js>>,
-) -> impl Future<Output = Result<rquickjs::Object<'js>>> + 'js {
+) -> impl Future<Output = Result<Object<'js>>> + 'js {
     let prepared = normalize_encapsulation_algorithm(&ctx, algorithm);
 
     async move {
@@ -137,7 +126,7 @@ pub fn subtle_encapsulate_bits<'js>(
             algorithm.encapsulate(&key.handle).or_throw_dom(&ctx)?
         };
 
-        let result = rquickjs::Object::new(ctx.clone())?;
+        let result = Object::new(ctx.clone())?;
         result.set("sharedKey", ArrayBuffer::new(ctx.clone(), shared_key)?)?;
         result.set("ciphertext", ArrayBuffer::new(ctx, ciphertext)?)?;
         Ok(result)
@@ -179,7 +168,7 @@ pub fn subtle_encapsulate_key<'js>(
     shared_key_algorithm: Value<'js>,
     extractable: bool,
     usages: Array<'js>,
-) -> impl Future<Output = Result<rquickjs::Object<'js>>> + 'js {
+) -> impl Future<Output = Result<Object<'js>>> + 'js {
     let prepared = normalize_encapsulation_algorithm(&ctx, algorithm);
 
     async move {
@@ -191,7 +180,7 @@ pub fn subtle_encapsulate_key<'js>(
         };
         let shared_key =
             import_shared_key(&ctx, shared_key_algorithm, extractable, usages, shared_key)?;
-        let result = rquickjs::Object::new(ctx.clone())?;
+        let result = Object::new(ctx.clone())?;
         result.set("sharedKey", shared_key)?;
         result.set("ciphertext", ArrayBuffer::new(ctx, ciphertext)?)?;
         Ok(result)

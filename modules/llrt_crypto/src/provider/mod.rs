@@ -40,6 +40,7 @@ mod rust;
 
 use crate::hash::HashAlgorithm;
 use crate::subtle::EllipticCurve;
+use llrt_utils::str_enum;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -145,15 +146,12 @@ pub enum MlDsaVariant {
     MlDsa87,
 }
 
-impl MlDsaVariant {
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::MlDsa44 => "ML-DSA-44",
-            Self::MlDsa65 => "ML-DSA-65",
-            Self::MlDsa87 => "ML-DSA-87",
-        }
-    }
-}
+str_enum!(
+    MlDsaVariant,
+    MlDsa44 => "ML-DSA-44",
+    MlDsa65 => "ML-DSA-65",
+    MlDsa87 => "ML-DSA-87"
+);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MlKemVariant {
@@ -162,15 +160,12 @@ pub enum MlKemVariant {
     MlKem1024,
 }
 
-impl MlKemVariant {
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::MlKem512 => "ML-KEM-512",
-            Self::MlKem768 => "ML-KEM-768",
-            Self::MlKem1024 => "ML-KEM-1024",
-        }
-    }
-}
+str_enum!(
+    MlKemVariant,
+    MlKem512 => "ML-KEM-512",
+    MlKem768 => "ML-KEM-768",
+    MlKem1024 => "ML-KEM-1024"
+);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HybridKemVariant {
@@ -179,15 +174,14 @@ pub enum HybridKemVariant {
     MlKem1024P384,
 }
 
-impl HybridKemVariant {
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::MlKem768P256 => "MLKEM768-P256",
-            Self::MlKem768X25519 => "MLKEM768-X25519",
-            Self::MlKem1024P384 => "MLKEM1024-P384",
-        }
-    }
+str_enum!(
+    HybridKemVariant,
+    MlKem768P256 => "MLKEM768-P256",
+    MlKem768X25519 => "MLKEM768-X25519",
+    MlKem1024P384 => "MLKEM1024-P384"
+);
 
+impl HybridKemVariant {
     pub const fn ml_kem_variant(self) -> MlKemVariant {
         match self {
             Self::MlKem768P256 | Self::MlKem768X25519 => MlKemVariant::MlKem768,

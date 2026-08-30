@@ -7,7 +7,7 @@ use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_exceptions::DOMException;
 use rquickjs::{ArrayBuffer, Class, Ctx, FromJs, Object, Result, Value};
 
-use crate::provider::{modern, CryptoProvider};
+use crate::provider::{modern, CryptoProvider, MlDsaVariant, MlKemVariant};
 use crate::CRYPTO_PROVIDER;
 
 use super::{
@@ -208,22 +208,12 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
 }
 
 fn supports_der_export(name: &str) -> bool {
-    matches!(
-        name,
-        "ECDH"
-            | "ECDSA"
-            | "Ed25519"
-            | "ML-DSA-44"
-            | "ML-DSA-65"
-            | "ML-DSA-87"
-            | "ML-KEM-512"
-            | "ML-KEM-768"
-            | "ML-KEM-1024"
-            | "RSA-OAEP"
-            | "RSA-PSS"
-            | "RSASSA-PKCS1-v1_5"
-            | "X25519"
-    )
+    MlDsaVariant::try_from(name).is_ok()
+        || MlKemVariant::try_from(name).is_ok()
+        || matches!(
+            name,
+            "ECDH" | "ECDSA" | "Ed25519" | "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" | "X25519"
+        )
 }
 
 fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
@@ -261,7 +251,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 key.handle.to_vec()
             };
             obj.set("kty", "AKP")?;
-            obj.set("alg", variant.name())?;
+            obj.set("alg", variant.as_str())?;
             obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
             if key.kind == KeyKind::Private {
                 obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
@@ -274,7 +264,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 key.handle.to_vec()
             };
             obj.set("kty", "AKP")?;
-            obj.set("alg", variant.name())?;
+            obj.set("alg", variant.as_str())?;
             obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
             if key.kind == KeyKind::Private {
                 obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
@@ -287,7 +277,7 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
                 key.handle.to_vec()
             };
             obj.set("kty", "AKP")?;
-            obj.set("alg", variant.name())?;
+            obj.set("alg", variant.as_str())?;
             obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
             if key.kind == KeyKind::Private {
                 obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
