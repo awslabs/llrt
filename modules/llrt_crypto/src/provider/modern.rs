@@ -404,7 +404,9 @@ fn shake256(input: &[u8], output_length: usize) -> Vec<u8> {
 }
 
 fn p256_private_key(seed: &[u8]) -> Result<p256::SecretKey, CryptoError> {
-    seed.chunks_exact(32)
+    seed.as_chunks::<32>()
+        .0
+        .iter()
         .find_map(|candidate| p256::SecretKey::from_slice(candidate).ok())
         .ok_or(CryptoError::OperationFailed(Some(
             "P-256 rejection sampling failed".into(),
@@ -412,7 +414,9 @@ fn p256_private_key(seed: &[u8]) -> Result<p256::SecretKey, CryptoError> {
 }
 
 fn p384_private_key(seed: &[u8]) -> Result<p384::SecretKey, CryptoError> {
-    seed.chunks_exact(48)
+    seed.as_chunks::<48>()
+        .0
+        .iter()
         .find_map(|candidate| p384::SecretKey::from_slice(candidate).ok())
         .ok_or(CryptoError::OperationFailed(Some(
             "P-384 rejection sampling failed".into(),
