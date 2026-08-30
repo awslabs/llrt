@@ -452,6 +452,42 @@ describe("Modern WebCrypto ML-DSA", () => {
   });
 });
 
+describe("Modern WebCrypto ML private-key formats", () => {
+  it("rejects empty combined private-key sequences", async () => {
+    for (const [name, oidSuffix, usages] of [
+      ["ML-DSA-44", [0x03, 0x11], ["sign"]],
+      ["ML-KEM-512", [0x04, 0x01], ["decapsulateBits"]],
+    ] as const) {
+      const pkcs8 = Uint8Array.of(
+        0x30,
+        0x14,
+        0x02,
+        0x01,
+        0x00,
+        0x30,
+        0x0b,
+        0x06,
+        0x09,
+        0x60,
+        0x86,
+        0x48,
+        0x01,
+        0x65,
+        0x03,
+        0x04,
+        ...oidSuffix,
+        0x04,
+        0x02,
+        0x30,
+        0x00
+      );
+      await expect(
+        crypto.subtle.importKey("pkcs8", pkcs8, name, false, usages)
+      ).rejects.toHaveProperty("name", "DataError");
+    }
+  });
+});
+
 describe("Modern WebCrypto ML-KEM", () => {
   it("encapsulates and decapsulates bits for every parameter set", async () => {
     const variants = [

@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 #[cfg(feature = "_subtle-full")]
 use der::{
-    asn1::{AnyRef, BitStringRef, OctetString, OctetStringRef},
+    asn1::{BitStringRef, OctetString, OctetStringRef},
     Decode, Encode,
 };
 #[cfg(feature = "_subtle-full")]
@@ -840,6 +840,7 @@ fn from_ml_dsa<'js>(
                         MlDsaVariant::MlDsa65 => "2.16.840.1.101.3.4.3.18",
                         MlDsaVariant::MlDsa87 => "2.16.840.1.101.3.4.3.19",
                     },
+                    32,
                     match variant {
                         MlDsaVariant::MlDsa44 => 2560,
                         MlDsaVariant::MlDsa65 => 4032,
@@ -956,6 +957,7 @@ fn from_ml_kem<'js>(
                         MlKemVariant::MlKem768 => "2.16.840.1.101.3.4.4.2",
                         MlKemVariant::MlKem1024 => "2.16.840.1.101.3.4.4.3",
                     },
+                    64,
                     match variant {
                         MlKemVariant::MlKem512 => 1632,
                         MlKemVariant::MlKem768 => 2400,
@@ -1643,6 +1645,7 @@ fn validate_ml_private_key_info(
     ctx: &Ctx<'_>,
     data: &[u8],
     expected_oid: &str,
+    seed_length: usize,
     expanded_key_length: usize,
 ) -> Result<()> {
     let private_key_info = PrivateKeyInfoRef::from_der(data).or_throw_data_error(ctx)?;
@@ -1673,7 +1676,21 @@ fn validate_ml_private_key_info(
             ))
         },
         Some(0x30) => {
-            AnyRef::from_der(private_key).or_throw_data_error(ctx)?;
+            let values = Vec::<&OctetStringRef>::from_der(private_key).or_throw_data_error(ctx)?;
+            let [seed, expanded_key] = values.as_slice() else {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "Combined private key has invalid structure",
+                ));
+            };
+            if seed.as_bytes().len() != seed_length
+                || expanded_key.as_bytes().len() != expanded_key_length
+            {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "Combined private key has invalid component length",
+                ));
+            }
             Err(DOMException::not_supported_error(
                 ctx,
                 "Combined seed and expanded private keys are not supported",
