@@ -1203,6 +1203,7 @@ impl CryptoProvider for OpenSslProvider {
         let nid = curve_to_nid(curve);
         let group = EcGroup::from_curve_name(nid)
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
+        let coord_len = (group.degree() as usize).div_ceil(8);
         let mut ctx = openssl::bn::BigNumContext::new()
             .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
 
@@ -1221,17 +1222,19 @@ impl CryptoProvider for OpenSslProvider {
                 .affine_coordinates(&group, &mut x, &mut y, &mut ctx)
                 .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?;
             Ok(super::EcJwkExport {
-                x: x.to_vec(),
-                y: y.to_vec(),
-                d: Some(ec_key.private_key().to_vec()),
+                x: x.to_vec_padded(coord_len as i32)
+                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?,
+                y: y.to_vec_padded(coord_len as i32)
+                    .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?,
+                d: Some(
+                    ec_key
+                        .private_key()
+                        .to_vec_padded(coord_len as i32)
+                        .map_err(|e| CryptoError::InvalidKey(Some(e.to_string().into())))?,
+                ),
             })
         } else {
             // key_data is SEC1 uncompressed point (0x04 || x || y)
-            let coord_len = match curve {
-                EllipticCurve::P256 => 32,
-                EllipticCurve::P384 => 48,
-                EllipticCurve::P521 => 66,
-            };
             if key_data.len() != 1 + 2 * coord_len || key_data[0] != 0x04 {
                 return Err(CryptoError::InvalidKey(None));
             }
