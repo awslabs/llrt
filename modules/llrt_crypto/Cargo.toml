@@ -123,12 +123,12 @@ elliptic-curve = { version = "0.14", features = [
 hkdf = { version = "0.13", default-features = false, optional = true }
 hmac = { version = "0.13", default-features = false, optional = true }
 keccak = { version = "0.2", default-features = false, optional = true }
-ml-dsa = { version = "0.1.1", features = [
+ml-dsa = { version = "0.1", features = [
   "alloc",
   "pkcs8",
   "rand_core",
 ], default-features = false, optional = true }
-ml-kem = { version = "0.3.2", features = [
+ml-kem = { version = "0.3", features = [
   "alloc",
   "pkcs8",
 ], default-features = false, optional = true }
@@ -160,7 +160,7 @@ pkcs8 = { version = "0.11", default-features = false, features = [
 ], optional = true }
 sponge-cursor = { version = "0.1", default-features = false, optional = true }
 sha1 = { version = "0.11", features = ["oid"], default-features = false, optional = true }
-sha3 = { version = "0.11.0-rc.8", default-features = false, optional = true }
+sha3 = { version = "0.11", default-features = false, optional = true }
 spki = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }

@@ -106,9 +106,8 @@ fn prepare_digest<'js>(
     data: ObjectBytes<'js>,
 ) -> Result<(DigestAlgorithm, Vec<u8>)> {
     let (name, object) = to_name_and_maybe_object(ctx, algorithm)?;
-    let name = match DigestAlgorithmName::try_from(name.as_str()) {
-        Ok(name) => name,
-        Err(()) => return algorithm_not_supported_error(ctx),
+    let Ok(name) = DigestAlgorithmName::try_from(name.as_str()) else {
+        return algorithm_not_supported_error(ctx);
     };
     let algorithm = match name {
         DigestAlgorithmName::CShake(strength) => {

@@ -836,9 +836,9 @@ fn from_ml_dsa<'js>(
                     ctx,
                     bytes,
                     match variant {
-                        MlDsaVariant::MlDsa44 => "2.16.840.1.101.3.4.3.17",
-                        MlDsaVariant::MlDsa65 => "2.16.840.1.101.3.4.3.18",
-                        MlDsaVariant::MlDsa87 => "2.16.840.1.101.3.4.3.19",
+                        MlDsaVariant::MlDsa44 => const_oid::db::fips204::ID_ML_DSA_44,
+                        MlDsaVariant::MlDsa65 => const_oid::db::fips204::ID_ML_DSA_65,
+                        MlDsaVariant::MlDsa87 => const_oid::db::fips204::ID_ML_DSA_87,
                     },
                     32,
                     match variant {
@@ -953,9 +953,9 @@ fn from_ml_kem<'js>(
                     ctx,
                     bytes,
                     match variant {
-                        MlKemVariant::MlKem512 => "2.16.840.1.101.3.4.4.1",
-                        MlKemVariant::MlKem768 => "2.16.840.1.101.3.4.4.2",
-                        MlKemVariant::MlKem1024 => "2.16.840.1.101.3.4.4.3",
+                        MlKemVariant::MlKem512 => const_oid::db::fips203::ID_ALG_ML_KEM_512,
+                        MlKemVariant::MlKem768 => const_oid::db::fips203::ID_ALG_ML_KEM_768,
+                        MlKemVariant::MlKem1024 => const_oid::db::fips203::ID_ALG_ML_KEM_1024,
                     },
                     64,
                     match variant {
@@ -1452,41 +1452,40 @@ impl KeyAlgorithm {
                 &mut private_usages,
                 &mut public_usages,
             )?,
-            _ => {
-                if let Ok(variant) = MlDsaVariant::try_from(algorithm_name) {
-                    from_ml_dsa(
-                        ctx,
-                        mode,
-                        algorithm_name,
-                        variant,
-                        &usages,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?
-                } else if let Ok(variant) = MlKemVariant::try_from(algorithm_name) {
-                    from_ml_kem(
-                        ctx,
-                        mode,
-                        algorithm_name,
-                        variant,
-                        &usages,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?
-                } else if let Ok(variant) = HybridKemVariant::try_from(algorithm_name) {
-                    from_hybrid_kem(
-                        ctx,
-                        mode,
-                        algorithm_name,
-                        variant,
-                        &usages,
-                        &mut private_usages,
-                        &mut public_usages,
-                    )?
-                } else {
-                    return algorithm_not_supported_error(ctx);
-                }
-            },
+            "ML-DSA-44" | "ML-DSA-65" | "ML-DSA-87" => from_ml_dsa(
+                ctx,
+                mode,
+                algorithm_name,
+                MlDsaVariant::try_from(algorithm_name)
+                    .map_err(NotSupportedError)
+                    .or_throw_dom(ctx)?,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" => from_ml_kem(
+                ctx,
+                mode,
+                algorithm_name,
+                MlKemVariant::try_from(algorithm_name)
+                    .map_err(NotSupportedError)
+                    .or_throw_dom(ctx)?,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "MLKEM768-P256" | "MLKEM768-X25519" | "MLKEM1024-P384" => from_hybrid_kem(
+                ctx,
+                mode,
+                algorithm_name,
+                HybridKemVariant::try_from(algorithm_name)
+                    .map_err(NotSupportedError)
+                    .or_throw_dom(ctx)?,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            _ => return algorithm_not_supported_error(ctx),
         };
 
         Ok(KeyAlgorithmWithUsages {
@@ -1650,12 +1649,11 @@ impl KeyAlgorithm {
 fn validate_ml_private_key_info(
     ctx: &Ctx<'_>,
     data: &[u8],
-    expected_oid: &str,
+    expected_oid: ObjectIdentifier,
     seed_length: usize,
     expanded_key_length: usize,
 ) -> Result<()> {
     let private_key_info = PrivateKeyInfoRef::from_der(data).or_throw_data_error(ctx)?;
-    let expected_oid = ObjectIdentifier::new_unwrap(expected_oid);
     if private_key_info.algorithm.oid != expected_oid
         || private_key_info.algorithm.parameters.is_some()
     {
