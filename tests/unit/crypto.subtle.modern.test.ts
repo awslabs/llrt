@@ -1005,18 +1005,23 @@ describe("SubtleCrypto.supports", () => {
     expect(() => supports("digest", "SHA-256", 2 ** 32)).toThrow(TypeError);
   });
 
-  it("reports RustCrypto RSA generation limits", () => {
+  it("reports provider key generation limits", async () => {
     const algorithm = {
       name: "RSA-PSS",
       hash: "SHA-256",
       publicExponent: new Uint8Array([1, 0, 1]),
     };
-    expect(supports("generateKey", { ...algorithm, modulusLength: 512 })).toBe(
-      false
-    );
-    expect(supports("generateKey", { ...algorithm, modulusLength: 1024 })).toBe(
-      true
-    );
+    const rsa512 = { ...algorithm, modulusLength: 512 };
+    const canGenerateRsa512 = await crypto.subtle
+      .generateKey(rsa512, false, ["sign"])
+      .then(
+        () => true,
+        () => false
+      );
+    expect(supports("generateKey", rsa512)).toBe(canGenerateRsa512);
+    expect(
+      supports("generateKey", { ...algorithm, modulusLength: 1024 })
+    ).toBe(true);
     expect(
       supports("generateKey", { name: "HMAC", hash: "SHA-256", length: 1024 })
     ).toBe(true);
