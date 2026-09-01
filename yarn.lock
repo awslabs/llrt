@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@aws-cdk/asset-awscli-v1@2.2.282":
-  version "2.2.282"
-  resolved "https://registry.yarnpkg.com/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.282.tgz#3d25c0fe14ae9db8dfe2d1214cec6b7e3f8880b3"
-  integrity sha512-7hKMi5tTxDcKGIMIOq14PnY0GBcugW33Uh/2YHDZiEwSxLeFOCYBwhR+BFXONb/EJeVI3RETFgailNZbkcKF6g==
+"@aws-cdk/asset-awscli-v1@2.2.292":
+  version "2.2.292"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.292.tgz#caa029bbe15199606f39877c68bf5880b1f59869"
+  integrity sha512-d4aMFsAFj19FtxVyw8IzlUKv5Zu4sIvgnEjI2IU6IWBJgVbJ4aFnadANqYa+6MwB1CQbGOg0jh8WE77M+Nb/9A==
 
 "@aws-cdk/asset-node-proxy-agent-v6@^2.1.2":
   version "2.1.2"
@@ -1594,10 +1594,10 @@
     fast-xml-parser "5.7.3"
     tslib "^2.6.2"
 
-"@aws/cloudformation-validate@1.5.1-beta":
-  version "1.5.1-beta"
-  resolved "https://registry.yarnpkg.com/@aws/cloudformation-validate/-/cloudformation-validate-1.5.1-beta.tgz#c25166a2e6f22b3a7fd3b6454c2794df44f4cf13"
-  integrity sha512-AHua/1/kmVLxkk0qs5bt4vWy64ZV5JUb1MsGKbxttYCF/NykR7WrtQrAGExLi7fdkGa+Ys8U612nG7QIp/z3nQ==
+"@aws/cloudformation-validate@1.7.0-beta":
+  version "1.7.0-beta"
+  resolved "https://registry.yarnpkg.com/@aws/cloudformation-validate/-/cloudformation-validate-1.7.0-beta.tgz#37704db3ca54b2e1edf012d78d042b39946e157f"
+  integrity sha512-3ucys2VE2plAVijHHJmDpDDdi6gxXc/x0bvU3W8Fdm2dZF7Ewb0oQbBTLfrcPCkeHKFpfJtTtfOUl4w6J6uB6w==
 
 "@aws/lambda-invoke-store@^0.2.2":
   version "0.2.3"
@@ -2348,16 +2348,16 @@ available-typed-arrays@^1.0.7:
   dependencies:
     possible-typed-array-names "^1.0.0"
 
-aws-cdk-lib@2.262.1:
-  version "2.262.1"
-  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.262.1.tgz#20c00f40b33f1a6934f1bda5fe41bbb08013fe25"
-  integrity sha512-B6YP4r6ojUZCDhl+qBu/CrWzcipR8sIgshcqYvgw013sghPXmVkYdJ3yuI9+DKML3YLSjQrHy1nGJs+Nqq7JCg==
+aws-cdk-lib@2.267.0:
+  version "2.267.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.267.0.tgz#72017443bf024d8a5d482cf1a4bf0de48393ddda"
+  integrity sha512-ubmc2Th+XFjQAy6cnihRmH9Xxf9X2iZ5Vuf0g/4kBiBSoLahJy5cwJB5TmicEpitZ+fHBRyfoAZ4BkLk4G0Stg==
   dependencies:
-    "@aws-cdk/asset-awscli-v1" "2.2.282"
+    "@aws-cdk/asset-awscli-v1" "2.2.292"
     "@aws-cdk/asset-node-proxy-agent-v6" "^2.1.2"
     "@aws-cdk/cloud-assembly-api" "^2.2.6"
     "@aws-cdk/cloud-assembly-schema" "^54.11.0"
-    "@aws/cloudformation-validate" "1.5.1-beta"
+    "@aws/cloudformation-validate" "1.7.0-beta"
     "@balena/dockerignore" "^1.0.2"
     case "1.6.3"
     fs-extra "^11.3.6"
@@ -2369,10 +2369,10 @@ aws-cdk-lib@2.262.1:
     semver "^7.8.5"
     yaml "1.10.3"
 
-aws-cdk@2.1133.0:
-  version "2.1133.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1133.0.tgz#ff1028d329939da96edeb6bfb8b1f0b975ddf378"
-  integrity sha512-DGlCBwqxSHTe1u/IoT5WV+Bbd2K3UhwFHsdMqb2nQa1fkJmaQgoNFu0It+p3HxyMWeW+gKsVzT5KcjQPQ6Kzuw==
+aws-cdk@2.1139.0:
+  version "2.1139.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1139.0.tgz#f0ee809b222d45ab49f9c8967def28808af38c25"
+  integrity sha512-JVvrVvY2fZasf4gW4fvF7x1QMXUtvvGjnTKDe6cppWR1FUG8XgRF/S7xOkcdPVcdEf4R5ss7QdEfNVI7xiDomQ==
 
 aws-sdk@2.1693.0:
   version "2.1693.0"
