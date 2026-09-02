@@ -733,6 +733,45 @@ fn from_hmac<'js>(
     Ok(KeyAlgorithm::Hmac { hash, length })
 }
 
+fn import_chacha20_poly1305<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+) -> Result<Option<KeyKind>> {
+    let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+        return Ok(None);
+    };
+
+    *kind = KeyKind::Secret;
+    *data = match format {
+        KeyFormatData::RawSecret(bytes) => bytes.into_bytes(ctx)?,
+        #[cfg(feature = "_subtle-full")]
+        KeyFormatData::Jwk(object) => {
+            validate_jwk_kty(ctx, &object, "oct")?;
+            validate_jwk_use(ctx, &object, false)?;
+            if let Some(alg) = object.get_optional::<_, String>("alg")? {
+                if alg != "C20P" {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter must be 'C20P'",
+                    ));
+                }
+            }
+            get_jwk_required_bytes(ctx, &object, "k")?
+        },
+        format => {
+            return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+        },
+    };
+    if data.len() != 32 {
+        return Err(DOMException::data_error(
+            ctx,
+            "ChaCha20-Poly1305 keys must be 256 bits",
+        ));
+    }
+    Ok(Some(*kind))
+}
+
 fn from_chacha20_poly1305<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
@@ -741,46 +780,7 @@ fn from_chacha20_poly1305<'js>(
     private_usages: &mut Vec<String>,
     public_usages: &mut Vec<String>,
 ) -> Result<KeyAlgorithm> {
-    fn import<'js>(
-        ctx: &Ctx<'js>,
-        mode: KeyAlgorithmMode<'_, 'js>,
-        algorithm_name: &str,
-    ) -> Result<Option<KeyKind>> {
-        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
-            return Ok(None);
-        };
-
-        *kind = KeyKind::Secret;
-        *data = match format {
-            KeyFormatData::RawSecret(bytes) => bytes.into_bytes(ctx)?,
-            #[cfg(feature = "_subtle-full")]
-            KeyFormatData::Jwk(object) => {
-                validate_jwk_kty(ctx, &object, "oct")?;
-                validate_jwk_use(ctx, &object, false)?;
-                if let Some(alg) = object.get_optional::<_, String>("alg")? {
-                    if alg != "C20P" {
-                        return Err(DOMException::data_error(
-                            ctx,
-                            "JWK 'alg' parameter must be 'C20P'",
-                        ));
-                    }
-                }
-                get_jwk_required_bytes(ctx, &object, "k")?
-            },
-            format => {
-                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
-            },
-        };
-        if data.len() != 32 {
-            return Err(DOMException::data_error(
-                ctx,
-                "ChaCha20-Poly1305 keys must be 256 bits",
-            ));
-        }
-        Ok(Some(*kind))
-    }
-
-    let key_kind = import(ctx, mode, algorithm_name)?;
+    let key_kind = import_chacha20_poly1305(ctx, mode, algorithm_name)?;
     KeyUsage::classify_and_check_usages(
         ctx,
         KeyUsageAlgorithm::Symmetric,
