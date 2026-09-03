@@ -11,11 +11,21 @@ use once_cell::sync::Lazy;
 
 use crate::get_pool_idle_timeout;
 
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(any(
+    feature = "tls-rust",
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola"
+))]
 use crate::get_http_version;
 
 // Rustls-based TLS backends
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(any(
+    feature = "tls-rust",
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola"
+))]
 mod rustls_client {
     use super::*;
     use hyper_rustls::HttpsConnector;
@@ -121,7 +131,12 @@ mod openssl_client {
 }
 
 // Re-export based on feature
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(any(
+    feature = "tls-rust",
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola"
+))]
 pub use rustls_client::*;
 
 #[cfg(feature = "tls-openssl")]
