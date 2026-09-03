@@ -23,6 +23,11 @@ pub enum EncryptionAlgorithm {
         tag_length: u8,
         additional_data: Option<Box<[u8]>>,
     },
+    ChaCha20Poly1305 {
+        iv: Box<[u8]>,
+        tag_length: u8,
+        additional_data: Option<Box<[u8]>>,
+    },
     RsaOaep {
         label: Option<Box<[u8]>>,
     },
@@ -97,6 +102,28 @@ impl<'js> FromJs<'js> for EncryptionAlgorithm {
                     iv,
                     additional_data,
                     tag_length,
+                })
+            },
+            "ChaCha20-Poly1305" => {
+                let obj = obj?;
+                let iv = obj
+                    .get_required::<_, ObjectBytes>("iv", "algorithm")?
+                    .into_bytes(ctx)?
+                    .into_boxed_slice();
+                let additional_data = obj
+                    .get_optional::<_, ObjectBytes>("additionalData")?
+                    .map(|value| value.into_bytes(ctx))
+                    .transpose()?
+                    .map(Vec::into_boxed_slice);
+                let tag_length = get_optional_dictionary_value(&obj, "tagLength")?
+                    .map(|value| enforce_range_u8(ctx, value, "tagLength"))
+                    .transpose()?
+                    .unwrap_or(128);
+
+                Ok(EncryptionAlgorithm::ChaCha20Poly1305 {
+                    iv,
+                    tag_length,
+                    additional_data,
                 })
             },
             "RSA-OAEP" => {

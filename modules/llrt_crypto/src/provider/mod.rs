@@ -32,11 +32,15 @@ mod openssl;
 #[cfg(any(feature = "crypto-ring", feature = "crypto-ring-rust"))]
 mod ring;
 
+#[cfg(feature = "_modern-webcrypto")]
+pub(crate) mod modern;
+
 #[cfg(feature = "_rustcrypto")]
 mod rust;
 
 use crate::hash::HashAlgorithm;
 use crate::subtle::EllipticCurve;
+use llrt_utils::str_enum;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -131,9 +135,91 @@ pub trait SimpleDigest: Send {
 }
 
 pub const MAX_HMAC_KEY_LENGTH_BITS: u32 = 1024;
-
 pub(crate) fn hmac_length_is_byte_aligned(length_bits: u32) -> bool {
     length_bits.is_multiple_of(8)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MlDsaVariant {
+    MlDsa44,
+    MlDsa65,
+    MlDsa87,
+}
+
+str_enum!(
+    MlDsaVariant,
+    MlDsa44 => "ML-DSA-44",
+    MlDsa65 => "ML-DSA-65",
+    MlDsa87 => "ML-DSA-87"
+);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MlKemVariant {
+    MlKem512,
+    MlKem768,
+    MlKem1024,
+}
+
+str_enum!(
+    MlKemVariant,
+    MlKem512 => "ML-KEM-512",
+    MlKem768 => "ML-KEM-768",
+    MlKem1024 => "ML-KEM-1024"
+);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HybridKemVariant {
+    MlKem768P256,
+    MlKem768X25519,
+    MlKem1024P384,
+}
+
+str_enum!(
+    HybridKemVariant,
+    MlKem768P256 => "MLKEM768-P256",
+    MlKem768X25519 => "MLKEM768-X25519",
+    MlKem1024P384 => "MLKEM1024-P384"
+);
+
+impl HybridKemVariant {
+    pub const fn ml_kem_variant(self) -> MlKemVariant {
+        match self {
+            Self::MlKem768P256 | Self::MlKem768X25519 => MlKemVariant::MlKem768,
+            Self::MlKem1024P384 => MlKemVariant::MlKem1024,
+        }
+    }
+
+    pub const fn public_key_length(self) -> usize {
+        match self {
+            Self::MlKem768P256 => 1249,
+            Self::MlKem768X25519 => 1216,
+            Self::MlKem1024P384 => 1665,
+        }
+    }
+
+    pub const fn ciphertext_length(self) -> usize {
+        match self {
+            Self::MlKem768P256 => 1153,
+            Self::MlKem768X25519 => 1120,
+            Self::MlKem1024P384 => 1665,
+        }
+    }
+
+    pub const fn pq_public_key_length(self) -> usize {
+        match self.ml_kem_variant() {
+            MlKemVariant::MlKem768 => 1184,
+            MlKemVariant::MlKem1024 => 1568,
+            MlKemVariant::MlKem512 => unreachable!(),
+        }
+    }
+
+    pub const fn pq_ciphertext_length(self) -> usize {
+        match self.ml_kem_variant() {
+            MlKemVariant::MlKem768 => 1088,
+            MlKemVariant::MlKem1024 => 1568,
+            MlKemVariant::MlKem512 => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

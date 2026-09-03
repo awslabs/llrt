@@ -1,5 +1,12 @@
 import { runSuite, runTestDynamic } from "./WebCryptoAPI.harness.js";
 
-runSuite(import.meta.url, runTestDynamic, [
-  "aes_gcm_256_iv.https.any.js", // NOTICE: Only 96-bit IVs are supported
-]);
+runSuite(
+  import.meta.url,
+  runTestDynamic,
+  [
+    "aes_gcm_256_iv.https.any.js", // Only 96-bit IVs are supported.
+  ],
+  {
+    tentativeFiles: ["chacha20_poly1305.tentative.https.any.js"],
+  }
+);

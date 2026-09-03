@@ -7,12 +7,12 @@ use llrt_encoding::bytes_to_b64_url_safe_string;
 use llrt_exceptions::DOMException;
 use rquickjs::{ArrayBuffer, Class, Ctx, FromJs, Object, Result, Value};
 
-use crate::provider::CryptoProvider;
+use crate::provider::{modern, CryptoProvider, MlDsaVariant, MlKemVariant};
 use crate::CRYPTO_PROVIDER;
 
 use super::{
     crypto_key::KeyKind,
-    key_algorithm::{KeyAlgorithm, KeyFormat},
+    key_algorithm::{key_format_not_supported_error, KeyAlgorithm, KeyFormat},
     util::ResultDomExt,
     CryptoKey,
 };
@@ -62,9 +62,48 @@ pub fn export_key<'js>(
     }
     let bytes = match format {
         KeyFormat::Jwk => return Ok(ExportOutput::Object(export_jwk(ctx, key)?)),
+        KeyFormat::RawPublic
+            if matches!(
+                key.algorithm,
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_)
+            ) =>
+        {
+            if key.kind != KeyKind::Public {
+                return Err(DOMException::invalid_access_error(
+                    ctx,
+                    "raw-public requires a public key",
+                ));
+            }
+            Ok(key.handle.to_vec())
+        },
+        KeyFormat::RawSeed
+            if matches!(
+                key.algorithm,
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_)
+            ) =>
+        {
+            if key.kind != KeyKind::Private {
+                return Err(DOMException::invalid_access_error(
+                    ctx,
+                    "raw-seed requires a private key",
+                ));
+            }
+            Ok(key.handle.to_vec())
+        },
+        KeyFormat::Raw
+            if matches!(
+                key.algorithm,
+                KeyAlgorithm::MlDsa(_) | KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_)
+            ) =>
+        {
+            return key_format_not_supported_error(ctx, &key.name, "raw");
+        },
         KeyFormat::Raw => export_raw(ctx, key),
+        KeyFormat::RawPublic if key.kind != KeyKind::Secret => export_raw(ctx, key),
+        KeyFormat::RawSecret if key.kind == KeyKind::Secret => export_raw(ctx, key),
         KeyFormat::Spki => export_spki(ctx, key),
         KeyFormat::Pkcs8 => export_pkcs8(ctx, key),
+        format => return key_format_not_supported_error(ctx, &key.name, format.as_str()),
     }?;
     Ok(ExportOutput::Bytes(bytes))
 }
@@ -80,7 +119,9 @@ fn export_raw(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
         ));
     }
     match &key.algorithm {
-        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } => Ok(key.handle.to_vec()),
+        KeyAlgorithm::Aes { .. } | KeyAlgorithm::Hmac { .. } | KeyAlgorithm::ChaCha20Poly1305 => {
+            Ok(key.handle.to_vec())
+        },
         KeyAlgorithm::Ec { curve, .. } => CRYPTO_PROVIDER
             .export_ec_public_key_sec1(&key.handle, *curve, false)
             .or_throw_dom(ctx),
@@ -114,6 +155,12 @@ fn export_pkcs8(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
                 const_oid::db::rfc8410::ID_ED_25519.as_bytes(),
             )
             .or_throw_dom(ctx),
+        KeyAlgorithm::MlDsa(variant) => {
+            modern::export_ml_dsa_private_key_pkcs8(*variant, &key.handle).or_throw_dom(ctx)
+        },
+        KeyAlgorithm::MlKem(variant) => {
+            modern::export_ml_kem_private_key_pkcs8(*variant, &key.handle).or_throw_dom(ctx)
+        },
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .export_okp_private_key_pkcs8(
                 &key.handle,
@@ -147,6 +194,12 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
         KeyAlgorithm::X25519 => CRYPTO_PROVIDER
             .export_okp_public_key_spki(&key.handle, const_oid::db::rfc8410::ID_X_25519.as_bytes())
             .or_throw_dom(ctx),
+        KeyAlgorithm::MlDsa(variant) => {
+            modern::export_ml_dsa_public_key_spki(*variant, &key.handle).or_throw_dom(ctx)
+        },
+        KeyAlgorithm::MlKem(variant) => {
+            modern::export_ml_kem_public_key_spki(*variant, &key.handle).or_throw_dom(ctx)
+        },
         KeyAlgorithm::Rsa { .. } => CRYPTO_PROVIDER
             .export_rsa_public_key_spki(&key.handle)
             .or_throw_dom(ctx),
@@ -155,10 +208,12 @@ fn export_spki(ctx: &Ctx<'_>, key: &CryptoKey) -> Result<Vec<u8>> {
 }
 
 fn supports_der_export(name: &str) -> bool {
-    matches!(
-        name,
-        "ECDH" | "ECDSA" | "Ed25519" | "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" | "X25519"
-    )
+    MlDsaVariant::try_from(name).is_ok()
+        || MlKemVariant::try_from(name).is_ok()
+        || matches!(
+            name,
+            "ECDH" | "ECDSA" | "Ed25519" | "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" | "X25519"
+        )
 }
 
 fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
@@ -183,6 +238,50 @@ fn export_jwk<'js>(ctx: &Ctx<'js>, key: &CryptoKey) -> Result<Object<'js>> {
             obj.set("kty", "oct")?;
             obj.set("alg", ["HS", &hash.as_str()[4..]].concat())?;
             obj.set("k", bytes_to_b64_url_safe_string(&key.handle))?;
+        },
+        KeyAlgorithm::ChaCha20Poly1305 => {
+            obj.set("kty", "oct")?;
+            obj.set("alg", "C20P")?;
+            obj.set("k", bytes_to_b64_url_safe_string(&key.handle))?;
+        },
+        KeyAlgorithm::MlDsa(variant) => {
+            let public_key = if key.kind == KeyKind::Private {
+                modern::ml_dsa_public_key(*variant, &key.handle).or_throw_dom(ctx)?
+            } else {
+                key.handle.to_vec()
+            };
+            obj.set("kty", "AKP")?;
+            obj.set("alg", variant.as_str())?;
+            obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
+            if key.kind == KeyKind::Private {
+                obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
+            }
+        },
+        KeyAlgorithm::MlKem(variant) => {
+            let public_key = if key.kind == KeyKind::Private {
+                modern::ml_kem_public_key(*variant, &key.handle).or_throw_dom(ctx)?
+            } else {
+                key.handle.to_vec()
+            };
+            obj.set("kty", "AKP")?;
+            obj.set("alg", variant.as_str())?;
+            obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
+            if key.kind == KeyKind::Private {
+                obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
+            }
+        },
+        KeyAlgorithm::HybridKem(variant) => {
+            let public_key = if key.kind == KeyKind::Private {
+                modern::hybrid_kem_public_key(*variant, &key.handle).or_throw_dom(ctx)?
+            } else {
+                key.handle.to_vec()
+            };
+            obj.set("kty", "AKP")?;
+            obj.set("alg", variant.as_str())?;
+            obj.set("pub", bytes_to_b64_url_safe_string(&public_key))?;
+            if key.kind == KeyKind::Private {
+                obj.set("priv", bytes_to_b64_url_safe_string(&key.handle))?;
+            }
         },
         KeyAlgorithm::Ec { curve, .. } => {
             let jwk = CRYPTO_PROVIDER

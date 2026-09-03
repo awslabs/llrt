@@ -51,9 +51,10 @@ use rquickjs::{
 };
 pub use subtle::CryptoKey;
 use subtle::{
-    subtle_decrypt, subtle_derive_bits, subtle_derive_key, subtle_digest, subtle_encrypt,
-    subtle_export_key, subtle_generate_key, subtle_import_key, subtle_sign, subtle_unwrap_key,
-    subtle_verify, subtle_wrap_key, SubtleCrypto,
+    subtle_decapsulate_bits, subtle_decapsulate_key, subtle_decrypt, subtle_derive_bits,
+    subtle_derive_key, subtle_digest, subtle_encapsulate_bits, subtle_encapsulate_key,
+    subtle_encrypt, subtle_export_key, subtle_generate_key, subtle_import_key, subtle_sign,
+    subtle_unwrap_key, subtle_verify, subtle_wrap_key, SubtleCrypto,
 };
 
 use self::{
@@ -290,11 +291,21 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Class::<CryptoKey>::define(&globals)?;
 
     let subtle = Class::instance(ctx.clone(), SubtleCrypto {})?;
+    subtle.set(
+        "decapsulateBits",
+        Func::from(Async(subtle_decapsulate_bits)),
+    )?;
+    subtle.set("decapsulateKey", Func::from(Async(subtle_decapsulate_key)))?;
     subtle.set("decrypt", Func::from(Async(subtle_decrypt)))?;
     subtle.set("deriveKey", Func::from(Async(subtle_derive_key)))?;
     subtle.set("deriveBits", Func::from(Async(subtle_derive_bits)))?;
     subtle.set("digest", Func::from(Async(subtle_digest)))?;
     subtle.set("encrypt", Func::from(Async(subtle_encrypt)))?;
+    subtle.set(
+        "encapsulateBits",
+        Func::from(Async(subtle_encapsulate_bits)),
+    )?;
+    subtle.set("encapsulateKey", Func::from(Async(subtle_encapsulate_key)))?;
     subtle.set("exportKey", Func::from(Async(subtle_export_key)))?;
     subtle.set("generateKey", Func::from(Async(subtle_generate_key)))?;
     subtle.set("importKey", Func::from(Async(subtle_import_key)))?;

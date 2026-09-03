@@ -1,4 +1,7 @@
+FileAPI/blob > should pass Blob-constructor-detached-buffer.any.js tests
+FileAPI/blob > should pass Blob-textStream.any.js tests
 WebCryptoAPI > should pass historical.any.js tests
+encoding > should pass single-byte-decoder.any.js tests
 fetch/api/basic > should pass conditional-get.any.js tests
 fetch/api/basic > should pass header-value-combining.any.js tests
 fetch/api/basic > should pass integrity.sub.any.js tests
@@ -7,6 +10,9 @@ fetch/api/basic > should pass mode-same-origin.any.js tests
 fetch/api/basic > should pass referrer.any.js tests
 fetch/api/basic > should pass request-headers-case.any.js tests
 fetch/api/basic > should pass request-referrer.any.js tests
+fetch/api/body > should pass textstream.any.js tests
+streams/readable-byte-streams > should pass tee.any.js tests
+streams/readable-streams > should pass from.any.js tests
 streams/transferable > should pass transform-stream-members.any.js tests
 streams/transform-streams > should pass strategies.any.js tests
 streams/transform-streams > should pass terminate.any.js tests
@@ -20,4 +26,5 @@ third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass in
 third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass sub-minute-offset.js tests
 url > should pass IdnaTestV2.any.js tests
 url > should pass url-constructor.any.js tests
+url > should pass url-origin.any.js tests
 url > should pass url-setters.any.js tests

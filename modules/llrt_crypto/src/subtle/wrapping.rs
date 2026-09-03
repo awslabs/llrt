@@ -86,6 +86,10 @@ pub async fn subtle_unwrap_key<'js>(
             KeyFormatData::Jwk(json_parse(&ctx, bytes)?.into_object_or_throw(&ctx, "wrappedKey")?)
         },
         KeyFormat::Raw => KeyFormatData::Raw(ObjectBytes::Vec(bytes)),
+        KeyFormat::RawPrivate => KeyFormatData::RawPrivate(ObjectBytes::Vec(bytes)),
+        KeyFormat::RawPublic => KeyFormatData::RawPublic(ObjectBytes::Vec(bytes)),
+        KeyFormat::RawSecret => KeyFormatData::RawSecret(ObjectBytes::Vec(bytes)),
+        KeyFormat::RawSeed => KeyFormatData::RawSeed(ObjectBytes::Vec(bytes)),
         KeyFormat::Spki => KeyFormatData::Spki(ObjectBytes::Vec(bytes)),
         KeyFormat::Pkcs8 => KeyFormatData::Pkcs8(ObjectBytes::Vec(bytes)),
     };

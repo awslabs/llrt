@@ -29,13 +29,16 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::{
     hash::HashAlgorithm,
-    provider::{hmac_length_is_byte_aligned, parse_rsa_public_exponent, MAX_HMAC_KEY_LENGTH_BITS},
+    provider::{
+        hmac_length_is_byte_aligned, parse_rsa_public_exponent, HybridKemVariant, MlDsaVariant,
+        MlKemVariant, MAX_HMAC_KEY_LENGTH_BITS,
+    },
 };
 
 #[cfg(feature = "_subtle-full")]
-use super::util::DataError;
+use super::{algorithm_mismatch_error, util::DataError};
 use super::{
-    algorithm_mismatch_error, algorithm_not_supported_error,
+    algorithm_not_supported_error,
     crypto_key::KeyKind,
     enforce_range_u16, enforce_range_u32, get_optional_dictionary_value,
     get_required_dictionary_value, normalize_algorithm_name, to_name_and_maybe_object,
@@ -53,6 +56,10 @@ pub enum KeyUsage {
     DeriveBits,
     WrapKey,
     UnwrapKey,
+    EncapsulateKey,
+    EncapsulateBits,
+    DecapsulateKey,
+    DecapsulateBits,
 }
 
 impl TryFrom<&str> for KeyUsage {
@@ -68,13 +75,17 @@ impl TryFrom<&str> for KeyUsage {
             "verify" => KeyUsage::Verify,
             "deriveKey" => KeyUsage::DeriveKey,
             "deriveBits" => KeyUsage::DeriveBits,
+            "encapsulateKey" => KeyUsage::EncapsulateKey,
+            "encapsulateBits" => KeyUsage::EncapsulateBits,
+            "decapsulateKey" => KeyUsage::DecapsulateKey,
+            "decapsulateBits" => KeyUsage::DecapsulateBits,
             _ => return Err(["Invalid key usage: ", s].concat()),
         })
     }
 }
 
 impl KeyUsage {
-    const CANONICAL_ORDER: [Self; 8] = [
+    const CANONICAL_ORDER: [Self; 12] = [
         Self::Encrypt,
         Self::Decrypt,
         Self::Sign,
@@ -83,6 +94,10 @@ impl KeyUsage {
         Self::DeriveBits,
         Self::WrapKey,
         Self::UnwrapKey,
+        Self::EncapsulateKey,
+        Self::EncapsulateBits,
+        Self::DecapsulateKey,
+        Self::DecapsulateBits,
     ];
 
     const fn as_str(self) -> &'static str {
@@ -95,6 +110,10 @@ impl KeyUsage {
             Self::DeriveBits => "deriveBits",
             Self::WrapKey => "wrapKey",
             Self::UnwrapKey => "unwrapKey",
+            Self::EncapsulateKey => "encapsulateKey",
+            Self::EncapsulateBits => "encapsulateBits",
+            Self::DecapsulateKey => "decapsulateKey",
+            Self::DecapsulateBits => "decapsulateBits",
         }
     }
 
@@ -181,12 +200,12 @@ impl KeyUsage {
         Ok(())
     }
 
-    const fn mask(self) -> u16 {
-        1 << self as u16
+    const fn mask(self) -> u32 {
+        1 << self as u32
     }
 }
 
-#[repr(u16)]
+#[repr(u32)]
 #[derive(Clone, Copy)]
 pub enum KeyUsageAlgorithm {
     //single mask algorithms (symmetric)
@@ -201,23 +220,27 @@ pub enum KeyUsageAlgorithm {
 
     // asymmetric derive algorithms - use high bits as private usages
     // ECDH/X25519
-    DeriveAsymmetric = ((KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask()) << 8),
+    DeriveAsymmetric = ((KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask()) << 16),
 
     // HKDF/PBKDF2
     DeriveSymmetric = KeyUsage::DeriveKey.mask() | KeyUsage::DeriveBits.mask(),
 
-    RsaOaep = ((KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask()) << 8) //private
+    RsaOaep = ((KeyUsage::Decrypt.mask() | KeyUsage::UnwrapKey.mask()) << 16) //private
     | KeyUsage::Encrypt.mask() | KeyUsage::WrapKey.mask(), //public
 
     //ECDSA, ED25519, all non-OEAP RSA
-    Sign = (KeyUsage::Sign.mask() << 8) //private
+    Sign = (KeyUsage::Sign.mask() << 16) //private
         | KeyUsage::Verify.mask(), //public
+
+    MlKem = ((KeyUsage::DecapsulateKey.mask() | KeyUsage::DecapsulateBits.mask()) << 16)
+        | KeyUsage::EncapsulateKey.mask()
+        | KeyUsage::EncapsulateBits.mask(),
 }
 impl KeyUsageAlgorithm {
-    fn masks(&self) -> (u16, u16) {
-        let value = *self as u16;
-        let private_mask = value >> 8;
-        let public_mask = value & 0xFF;
+    fn masks(&self) -> (u32, u32) {
+        let value = *self as u32;
+        let private_mask = value >> 16;
+        let public_mask = value & 0xFFFF;
         (private_mask, public_mask)
     }
 
@@ -230,6 +253,7 @@ impl KeyUsageAlgorithm {
                 | Self::DeriveAsymmetric
                 | Self::DeriveSymmetric
                 | Self::Sign
+                | Self::MlKem
                 | Self::RsaOaep
         )
     }
@@ -314,6 +338,10 @@ pub enum KeyAlgorithm {
         hash: HashAlgorithm,
         length: u32,
     },
+    ChaCha20Poly1305,
+    MlDsa(MlDsaVariant),
+    MlKem(MlKemVariant),
+    HybridKem(HybridKemVariant),
     Rsa {
         modulus_length: u32,
         public_exponent: Rc<Box<[u8]>>,
@@ -327,11 +355,25 @@ pub enum KeyAlgorithm {
 pub enum KeyFormat {
     Jwk,
     Raw,
+    RawPrivate,
+    RawPublic,
+    RawSecret,
+    RawSeed,
     Spki,
     Pkcs8,
 }
 
-str_enum!(KeyFormat, Jwk => "jwk", Raw => "raw", Spki => "spki", Pkcs8 => "pkcs8");
+str_enum!(
+    KeyFormat,
+    Jwk => "jwk",
+    Raw => "raw",
+    RawPrivate => "raw-private",
+    RawPublic => "raw-public",
+    RawSecret => "raw-secret",
+    RawSeed => "raw-seed",
+    Spki => "spki",
+    Pkcs8 => "pkcs8"
+);
 
 impl<'js> FromJs<'js> for KeyFormat {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
@@ -346,8 +388,38 @@ impl<'js> FromJs<'js> for KeyFormat {
 pub enum KeyFormatData<'js> {
     Jwk(Object<'js>),
     Raw(ObjectBytes<'js>),
+    RawPrivate(ObjectBytes<'js>),
+    RawPublic(ObjectBytes<'js>),
+    RawSecret(ObjectBytes<'js>),
+    RawSeed(ObjectBytes<'js>),
     Spki(ObjectBytes<'js>),
     Pkcs8(ObjectBytes<'js>),
+}
+
+impl KeyFormatData<'_> {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Jwk(_) => "jwk",
+            Self::Raw(_) => "raw",
+            Self::RawPrivate(_) => "raw-private",
+            Self::RawPublic(_) => "raw-public",
+            Self::RawSecret(_) => "raw-secret",
+            Self::RawSeed(_) => "raw-seed",
+            Self::Spki(_) => "spki",
+            Self::Pkcs8(_) => "pkcs8",
+        }
+    }
+}
+
+pub(super) fn key_format_not_supported_error<T>(
+    ctx: &Ctx<'_>,
+    algorithm_name: &str,
+    format: &str,
+) -> Result<T> {
+    Err(DOMException::not_supported_error(
+        ctx,
+        format!("{algorithm_name} does not support the '{format}' key format"),
+    ))
 }
 
 #[derive(PartialEq)]
@@ -661,6 +733,390 @@ fn from_hmac<'js>(
     Ok(KeyAlgorithm::Hmac { hash, length })
 }
 
+fn import_chacha20_poly1305<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+) -> Result<Option<KeyKind>> {
+    let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+        return Ok(None);
+    };
+
+    *kind = KeyKind::Secret;
+    *data = match format {
+        KeyFormatData::RawSecret(bytes) => bytes.into_bytes(ctx)?,
+        #[cfg(feature = "_subtle-full")]
+        KeyFormatData::Jwk(object) => {
+            validate_jwk_kty(ctx, &object, "oct")?;
+            validate_jwk_use(ctx, &object, false)?;
+            if let Some(alg) = object.get_optional::<_, String>("alg")? {
+                if alg != "C20P" {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter must be 'C20P'",
+                    ));
+                }
+            }
+            get_jwk_required_bytes(ctx, &object, "k")?
+        },
+        format => {
+            return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+        },
+    };
+    if data.len() != 32 {
+        return Err(DOMException::data_error(
+            ctx,
+            "ChaCha20-Poly1305 keys must be 256 bits",
+        ));
+    }
+    Ok(Some(*kind))
+}
+
+fn from_chacha20_poly1305<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    let key_kind = import_chacha20_poly1305(ctx, mode, algorithm_name)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Symmetric,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::ChaCha20Poly1305)
+}
+
+fn from_ml_dsa<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    variant: MlDsaVariant,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+        variant: MlDsaVariant,
+    ) -> Result<Option<KeyKind>> {
+        use crate::provider::modern;
+
+        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+            return Ok(None);
+        };
+
+        match format {
+            KeyFormatData::RawPublic(bytes) => {
+                *data = modern::import_ml_dsa_public_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::Spki(bytes) => {
+                *data = modern::import_ml_dsa_public_key(variant, bytes.as_bytes(ctx)?, true)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::RawSeed(bytes) => {
+                *data = modern::import_ml_dsa_private_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Pkcs8(bytes) => {
+                let bytes = bytes.as_bytes(ctx)?;
+                validate_ml_private_key_info(
+                    ctx,
+                    bytes,
+                    match variant {
+                        MlDsaVariant::MlDsa44 => const_oid::db::fips204::ID_ML_DSA_44,
+                        MlDsaVariant::MlDsa65 => const_oid::db::fips204::ID_ML_DSA_65,
+                        MlDsaVariant::MlDsa87 => const_oid::db::fips204::ID_ML_DSA_87,
+                    },
+                    32,
+                    match variant {
+                        MlDsaVariant::MlDsa44 => 2560,
+                        MlDsaVariant::MlDsa65 => 4032,
+                        MlDsaVariant::MlDsa87 => 4896,
+                    },
+                )?;
+                *data =
+                    modern::import_ml_dsa_private_key(variant, bytes, true).or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Jwk(object) => {
+                validate_jwk_kty(ctx, &object, "AKP")?;
+                validate_jwk_use(ctx, &object, true)?;
+                if get_jwk_required_string(ctx, &object, "alg")? != algorithm_name {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter does not match the algorithm",
+                    ));
+                }
+
+                let public_key = get_jwk_required_bytes(ctx, &object, "pub")?;
+                if let Some(seed) = get_jwk_optional_bytes(ctx, &object, "priv")? {
+                    *data = modern::import_ml_dsa_private_key(variant, &seed, false)
+                        .or_throw_dom(ctx)?;
+                    let derived_public_key =
+                        modern::ml_dsa_public_key(variant, data).or_throw_dom(ctx)?;
+                    if derived_public_key != public_key {
+                        return Err(DOMException::data_error(
+                            ctx,
+                            "JWK public and private key values do not match",
+                        ));
+                    }
+                    *kind = KeyKind::Private;
+                } else {
+                    *data = modern::import_ml_dsa_public_key(variant, &public_key, false)
+                        .or_throw_dom(ctx)?;
+                    *kind = KeyKind::Public;
+                }
+            },
+            format => {
+                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+            },
+        }
+        Ok(Some(*kind))
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+        _variant: MlDsaVariant,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name, variant)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::Sign,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::MlDsa(variant))
+}
+
+fn from_ml_kem<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    variant: MlKemVariant,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+        variant: MlKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        use crate::provider::modern;
+
+        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+            return Ok(None);
+        };
+
+        match format {
+            KeyFormatData::RawPublic(bytes) => {
+                *data = modern::import_ml_kem_public_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::Spki(bytes) => {
+                *data = modern::import_ml_kem_public_key(variant, bytes.as_bytes(ctx)?, true)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::RawSeed(bytes) => {
+                *data = modern::import_ml_kem_private_key(variant, bytes.as_bytes(ctx)?, false)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Pkcs8(bytes) => {
+                let bytes = bytes.as_bytes(ctx)?;
+                validate_ml_private_key_info(
+                    ctx,
+                    bytes,
+                    match variant {
+                        MlKemVariant::MlKem512 => const_oid::db::fips203::ID_ALG_ML_KEM_512,
+                        MlKemVariant::MlKem768 => const_oid::db::fips203::ID_ALG_ML_KEM_768,
+                        MlKemVariant::MlKem1024 => const_oid::db::fips203::ID_ALG_ML_KEM_1024,
+                    },
+                    64,
+                    match variant {
+                        MlKemVariant::MlKem512 => 1632,
+                        MlKemVariant::MlKem768 => 2400,
+                        MlKemVariant::MlKem1024 => 3168,
+                    },
+                )?;
+                *data =
+                    modern::import_ml_kem_private_key(variant, bytes, true).or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Jwk(object) => {
+                validate_jwk_kty(ctx, &object, "AKP")?;
+                validate_jwk_use(ctx, &object, false)?;
+                if get_jwk_required_string(ctx, &object, "alg")? != algorithm_name {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter does not match the algorithm",
+                    ));
+                }
+
+                let public_key = get_jwk_required_bytes(ctx, &object, "pub")?;
+                if let Some(seed) = get_jwk_optional_bytes(ctx, &object, "priv")? {
+                    *data = modern::import_ml_kem_private_key(variant, &seed, false)
+                        .or_throw_dom(ctx)?;
+                    let derived_public_key =
+                        modern::ml_kem_public_key(variant, data).or_throw_dom(ctx)?;
+                    if derived_public_key != public_key {
+                        return Err(DOMException::data_error(
+                            ctx,
+                            "JWK public and private key values do not match",
+                        ));
+                    }
+                    *kind = KeyKind::Private;
+                } else {
+                    *data = modern::import_ml_kem_public_key(variant, &public_key, false)
+                        .or_throw_dom(ctx)?;
+                    *kind = KeyKind::Public;
+                }
+            },
+            format => {
+                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+            },
+        }
+        Ok(Some(*kind))
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+        _variant: MlKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name, variant)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::MlKem,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::MlKem(variant))
+}
+
+fn from_hybrid_kem<'js>(
+    ctx: &Ctx<'js>,
+    mode: KeyAlgorithmMode<'_, 'js>,
+    algorithm_name: &str,
+    variant: HybridKemVariant,
+    usages: &Array<'js>,
+    private_usages: &mut Vec<String>,
+    public_usages: &mut Vec<String>,
+) -> Result<KeyAlgorithm> {
+    #[cfg(feature = "_subtle-full")]
+    fn import<'js>(
+        ctx: &Ctx<'js>,
+        mode: KeyAlgorithmMode<'_, 'js>,
+        algorithm_name: &str,
+        variant: HybridKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        use crate::provider::modern;
+
+        let KeyAlgorithmMode::Import { format, kind, data } = mode else {
+            return Ok(None);
+        };
+
+        match format {
+            KeyFormatData::RawPublic(bytes) => {
+                *data = modern::import_hybrid_kem_public_key(variant, bytes.as_bytes(ctx)?)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Public;
+            },
+            KeyFormatData::RawSeed(bytes) => {
+                *data = modern::import_hybrid_kem_private_key(variant, bytes.as_bytes(ctx)?)
+                    .or_throw_dom(ctx)?;
+                *kind = KeyKind::Private;
+            },
+            KeyFormatData::Jwk(object) => {
+                validate_jwk_kty(ctx, &object, "AKP")?;
+                validate_jwk_use(ctx, &object, false)?;
+                if get_jwk_required_string(ctx, &object, "alg")? != algorithm_name {
+                    return Err(DOMException::data_error(
+                        ctx,
+                        "JWK 'alg' parameter does not match the algorithm",
+                    ));
+                }
+
+                let public_key = get_jwk_required_bytes(ctx, &object, "pub")?;
+                if let Some(seed) = get_jwk_optional_bytes(ctx, &object, "priv")? {
+                    *data =
+                        modern::import_hybrid_kem_private_key(variant, &seed).or_throw_dom(ctx)?;
+                    let derived_public_key =
+                        modern::hybrid_kem_public_key(variant, data).or_throw_dom(ctx)?;
+                    if derived_public_key != public_key {
+                        return Err(DOMException::data_error(
+                            ctx,
+                            "JWK public and private key values do not match",
+                        ));
+                    }
+                    *kind = KeyKind::Private;
+                } else {
+                    *data = modern::import_hybrid_kem_public_key(variant, &public_key)
+                        .or_throw_dom(ctx)?;
+                    *kind = KeyKind::Public;
+                }
+            },
+            format => {
+                return key_format_not_supported_error(ctx, algorithm_name, format.as_str());
+            },
+        }
+        Ok(Some(*kind))
+    }
+
+    #[cfg(not(feature = "_subtle-full"))]
+    fn import<'js>(
+        _ctx: &Ctx<'js>,
+        _mode: KeyAlgorithmMode<'_, 'js>,
+        _algorithm_name: &str,
+        _variant: HybridKemVariant,
+    ) -> Result<Option<KeyKind>> {
+        Ok(None)
+    }
+
+    let key_kind = import(ctx, mode, algorithm_name, variant)?;
+    KeyUsage::classify_and_check_usages(
+        ctx,
+        KeyUsageAlgorithm::MlKem,
+        usages,
+        private_usages,
+        public_usages,
+        key_kind.as_ref(),
+    )?;
+    Ok(KeyAlgorithm::HybridKem(variant))
+}
+
 fn from_rsa<'js>(
     ctx: &Ctx<'js>,
     mode: KeyAlgorithmMode<'_, 'js>,
@@ -845,6 +1301,22 @@ fn from_pbkdf2<'js>(
     Ok(algorithm)
 }
 
+pub(super) fn synthetic_key_usage(name: &str) -> Option<&'static str> {
+    if MlKemVariant::try_from(name).is_ok() || HybridKemVariant::try_from(name).is_ok() {
+        return Some("encapsulateKey");
+    }
+    if MlDsaVariant::try_from(name).is_ok() {
+        return Some("sign");
+    }
+    Some(match name {
+        "AES-KW" => "wrapKey",
+        "AES-CBC" | "AES-CTR" | "AES-GCM" | "ChaCha20-Poly1305" | "RSA-OAEP" => "encrypt",
+        "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
+        "ECDSA" | "Ed25519" | "HMAC" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => "sign",
+        _ => return None,
+    })
+}
+
 impl KeyAlgorithm {
     pub fn from_js<'js>(
         ctx: &Ctx<'js>,
@@ -858,7 +1330,14 @@ impl KeyAlgorithm {
         if matches!(mode, KeyAlgorithmMode::Import { .. })
             && !matches!(
                 name.as_str(),
-                "AES-CBC" | "AES-CTR" | "AES-GCM" | "AES-KW" | "HMAC" | "HKDF" | "PBKDF2"
+                "AES-CBC"
+                    | "AES-CTR"
+                    | "AES-GCM"
+                    | "AES-KW"
+                    | "ChaCha20-Poly1305"
+                    | "HMAC"
+                    | "HKDF"
+                    | "PBKDF2"
             )
         {
             return Err(DOMException::not_supported_error(
@@ -870,11 +1349,8 @@ impl KeyAlgorithm {
             || (mode == KeyAlgorithmMode::ValidateImport && usages.is_empty())
         {
             let synthetic_usages = Array::new(ctx.clone())?;
-            let usage = match name.as_str() {
-                "AES-KW" => "wrapKey",
-                "AES-CBC" | "AES-CTR" | "AES-GCM" | "RSA-OAEP" => "encrypt",
-                "ECDH" | "X25519" | "HKDF" | "PBKDF2" => "deriveKey",
-                _ => "sign",
+            let Some(usage) = synthetic_key_usage(&name) else {
+                return algorithm_not_supported_error(ctx);
             };
             synthetic_usages.set(0, usage)?;
             synthetic_usages
@@ -941,6 +1417,14 @@ impl KeyAlgorithm {
                 &mut private_usages,
                 &mut public_usages,
             )?,
+            "ChaCha20-Poly1305" => from_chacha20_poly1305(
+                ctx,
+                mode,
+                algorithm_name,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
             "RSA-OAEP" | "RSA-PSS" | "RSASSA-PKCS1-v1_5" => from_rsa(
                 ctx,
                 mode,
@@ -968,6 +1452,39 @@ impl KeyAlgorithm {
                 &mut private_usages,
                 &mut public_usages,
             )?,
+            "ML-DSA-44" | "ML-DSA-65" | "ML-DSA-87" => from_ml_dsa(
+                ctx,
+                mode,
+                algorithm_name,
+                MlDsaVariant::try_from(algorithm_name)
+                    .map_err(NotSupportedError)
+                    .or_throw_dom(ctx)?,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "ML-KEM-512" | "ML-KEM-768" | "ML-KEM-1024" => from_ml_kem(
+                ctx,
+                mode,
+                algorithm_name,
+                MlKemVariant::try_from(algorithm_name)
+                    .map_err(NotSupportedError)
+                    .or_throw_dom(ctx)?,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
+            "MLKEM768-P256" | "MLKEM768-X25519" | "MLKEM1024-P384" => from_hybrid_kem(
+                ctx,
+                mode,
+                algorithm_name,
+                HybridKemVariant::try_from(algorithm_name)
+                    .map_err(NotSupportedError)
+                    .or_throw_dom(ctx)?,
+                &usages,
+                &mut private_usages,
+                &mut public_usages,
+            )?,
             _ => return algorithm_not_supported_error(ctx),
         };
 
@@ -977,6 +1494,60 @@ impl KeyAlgorithm {
             public_usages,
             private_usages,
         })
+    }
+
+    pub fn supports_get_public_key(&self) -> bool {
+        matches!(
+            self,
+            KeyAlgorithm::Ec { .. }
+                | KeyAlgorithm::Ed25519
+                | KeyAlgorithm::X25519
+                | KeyAlgorithm::Rsa { .. }
+                | KeyAlgorithm::MlDsa(_)
+                | KeyAlgorithm::MlKem(_)
+                | KeyAlgorithm::HybridKem(_)
+        )
+    }
+
+    pub fn validate_public_usages<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        name: &str,
+        usages: &Array<'js>,
+    ) -> Result<Vec<String>> {
+        let usage_algorithm = match self {
+            KeyAlgorithm::Ec {
+                algorithm: EcAlgorithm::Ecdh,
+                ..
+            }
+            | KeyAlgorithm::X25519 => KeyUsageAlgorithm::DeriveAsymmetric,
+            KeyAlgorithm::Ec {
+                algorithm: EcAlgorithm::Ecdsa,
+                ..
+            }
+            | KeyAlgorithm::Ed25519
+            | KeyAlgorithm::MlDsa(_) => KeyUsageAlgorithm::Sign,
+            KeyAlgorithm::Rsa { .. } if name == "RSA-OAEP" => KeyUsageAlgorithm::RsaOaep,
+            KeyAlgorithm::Rsa { .. } => KeyUsageAlgorithm::Sign,
+            KeyAlgorithm::MlKem(_) | KeyAlgorithm::HybridKem(_) => KeyUsageAlgorithm::MlKem,
+            _ => {
+                return Err(DOMException::not_supported_error(
+                    ctx,
+                    "This algorithm cannot derive a public key",
+                ));
+            },
+        };
+        let mut private_usages = Vec::new();
+        let mut public_usages = Vec::new();
+        KeyUsage::classify_and_check_usages(
+            ctx,
+            usage_algorithm,
+            usages,
+            &mut private_usages,
+            &mut public_usages,
+            Some(&KeyKind::Public),
+        )?;
+        Ok(public_usages)
     }
 
     pub fn as_object<'js, T: AsRef<str>>(&self, ctx: &Ctx<'js>, name: T) -> Result<Object<'js>> {
@@ -1074,6 +1645,68 @@ impl KeyAlgorithm {
     }
 }
 
+#[cfg(feature = "_subtle-full")]
+fn validate_ml_private_key_info(
+    ctx: &Ctx<'_>,
+    data: &[u8],
+    expected_oid: ObjectIdentifier,
+    seed_length: usize,
+    expanded_key_length: usize,
+) -> Result<()> {
+    let private_key_info = PrivateKeyInfoRef::from_der(data).or_throw_data_error(ctx)?;
+    if private_key_info.algorithm.oid != expected_oid
+        || private_key_info.algorithm.parameters.is_some()
+    {
+        return Err(DOMException::data_error(
+            ctx,
+            "PKCS#8 algorithm identifier is invalid",
+        ));
+    }
+
+    let private_key = private_key_info.private_key.as_bytes();
+    match private_key.first() {
+        Some(0x80) => Ok(()),
+        Some(0x04) => {
+            let expanded_key = OctetString::from_der(private_key).or_throw_data_error(ctx)?;
+            if expanded_key.as_bytes().len() != expanded_key_length {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "Expanded private key has invalid length",
+                ));
+            }
+            Err(DOMException::not_supported_error(
+                ctx,
+                "Expanded private keys are not supported",
+            ))
+        },
+        Some(0x30) => {
+            let values = Vec::<&OctetStringRef>::from_der(private_key).or_throw_data_error(ctx)?;
+            let [seed, expanded_key] = values.as_slice() else {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "Combined private key has invalid structure",
+                ));
+            };
+            if seed.as_bytes().len() != seed_length
+                || expanded_key.as_bytes().len() != expanded_key_length
+            {
+                return Err(DOMException::data_error(
+                    ctx,
+                    "Combined private key has invalid component length",
+                ));
+            }
+            Err(DOMException::not_supported_error(
+                ctx,
+                "Combined seed and expanded private keys are not supported",
+            ))
+        },
+        _ => Err(DOMException::data_error(
+            ctx,
+            "Private key format is invalid",
+        )),
+    }
+}
+
 fn import_derive_key<'js>(
     ctx: &Ctx<'js>,
     format: KeyFormatData<'js>,
@@ -1081,14 +1714,12 @@ fn import_derive_key<'js>(
     data: &mut Vec<u8>,
     algorithm_name: &str,
 ) -> Result<()> {
-    if let KeyFormatData::Raw(object_bytes) = format {
-        *data = object_bytes.into_bytes(ctx)?;
-        *kind = KeyKind::Secret;
-    } else {
-        return Err(DOMException::not_supported_error(
-            ctx,
-            [algorithm_name, " only supports 'raw' import format"].concat(),
-        ));
+    match format {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawSecret(object_bytes) => {
+            *data = object_bytes.into_bytes(ctx)?;
+            *kind = KeyKind::Secret;
+        },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     }
 
     Ok(())
@@ -1179,7 +1810,7 @@ fn import_rsa_key<'js>(
             };
             (result.modulus_length as usize, result.public_exponent)
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawPublic(object_bytes) => {
             let result = CRYPTO_PROVIDER
                 .import_rsa_public_key_pkcs1(object_bytes.as_bytes(ctx)?)
                 .or_throw_dom(ctx)?;
@@ -1208,6 +1839,7 @@ fn import_rsa_key<'js>(
             *kind = KeyKind::Public;
             (result.modulus_length as usize, result.public_exponent)
         },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     };
 
     let public_exponent = public_exponent.into_boxed_slice();
@@ -1256,13 +1888,13 @@ fn import_symmetric_key<'js>(
             *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
             Ok(data.len() * 8)
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawSecret(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
 
             *data = bytes;
             Ok(data.len() * 8)
         },
-        _ => algorithm_mismatch_error(ctx, algorithm_name),
+        format => key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     }
 }
 
@@ -1336,7 +1968,7 @@ fn import_ec_key<'js>(
                 KeyKind::Public
             };
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawPublic(object_bytes) => {
             let bytes = object_bytes.as_bytes(ctx)?;
             let result = CRYPTO_PROVIDER
                 .import_ec_public_key_sec1(bytes, *curve)
@@ -1364,6 +1996,7 @@ fn import_ec_key<'js>(
             *data = result.key_data;
             *kind = KeyKind::Private;
         },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     };
     Ok(())
 }
@@ -1430,7 +2063,7 @@ fn import_okp_key<'js>(
                 *kind = KeyKind::Public;
             }
         },
-        KeyFormatData::Raw(object_bytes) => {
+        KeyFormatData::Raw(object_bytes) | KeyFormatData::RawPublic(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
             if bytes.len() != 32 {
                 return Err(DOMException::data_error(
@@ -1479,6 +2112,7 @@ fn import_okp_key<'js>(
             }
             *kind = KeyKind::Private;
         },
+        format => return key_format_not_supported_error(ctx, algorithm_name, format.as_str()),
     }
 
     Ok(())

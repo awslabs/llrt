@@ -25,6 +25,20 @@ _subtle-full = [
   "x25519-dalek",
 ]
 
+# Internal feature: enables modern Web Cryptography algorithms
+_modern-webcrypto = [
+  "chacha20poly1305",
+  "cshake",
+  "keccak",
+  "ml-dsa",
+  "ml-kem",
+  "p256",
+  "p384",
+  "sha3",
+  "sponge-cursor",
+  "x25519-dalek",
+]
+
 # Internal feature: enables RustCrypto dependencies for key import/export
 _rustcrypto = [
   "_subtle-full",
@@ -45,12 +59,12 @@ _rustcrypto = [
   "sha1",
 ]
 
-crypto-rust = ["_rustcrypto"]
-crypto-ring = ["ring"]
-crypto-ring-rust = ["ring", "_rustcrypto"]
-crypto-graviola = ["graviola"]
-crypto-graviola-rust = ["graviola", "_rustcrypto"]
-crypto-openssl = ["openssl-sys", "openssl", "_subtle-full"]
+crypto-rust = ["_rustcrypto", "_modern-webcrypto"]
+crypto-ring = ["ring", "_modern-webcrypto"]
+crypto-ring-rust = ["ring", "_rustcrypto", "_modern-webcrypto"]
+crypto-graviola = ["graviola", "_modern-webcrypto"]
+crypto-graviola-rust = ["graviola", "_rustcrypto", "_modern-webcrypto"]
+crypto-openssl = ["openssl-sys", "openssl", "_subtle-full", "_modern-webcrypto"]
 
 [dependencies]
 crc32c = { version = "0.6", default-features = false }
@@ -82,6 +96,12 @@ aes-kw = { version = "0.3", features = [
   "oid",
 ], default-features = false, optional = true }
 cbc = { version = "0.2", features = ["alloc"], optional = true }
+chacha20poly1305 = { version = "0.11", features = [
+  "alloc",
+], default-features = false, optional = true }
+cshake = { version = "0.2", features = [
+  "alloc",
+], default-features = false, optional = true }
 const-oid = { version = "0.10", features = [
   "db",
 ], default-features = false, optional = true }
@@ -102,17 +122,29 @@ elliptic-curve = { version = "0.14", features = [
 ], default-features = false, optional = true }
 hkdf = { version = "0.13", default-features = false, optional = true }
 hmac = { version = "0.13", default-features = false, optional = true }
+keccak = { version = "0.2", default-features = false, optional = true }
+ml-dsa = { version = "0.1", features = [
+  "alloc",
+  "pkcs8",
+  "rand_core",
+], default-features = false, optional = true }
+ml-kem = { version = "0.3", features = [
+  "alloc",
+  "pkcs8",
+], default-features = false, optional = true }
 rsa = { version = "0.10.0-rc.18", features = [
   "std",
   "sha2",
   "encoding",
 ], default-features = false, optional = true }
 p256 = { version = "0.14", features = [
+  "alloc",
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
 p384 = { version = "0.14.0-rc.15", features = [
+  "alloc",
   "ecdh",
   "ecdsa",
   "pkcs8",
@@ -126,7 +158,9 @@ pbkdf2 = { version = "0.13", default-features = false, optional = true }
 pkcs8 = { version = "0.11", default-features = false, features = [
   "alloc",
 ], optional = true }
+sponge-cursor = { version = "0.1", default-features = false, optional = true }
 sha1 = { version = "0.11", features = ["oid"], default-features = false, optional = true }
+sha3 = { version = "0.11", default-features = false, optional = true }
 spki = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }

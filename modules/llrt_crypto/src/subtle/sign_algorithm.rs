@@ -1,8 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_exceptions::DOMException;
+use llrt_utils::{bytes::ObjectBytes, object::ObjectExt};
 use rquickjs::{Ctx, FromJs, Result, Value};
 
-use crate::hash::HashAlgorithm;
+use crate::{hash::HashAlgorithm, provider::MlDsaVariant};
 
 use super::{
     algorithm_not_supported_error, enforce_range_u32, get_required_dictionary_value,
@@ -11,11 +13,19 @@ use super::{
 
 #[derive(Debug)]
 pub enum SigningAlgorithm {
-    Ecdsa { hash: HashAlgorithm },
+    Ecdsa {
+        hash: HashAlgorithm,
+    },
     Ed25519,
-    RsaPss { salt_length: u32 },
+    RsaPss {
+        salt_length: u32,
+    },
     RsassaPkcs1v15,
     Hmac,
+    MlDsa {
+        variant: MlDsaVariant,
+        context: Box<[u8]>,
+    },
 }
 
 impl<'js> FromJs<'js> for SigningAlgorithm {
@@ -38,7 +48,29 @@ impl<'js> FromJs<'js> for SigningAlgorithm {
 
                 SigningAlgorithm::RsaPss { salt_length }
             },
-            _ => return algorithm_not_supported_error(ctx),
+            _ => {
+                let Ok(variant) = MlDsaVariant::try_from(name.as_str()) else {
+                    return algorithm_not_supported_error(ctx);
+                };
+                let context = if let Ok(obj) = obj {
+                    obj.get_optional::<_, ObjectBytes>("context")?
+                        .map(|value| value.into_bytes(ctx))
+                        .transpose()?
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                if context.len() > 255 {
+                    return Err(DOMException::operation_error(
+                        ctx,
+                        "ML-DSA context must not exceed 255 bytes",
+                    ));
+                }
+                SigningAlgorithm::MlDsa {
+                    variant,
+                    context: context.into_boxed_slice(),
+                }
+            },
         };
         Ok(algorithm)
     }
@@ -52,6 +84,7 @@ impl SigningAlgorithm {
             SigningAlgorithm::RsaPss { .. } => "RSA-PSS",
             SigningAlgorithm::RsassaPkcs1v15 => "RSASSA-PKCS1-v1_5",
             SigningAlgorithm::Hmac => "HMAC",
+            SigningAlgorithm::MlDsa { variant, .. } => variant.as_str(),
         }
     }
 }

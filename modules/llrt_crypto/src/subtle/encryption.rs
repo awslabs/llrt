@@ -7,7 +7,7 @@ use llrt_utils::{bytes::ObjectBytes, result::ResultExt};
 use rquickjs::{ArrayBuffer, Class, Ctx, Exception, FromJs, Result, Value};
 
 use crate::{
-    provider::{AesMode, CryptoProvider},
+    provider::{modern, AesMode, CryptoProvider},
     CRYPTO_PROVIDER,
 };
 
@@ -184,6 +184,31 @@ pub fn encrypt_decrypt(
                             data,
                             aad,
                         )
+                        .or_throw_dom(ctx)?
+                },
+            }
+        },
+        EncryptionAlgorithm::ChaCha20Poly1305 {
+            iv,
+            tag_length,
+            additional_data,
+        } => {
+            if !matches!(key.algorithm, KeyAlgorithm::ChaCha20Poly1305) {
+                return algorithm_mismatch_error(ctx, "ChaCha20-Poly1305");
+            }
+            if iv.len() != 12 || *tag_length != 128 {
+                return Err(DOMException::operation_error(
+                    ctx,
+                    "Invalid ChaCha20-Poly1305 parameters",
+                ));
+            }
+            match operation {
+                EncryptionOperation::Encrypt => {
+                    modern::chacha20_poly1305_encrypt(handle, iv, data, additional_data.as_deref())
+                        .or_throw_dom(ctx)?
+                },
+                EncryptionOperation::Decrypt => {
+                    modern::chacha20_poly1305_decrypt(handle, iv, data, additional_data.as_deref())
                         .or_throw_dom(ctx)?
                 },
             }

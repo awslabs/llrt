@@ -343,12 +343,24 @@ declare module "crypto" {
    */
   namespace webcrypto {
     type BufferSource = ArrayBufferView | ArrayBuffer;
-    type KeyFormat = "jwk" | "pkcs8" | "raw" | "spki";
+    type KeyFormat =
+      | "jwk"
+      | "pkcs8"
+      | "raw"
+      | "raw-private"
+      | "raw-public"
+      | "raw-secret"
+      | "raw-seed"
+      | "spki";
     type KeyType = "private" | "public" | "secret";
     type KeyUsage =
+      | "decapsulateBits"
+      | "decapsulateKey"
       | "decrypt"
       | "deriveBits"
       | "deriveKey"
+      | "encapsulateBits"
+      | "encapsulateKey"
       | "encrypt"
       | "sign"
       | "unwrapKey"
@@ -368,16 +380,22 @@ declare module "crypto" {
     interface AesDerivedKeyParams extends Algorithm {
       length: number;
     }
-    interface AesGcmParams extends Algorithm {
+    interface AeadParams extends Algorithm {
       additionalData?: BufferSource;
       iv: BufferSource;
       tagLength?: number;
     }
+    interface AesGcmParams extends AeadParams {}
     interface AesKeyAlgorithm extends KeyAlgorithm {
       length: number;
     }
     interface AesKeyGenParams extends Algorithm {
       length: number;
+    }
+    interface CShakeParams extends Algorithm {
+      customization?: BufferSource;
+      functionName?: BufferSource;
+      outputLength: number;
     }
     interface Algorithm {
       name: string;
@@ -397,9 +415,10 @@ declare module "crypto" {
     interface EcdsaParams extends Algorithm {
       hash: HashAlgorithmIdentifier;
     }
-    interface Ed448Params extends Algorithm {
+    interface ContextParams extends Algorithm {
       context?: BufferSource;
     }
+    interface Ed448Params extends ContextParams {}
     interface HkdfParams extends Algorithm {
       hash: HashAlgorithmIdentifier;
       info: BufferSource;
@@ -431,6 +450,8 @@ declare module "crypto" {
       n?: string;
       oth?: RsaOtherPrimesInfo[];
       p?: string;
+      priv?: string;
+      pub?: string;
       q?: string;
       qi?: string;
       use?: string;
@@ -473,6 +494,10 @@ declare module "crypto" {
     interface RsaPssParams extends Algorithm {
       saltLength: number;
     }
+    interface TurboShakeParams extends Algorithm {
+      domainSeparation?: number;
+      outputLength: number;
+    }
 
     interface CryptoKey {
       /**
@@ -499,6 +524,10 @@ declare module "crypto" {
        * - `'deriveBits'` - The key may be used to derive bits.
        * - `'wrapKey'` - The key may be used to wrap another key.
        * - `'unwrapKey'` - The key may be used to unwrap another key.
+       * - `'encapsulateKey'` - The key may be used to encapsulate a shared key.
+       * - `'encapsulateBits'` - The key may be used to encapsulate shared bits.
+       * - `'decapsulateKey'` - The key may be used to decapsulate a shared key.
+       * - `'decapsulateBits'` - The key may be used to decapsulate shared bits.
        *
        * Valid key usages depend on the key algorithm (identified by `cryptokey.algorithm.name`).
        * @since v15.0.0
@@ -518,8 +547,30 @@ declare module "crypto" {
        */
       publicKey: CryptoKey;
     }
+    interface EncapsulatedBits {
+      ciphertext: ArrayBuffer;
+      sharedKey: ArrayBuffer;
+    }
+    interface EncapsulatedKey {
+      ciphertext: ArrayBuffer;
+      sharedKey: CryptoKey;
+    }
+    interface SubtleCryptoConstructor {
+      readonly prototype: SubtleCrypto;
+      supports(
+        operation: string,
+        algorithm: AlgorithmIdentifier,
+        length?: number | null
+      ): boolean;
+      supports(
+        operation: string,
+        algorithm: AlgorithmIdentifier,
+        additionalAlgorithm: AlgorithmIdentifier
+      ): boolean;
+    }
 
     interface SubtleCrypto {
+      readonly constructor: SubtleCryptoConstructor;
       /**
        * Using the method and parameters specified in `algorithm` and the keying material provided by `key`,
        * `subtle.decrypt()` attempts to decipher the provided `data`. If successful,
@@ -531,6 +582,7 @@ declare module "crypto" {
        * - `'AES-CTR'`
        * - `'AES-CBC'`
        * - `'AES-GCM'`
+       * - `'ChaCha20-Poly1305'`
        */
       decrypt(
         algorithm:
@@ -538,7 +590,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams,
+          | AeadParams,
         key: CryptoKey,
         data: BufferSource
       ): Promise<ArrayBuffer>;
@@ -600,6 +652,19 @@ declare module "crypto" {
         extractable: boolean,
         keyUsages: readonly KeyUsage[]
       ): Promise<CryptoKey>;
+      decapsulateBits(
+        algorithm: AlgorithmIdentifier,
+        decapsulationKey: CryptoKey,
+        ciphertext: BufferSource
+      ): Promise<ArrayBuffer>;
+      decapsulateKey(
+        algorithm: AlgorithmIdentifier,
+        decapsulationKey: CryptoKey,
+        ciphertext: BufferSource,
+        sharedKeyAlgorithm: AlgorithmIdentifier,
+        extractable: boolean,
+        keyUsages: readonly KeyUsage[]
+      ): Promise<CryptoKey>;
       /**
        * Using the method identified by `algorithm`, `subtle.digest()` attempts to generate a digest of `data`.
        * If successful, the returned promise is resolved with an `<ArrayBuffer>` containing the computed digest.
@@ -610,13 +675,31 @@ declare module "crypto" {
        * - `'SHA-256'`
        * - `'SHA-384'`
        * - `'SHA-512'`
+       * - `'SHA3-256'`
+       * - `'SHA3-384'`
+       * - `'SHA3-512'`
+       * - `'cSHAKE128'`
+       * - `'cSHAKE256'`
+       * - `'TurboSHAKE128'`
+       * - `'TurboSHAKE256'`
        *
        * If `algorithm` is provided as an `<Object>`, it must have a `name` property whose value is one of the above.
        */
       digest(
-        algorithm: AlgorithmIdentifier,
+        algorithm: AlgorithmIdentifier | CShakeParams | TurboShakeParams,
         data: BufferSource
       ): Promise<ArrayBuffer>;
+      encapsulateBits(
+        algorithm: AlgorithmIdentifier,
+        encapsulationKey: CryptoKey
+      ): Promise<EncapsulatedBits>;
+      encapsulateKey(
+        algorithm: AlgorithmIdentifier,
+        encapsulationKey: CryptoKey,
+        sharedKeyAlgorithm: AlgorithmIdentifier,
+        extractable: boolean,
+        keyUsages: readonly KeyUsage[]
+      ): Promise<EncapsulatedKey>;
       /**
        * Using the method and parameters specified by `algorithm` and the keying material provided by `key`,
        * `subtle.encrypt()` attempts to encipher `data`. If successful,
@@ -628,6 +711,7 @@ declare module "crypto" {
        * - `'AES-CTR'`
        * - `'AES-CBC'`
        * - `'AES-GCM'`
+       * - `'ChaCha20-Poly1305'`
        */
       encrypt(
         algorithm:
@@ -635,7 +719,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams,
+          | AeadParams,
         key: CryptoKey,
         data: BufferSource
       ): Promise<ArrayBuffer>;
@@ -670,6 +754,15 @@ declare module "crypto" {
        * - `'ECDSA'`
        * - `'ECDH'`
        * - `'Ed25519'`
+       * - `'ML-DSA-44'`
+       * - `'ML-DSA-65'`
+       * - `'ML-DSA-87'`
+       * - `'ML-KEM-512'`
+       * - `'ML-KEM-768'`
+       * - `'ML-KEM-1024'`
+       * - `'MLKEM768-P256'`
+       * - `'MLKEM768-X25519'`
+       * - `'MLKEM1024-P384'`
        * The `<CryptoKey>` (secret key) generating algorithms supported include:
        *
        * - `'HMAC'`
@@ -677,6 +770,7 @@ declare module "crypto" {
        * - `'AES-CBC'`
        * - `'AES-GCM'`
        * - `'AES-KW'`
+       * - `'ChaCha20-Poly1305'`
        * @param keyUsages See {@link https://nodejs.org/docs/latest/api/webcrypto.html#cryptokeyusages Key usages}.
        */
       generateKey(
@@ -694,6 +788,10 @@ declare module "crypto" {
         extractable: boolean,
         keyUsages: KeyUsage[]
       ): Promise<CryptoKeyPair | CryptoKey>;
+      getPublicKey(
+        key: CryptoKey,
+        keyUsages: readonly KeyUsage[]
+      ): Promise<CryptoKey>;
       /**
        * The `subtle.importKey()` method attempts to interpret the provided `keyData` as the given `format`
        * to create a `<CryptoKey>` instance using the provided `algorithm`, `extractable`, and `keyUsages` arguments.
@@ -739,13 +837,16 @@ declare module "crypto" {
        * - `'ECDSA'`
        * - `'Ed25519'`
        * - `'HMAC'`
+       * - `'ML-DSA-44'`
+       * - `'ML-DSA-65'`
+       * - `'ML-DSA-87'`
        */
       sign(
         algorithm:
           | AlgorithmIdentifier
           | RsaPssParams
           | EcdsaParams
-          | Ed448Params,
+          | ContextParams,
         key: CryptoKey,
         data: BufferSource
       ): Promise<ArrayBuffer>;
@@ -788,7 +889,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams,
+          | AeadParams,
         unwrappedKeyAlgorithm:
           | AlgorithmIdentifier
           | RsaHashedImportParams
@@ -810,13 +911,16 @@ declare module "crypto" {
        * - `'ECDSA'`
        * - `'Ed25519'`
        * - `'HMAC'`
+       * - `'ML-DSA-44'`
+       * - `'ML-DSA-65'`
+       * - `'ML-DSA-87'`
        */
       verify(
         algorithm:
           | AlgorithmIdentifier
           | RsaPssParams
           | EcdsaParams
-          | Ed448Params,
+          | ContextParams,
         key: CryptoKey,
         signature: BufferSource,
         data: BufferSource
@@ -847,7 +951,7 @@ declare module "crypto" {
           | RsaOaepParams
           | AesCtrParams
           | AesCbcParams
-          | AesGcmParams
+          | AeadParams
       ): Promise<ArrayBuffer>;
     }
   }

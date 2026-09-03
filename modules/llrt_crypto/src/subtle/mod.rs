@@ -5,16 +5,19 @@ mod derive_algorithm;
 mod derive_bits;
 mod derive_keys;
 mod digest;
+mod encapsulation;
 mod encryption;
 mod encryption_algorithm;
 #[cfg(feature = "_subtle-full")]
 mod export_key;
 mod generate_key;
+mod get_public_key;
 mod import_key;
 #[cfg(feature = "_subtle-full")]
 mod key_algorithm;
 mod sign;
 mod sign_algorithm;
+mod supports;
 mod util;
 mod verify;
 #[cfg(feature = "_subtle-full")]
@@ -24,16 +27,22 @@ pub use crypto_key::CryptoKey;
 pub use derive_bits::subtle_derive_bits;
 pub use derive_keys::subtle_derive_key;
 pub use digest::subtle_digest;
+pub use encapsulation::{
+    subtle_decapsulate_bits, subtle_decapsulate_key, subtle_encapsulate_bits,
+    subtle_encapsulate_key,
+};
 pub use encryption::subtle_decrypt;
 pub use encryption::subtle_encrypt;
 #[cfg(feature = "_subtle-full")]
 pub use export_key::subtle_export_key;
 pub use generate_key::subtle_generate_key;
+pub use get_public_key::subtle_get_public_key;
 #[cfg(feature = "_subtle-full")]
 pub use import_key::subtle_import_key;
 #[cfg(feature = "_subtle-full")]
 use key_algorithm::KeyAlgorithm;
 pub use sign::subtle_sign;
+use supports::subtle_supports;
 pub use verify::subtle_verify;
 #[cfg(feature = "_subtle-full")]
 pub use wrapping::subtle_unwrap_key;
@@ -49,7 +58,8 @@ use key_algorithm::KeyAlgorithm;
 use llrt_exceptions::DOMException;
 use llrt_utils::{object::ObjectExt, str_enum};
 use rquickjs::{
-    atom::PredefinedAtom, Coerced, Ctx, Error, Exception, FromJs, Object, Result, Value,
+    atom::PredefinedAtom, prelude::Opt, Array, Class, Coerced, Ctx, Error, Exception, FromJs,
+    Object, Result, Value,
 };
 
 use crate::provider::{CryptoProvider, SimpleDigest};
@@ -70,6 +80,26 @@ impl SubtleCrypto {
     #[qjs(prop, rename = PredefinedAtom::SymbolToStringTag, configurable)]
     pub fn to_string_tag() -> &'static str {
         stringify!(SubtleCrypto)
+    }
+
+    #[qjs(rename = "getPublicKey")]
+    pub async fn get_public_key<'js>(
+        &self,
+        ctx: Ctx<'js>,
+        key: Class<'js, CryptoKey<'js>>,
+        usages: Array<'js>,
+    ) -> Result<Class<'js, CryptoKey<'js>>> {
+        subtle_get_public_key(ctx, key, usages).await
+    }
+
+    #[qjs(static)]
+    pub fn supports<'js>(
+        ctx: Ctx<'js>,
+        operation: Coerced<String>,
+        algorithm: Value<'js>,
+        additional: Opt<Value<'js>>,
+    ) -> Result<bool> {
+        subtle_supports(ctx, operation, algorithm, additional)
     }
 }
 
@@ -179,6 +209,7 @@ pub fn to_name_and_maybe_object<'js>(
 pub fn normalize_algorithm_name(name: &str) -> String {
     let name = name.to_ascii_uppercase();
     match name.as_str() {
+        "CHACHA20-POLY1305" => "ChaCha20-Poly1305".to_string(),
         "ED25519" => "Ed25519".to_string(),
         "RSASSA-PKCS1-V1_5" => "RSASSA-PKCS1-v1_5".to_string(),
         _ => name,

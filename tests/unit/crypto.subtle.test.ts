@@ -2227,6 +2227,55 @@ fullCrypto("SubtileCrypto import/export", () => {
     }
   }, 30000);
 
+  it("preserves leading zeroes in private EC JWK values", async () => {
+    const keys = [
+      {
+        crv: "P-256",
+        x: "mGriUG8f8QTQQjCGHY9LSY9LxMbQCbMPdUTcEpuC0o0",
+        y: "ADzMwKZGDgrjKKTZfTx7YdhvxiicGJ8lJREMRBuwfpc",
+        d: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACs",
+      },
+      {
+        crv: "P-384",
+        x: "0DqnSPX0jrPgxUtoPyXS4tfX4yASgqlbV6Wf-4-Uz0xDsRB8qUS5IRw1ERLeFu0Y",
+        y: "AAoIxgLcXgAx2tCIwZMF9rJSorw_JF96W4C0hMe5n2mBwyN0xxSnaDJV9TMfZrsG",
+        d: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACw",
+      },
+      {
+        crv: "P-521",
+        x: "AMaFjga3BATpzZ4-y2YjlbRCnGSBOQU_tSH4KK9ga009uqFLXnfv51ko_h3BJ6L_qN4zSLPBhWpCm_l-fjHC5b1m",
+        y: "ARg5KWp4mjvABFyKX7QsfRvZmPVESVebRGgXr70XJz5mLJfucple9CZAxVC5AT-tB2E1PHCGonLCQIi-lHaf0WZQ",
+        d: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB",
+      },
+    ];
+
+    for (const { crv, x, y, d } of keys) {
+      const jwk = {
+        kty: "EC",
+        crv,
+        x,
+        y,
+        d,
+        ext: true,
+        key_ops: ["sign"],
+      };
+      const key = await crypto.subtle.importKey(
+        "jwk",
+        jwk,
+        { name: "ECDSA", namedCurve: crv },
+        true,
+        ["sign"]
+      );
+      const exported = await crypto.subtle.exportKey("jwk", key);
+
+      expect({ x: exported.x, y: exported.y, d: exported.d }).toEqual({
+        x,
+        y,
+        d,
+      });
+    }
+  });
+
   it("should import and export an Ed25519 private JWK", async () => {
     const algorithm = {
       name: "Ed25519",
