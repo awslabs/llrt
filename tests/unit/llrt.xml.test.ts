@@ -191,6 +191,18 @@ describe("XMLParser options and handling", () => {
 
     expect(result).toStrictEqual(expectedResult);
   });
+
+  it("should throw instead of panic on malformed input", () => {
+    const parser = new XMLParser();
+
+    // Invalid UTF-8 bytes: <a>\xff\xfe</a>
+    const invalidUtf8 = new Uint8Array([
+      0x3c, 0x61, 0x3e, 0xff, 0xfe, 0x3c, 0x2f, 0x61, 0x3e,
+    ]);
+    expect(() => parser.parse(invalidUtf8)).toThrow();
+
+    expect(() => parser.parse("<root><unclosed></root>")).toThrow();
+  });
 });
 
 describe("XML Builder", () => {

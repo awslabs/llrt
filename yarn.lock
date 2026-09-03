@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@aws-cdk/asset-awscli-v1@2.2.282":
-  version "2.2.282"
-  resolved "https://registry.yarnpkg.com/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.282.tgz#3d25c0fe14ae9db8dfe2d1214cec6b7e3f8880b3"
-  integrity sha512-7hKMi5tTxDcKGIMIOq14PnY0GBcugW33Uh/2YHDZiEwSxLeFOCYBwhR+BFXONb/EJeVI3RETFgailNZbkcKF6g==
+"@aws-cdk/asset-awscli-v1@2.2.292":
+  version "2.2.292"
+  resolved "https://registry.yarnpkg.com/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.292.tgz#caa029bbe15199606f39877c68bf5880b1f59869"
+  integrity sha512-d4aMFsAFj19FtxVyw8IzlUKv5Zu4sIvgnEjI2IU6IWBJgVbJ4aFnadANqYa+6MwB1CQbGOg0jh8WE77M+Nb/9A==
 
 "@aws-cdk/asset-node-proxy-agent-v6@^2.1.2":
   version "2.1.2"
@@ -1594,10 +1594,10 @@
     fast-xml-parser "5.7.3"
     tslib "^2.6.2"
 
-"@aws/cloudformation-validate@1.5.1-beta":
-  version "1.5.1-beta"
-  resolved "https://registry.yarnpkg.com/@aws/cloudformation-validate/-/cloudformation-validate-1.5.1-beta.tgz#c25166a2e6f22b3a7fd3b6454c2794df44f4cf13"
-  integrity sha512-AHua/1/kmVLxkk0qs5bt4vWy64ZV5JUb1MsGKbxttYCF/NykR7WrtQrAGExLi7fdkGa+Ys8U612nG7QIp/z3nQ==
+"@aws/cloudformation-validate@1.7.0-beta":
+  version "1.7.0-beta"
+  resolved "https://registry.yarnpkg.com/@aws/cloudformation-validate/-/cloudformation-validate-1.7.0-beta.tgz#37704db3ca54b2e1edf012d78d042b39946e157f"
+  integrity sha512-3ucys2VE2plAVijHHJmDpDDdi6gxXc/x0bvU3W8Fdm2dZF7Ewb0oQbBTLfrcPCkeHKFpfJtTtfOUl4w6J6uB6w==
 
 "@aws/lambda-invoke-store@^0.2.2":
   version "0.2.3"
@@ -2204,10 +2204,10 @@
   dependencies:
     undici-types ">=7.24.0 <7.24.7"
 
-"@types/react-dom@19.2.3":
-  version "19.2.3"
-  resolved "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-19.2.3.tgz#c1e305d15a52a3e508d54dca770d202cb63abf2c"
-  integrity sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==
+"@types/react-dom@19.2.5":
+  version "19.2.5"
+  resolved "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-19.2.5.tgz#d4ecf8d704cab59901d3fbb0975b6f855306595f"
+  integrity sha512-fMPwH9v7r/pp43yUd2/Mbiex5KouJwwR3dzHkhLREUC6764VyDsqxhAxv6OFEYR1RhjOyD1naqba8ECDBe7ZQg==
 
 "@types/react@19.2.15":
   version "19.2.15"
@@ -2240,63 +2240,63 @@
   dependencies:
     "@types/yargs-parser" "*"
 
-"@vitest/expect@4.1.5":
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/@vitest/expect/-/expect-4.1.5.tgz#5caab19535cfb04fbc37087c5608d46e74dc9292"
-  integrity sha512-PWBaRY5JoKuRnHlUHfpV/KohFylaDZTupcXN1H9vYryNLOnitSw60Mw9IAE2r67NbwwzBw/Cc/8q9BK3kIX8Kw==
+"@vitest/expect@4.1.11":
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/@vitest/expect/-/expect-4.1.11.tgz#5f580d1f9cdbba314dbf23b2d911f8eb23878f5f"
+  integrity sha512-VX2x5vNJXET47KAFzwERI+KRMtTTCSWTfSMKsW7JsUsXV4psq++e3DvZpuTDOpHcxytiDs6p2nhVb2tVDiiUYw==
   dependencies:
     "@standard-schema/spec" "^1.1.0"
     "@types/chai" "^5.2.2"
-    "@vitest/spy" "4.1.5"
-    "@vitest/utils" "4.1.5"
+    "@vitest/spy" "4.1.11"
+    "@vitest/utils" "4.1.11"
     chai "^6.2.2"
     tinyrainbow "^3.1.0"
 
-"@vitest/mocker@4.1.5":
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/@vitest/mocker/-/mocker-4.1.5.tgz#9d5791733e4866cfb8af2d48ca371b127e7d2e93"
-  integrity sha512-/x2EmFC4mT4NNzqvC3fmesuV97w5FC903KPmey4gsnJiMQ3Be1IlDKVaDaG8iqaLFHqJ2FVEkxZk5VmeLjIItw==
+"@vitest/mocker@4.1.11":
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/@vitest/mocker/-/mocker-4.1.11.tgz#8e2906361bc5dfa271757a858ae80643118fcbb4"
+  integrity sha512-2XJVD55d1o5AZous5CCGKS74g/riOj9odEt2bQpCVZeblHyHdnMeFl4jl0XjU21stf4mbjUkew2eXQZt65g5CQ==
   dependencies:
-    "@vitest/spy" "4.1.5"
+    "@vitest/spy" "4.1.11"
     estree-walker "^3.0.3"
     magic-string "^0.30.21"
 
-"@vitest/pretty-format@4.1.5":
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/@vitest/pretty-format/-/pretty-format-4.1.5.tgz#4c13d77a77e2931e44db95522ed5700bcf0570d4"
-  integrity sha512-7I3q6l5qr03dVfMX2wCo9FxwSJbPdwKjy2uu/YPpU3wfHvIL4QHwVRp57OfGrDFeUJ8/8QdfBKIV12FTtLn00g==
+"@vitest/pretty-format@4.1.11":
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/@vitest/pretty-format/-/pretty-format-4.1.11.tgz#8b28eb8240771d6ea970e33beaeb41384b51868e"
+  integrity sha512-yiZzPbGTS9Sr/JpFl8zHrcIkAofNbFV6k21vIgQN/cY/oxZeXhJv5sc/MBJ5jFKWmWs+oJHw0UXLZjmf931+Vw==
   dependencies:
     tinyrainbow "^3.1.0"
 
-"@vitest/runner@4.1.5":
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/@vitest/runner/-/runner-4.1.5.tgz#a14dd2d2f48603f906dd52304a10c7fc623bb1de"
-  integrity sha512-2D+o7Pr82IEO46YPpoA/YU0neeyr6FTerQb5Ro7BUnBuv6NQtT/kmVnczngiMEBhzgqz2UZYl5gArejsyERDSQ==
+"@vitest/runner@4.1.11":
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/@vitest/runner/-/runner-4.1.11.tgz#bfbad98c8d6c3f1fb4df12056ad569821ff77f21"
+  integrity sha512-LztvUgdwMNJMIkj3hQnnxiC2Xy1zNxq928W/xhjCLaNCzqTZOudjwbQf6v9IntZGPw132i2Lq2rgTRZHD3JHNw==
   dependencies:
-    "@vitest/utils" "4.1.5"
+    "@vitest/utils" "4.1.11"
     pathe "^2.0.3"
 
-"@vitest/snapshot@4.1.5":
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/@vitest/snapshot/-/snapshot-4.1.5.tgz#d07970d1448190ee5a258db6ab79c65b8018c13b"
-  integrity sha512-zypXEt4KH/XgKGPUz4eC2AvErYx0My5hfL8oDb1HzGFpEk1P62bxSohdyOmvz+d9UJwanI68MKwr2EquOaOgMQ==
+"@vitest/snapshot@4.1.11":
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/@vitest/snapshot/-/snapshot-4.1.11.tgz#df461eb165924a3155986dde68e13360f53f3d4c"
+  integrity sha512-pN7ikn1ON7h8ee4gIAp4AzyK+zBtJPzVbqOgu5LCEh4VaJVbPQcgYQYJIMGQPXVeJJq1fnfazis7a5pFNPahog==
   dependencies:
-    "@vitest/pretty-format" "4.1.5"
-    "@vitest/utils" "4.1.5"
+    "@vitest/pretty-format" "4.1.11"
+    "@vitest/utils" "4.1.11"
     magic-string "^0.30.21"
     pathe "^2.0.3"
 
-"@vitest/spy@4.1.5":
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/@vitest/spy/-/spy-4.1.5.tgz#fa7858ffab746fa9ac29496e626f5a0caf9a5a7f"
-  integrity sha512-2lNOsh6+R2Idnf1TCZqSwYlKN2E/iDlD8sgU59kYVl+OMDmvldO1VDk39smRfpUNwYpNRVn3w4YfuC7KfbBnkQ==
+"@vitest/spy@4.1.11":
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/@vitest/spy/-/spy-4.1.11.tgz#0add45cae953afed9c88f98e2f6fc9164558c32a"
+  integrity sha512-apNa/prQy2qCeywhnixOHPRCgGNhvg7T4Dapfl1GahLp/R+uhBm5cPyFoNVyqsNd2h1nJxL6BqqdIjiABL60YA==
 
-"@vitest/utils@4.1.5":
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/@vitest/utils/-/utils-4.1.5.tgz#20d6a6ae651a0dd33f945548921698d49701fa43"
-  integrity sha512-76wdkrmfXfqGjueGgnb45ITPyUi1ycZ4IHgC2bhPDUfWHklY/q3MdLOAB+TF1e6xfl8NxNY0ZYaPCFNWSsw3Ug==
+"@vitest/utils@4.1.11":
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/@vitest/utils/-/utils-4.1.11.tgz#9b27a4293b827942b223539bfab1bd9f7eada31b"
+  integrity sha512-zTCVGpyFsGWBhllOyKlTw/vnr6D9qxsfSDyfbyZmTyjHw5N/VuvzHpHoQjm2ZJzn4RJgx5w4r7V0er69CmLgPQ==
   dependencies:
-    "@vitest/pretty-format" "4.1.5"
+    "@vitest/pretty-format" "4.1.11"
     convert-source-map "^2.0.0"
     tinyrainbow "^3.1.0"
 
@@ -2348,16 +2348,16 @@ available-typed-arrays@^1.0.7:
   dependencies:
     possible-typed-array-names "^1.0.0"
 
-aws-cdk-lib@2.262.1:
-  version "2.262.1"
-  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.262.1.tgz#20c00f40b33f1a6934f1bda5fe41bbb08013fe25"
-  integrity sha512-B6YP4r6ojUZCDhl+qBu/CrWzcipR8sIgshcqYvgw013sghPXmVkYdJ3yuI9+DKML3YLSjQrHy1nGJs+Nqq7JCg==
+aws-cdk-lib@2.267.0:
+  version "2.267.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.267.0.tgz#72017443bf024d8a5d482cf1a4bf0de48393ddda"
+  integrity sha512-ubmc2Th+XFjQAy6cnihRmH9Xxf9X2iZ5Vuf0g/4kBiBSoLahJy5cwJB5TmicEpitZ+fHBRyfoAZ4BkLk4G0Stg==
   dependencies:
-    "@aws-cdk/asset-awscli-v1" "2.2.282"
+    "@aws-cdk/asset-awscli-v1" "2.2.292"
     "@aws-cdk/asset-node-proxy-agent-v6" "^2.1.2"
     "@aws-cdk/cloud-assembly-api" "^2.2.6"
     "@aws-cdk/cloud-assembly-schema" "^54.11.0"
-    "@aws/cloudformation-validate" "1.5.1-beta"
+    "@aws/cloudformation-validate" "1.7.0-beta"
     "@balena/dockerignore" "^1.0.2"
     case "1.6.3"
     fs-extra "^11.3.6"
@@ -2369,10 +2369,10 @@ aws-cdk-lib@2.262.1:
     semver "^7.8.5"
     yaml "1.10.3"
 
-aws-cdk@2.1133.0:
-  version "2.1133.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1133.0.tgz#ff1028d329939da96edeb6bfb8b1f0b975ddf378"
-  integrity sha512-DGlCBwqxSHTe1u/IoT5WV+Bbd2K3UhwFHsdMqb2nQa1fkJmaQgoNFu0It+p3HxyMWeW+gKsVzT5KcjQPQ6Kzuw==
+aws-cdk@2.1139.0:
+  version "2.1139.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk/-/aws-cdk-2.1139.0.tgz#f0ee809b222d45ab49f9c8967def28808af38c25"
+  integrity sha512-JVvrVvY2fZasf4gW4fvF7x1QMXUtvvGjnTKDe6cppWR1FUG8XgRF/S7xOkcdPVcdEf4R5ss7QdEfNVI7xiDomQ==
 
 aws-sdk@2.1693.0:
   version "2.1693.0"
@@ -3479,15 +3479,7 @@ tinyexec@^1.0.2:
   resolved "https://registry.yarnpkg.com/tinyexec/-/tinyexec-1.0.2.tgz#bdd2737fe2ba40bd6f918ae26642f264b99ca251"
   integrity sha512-W/KYk+NFhkmsYpuHq5JykngiOCnxeVL8v8dFnqxSD8qEEdRfXk1SDM6JzNqcERbcGYj9tMrDQBYV9cjgnunFIg==
 
-tinyglobby@^0.2.15:
-  version "0.2.15"
-  resolved "https://registry.yarnpkg.com/tinyglobby/-/tinyglobby-0.2.15.tgz#e228dd1e638cea993d2fdb4fcd2d4602a79951c2"
-  integrity sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==
-  dependencies:
-    fdir "^6.5.0"
-    picomatch "^4.0.3"
-
-tinyglobby@^0.2.17:
+tinyglobby@^0.2.15, tinyglobby@^0.2.17:
   version "0.2.17"
   resolved "https://registry.yarnpkg.com/tinyglobby/-/tinyglobby-0.2.17.tgz#562a9a6c9eb2b3b123d39719f9af5bb44fcd7631"
   integrity sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==
@@ -3598,18 +3590,18 @@ v8-compile-cache-lib@^3.0.1:
   optionalDependencies:
     fsevents "~2.3.3"
 
-vitest@4.1.5:
-  version "4.1.5"
-  resolved "https://registry.yarnpkg.com/vitest/-/vitest-4.1.5.tgz#cda189c0cd9dd1c920be477c0f371b64ec14782a"
-  integrity sha512-9Xx1v3/ih3m9hN+SbfkUyy0JAs72ap3r7joc87XL6jwF0jGg6mFBvQ1SrwaX+h8BlkX6Hz9shdd1uo6AF+ZGpg==
+vitest@4.1.11:
+  version "4.1.11"
+  resolved "https://registry.yarnpkg.com/vitest/-/vitest-4.1.11.tgz#1653c1521ae917f960d9b21877797c47dfd8bf21"
+  integrity sha512-fhACrNXUidIbGSBr5FlbuBkO7VWC1ZyLl0DO4CU2DrQoAPxX84Ysxs+HeGQpii5lZWV1Q4gBZTTu49mF+A6Edw==
   dependencies:
-    "@vitest/expect" "4.1.5"
-    "@vitest/mocker" "4.1.5"
-    "@vitest/pretty-format" "4.1.5"
-    "@vitest/runner" "4.1.5"
-    "@vitest/snapshot" "4.1.5"
-    "@vitest/spy" "4.1.5"
-    "@vitest/utils" "4.1.5"
+    "@vitest/expect" "4.1.11"
+    "@vitest/mocker" "4.1.11"
+    "@vitest/pretty-format" "4.1.11"
+    "@vitest/runner" "4.1.11"
+    "@vitest/snapshot" "4.1.11"
+    "@vitest/spy" "4.1.11"
+    "@vitest/utils" "4.1.11"
     es-module-lexer "^2.0.0"
     expect-type "^1.3.0"
     magic-string "^0.30.21"

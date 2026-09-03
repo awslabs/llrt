@@ -15,7 +15,7 @@ use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
     object::Property,
     prelude::This,
-    Array, Class, Ctx, Function, IntoJs, Object, Result, Value,
+    Array, Class, Ctx, Exception, Function, IntoJs, Object, Result, Value,
 };
 
 use crate::libs::utils::{
@@ -139,17 +139,17 @@ impl<'js> XMLParser<'js> {
 
             match reader.read_event_into(&mut buf) {
                 Ok(Event::Empty(ref tag)) => {
-                    current_key = Self::get_tag_name(&ctx, &reader, tag)?;
+                    current_key = Self::get_tag_name(tag);
 
                     let mut obj = StackObject::new(ctx.clone())?;
-                    self.process_attributes(&ctx, &reader, &path, tag, &mut obj, &mut false)?;
+                    self.process_attributes(&ctx, &path, tag, &mut obj, &mut false)?;
                     current_obj.has_value = true;
 
                     Self::process_end(&ctx, &current_obj, obj.into_value(&ctx)?, &current_key)?;
                 },
                 Ok(Event::Start(ref tag)) => {
                     has_attributes = false;
-                    current_key = Self::get_tag_name(&ctx, &reader, tag)?;
+                    current_key = Self::get_tag_name(tag);
                     path.push((current_key.clone(), current_obj));
 
                     let obj = StackObject::new(ctx.clone())?;
@@ -157,7 +157,6 @@ impl<'js> XMLParser<'js> {
 
                     self.process_attributes(
                         &ctx,
-                        &reader,
                         &path,
                         tag,
                         &mut current_obj,
@@ -178,8 +177,7 @@ impl<'js> XMLParser<'js> {
                     Self::process_end(&ctx, &current_obj, value, &parent_tag)?;
                 },
                 Ok(Event::CData(text)) => {
-                    let text = text.escape().or_throw(&ctx)?;
-                    let tag_value = String::from_utf8_lossy(&text);
+                    let tag_value = text.escape().or_throw(&ctx)?.into_inner();
                     self.process_text(
                         &mut current_obj,
                         &mut current_key,
@@ -190,8 +188,7 @@ impl<'js> XMLParser<'js> {
                     )?;
                 },
                 Ok(Event::GeneralRef(ref text)) => {
-                    let text_ref = text.decode().or_throw(&ctx)?;
-                    let text_ref: &str = &text_ref;
+                    let text_ref: &str = text.as_ref();
                     let tag_value = resolve_xml_entity(text_ref)
                         .or_else(|| {
                             self.entities
@@ -206,7 +203,7 @@ impl<'js> XMLParser<'js> {
                     }
                 },
                 Ok(Event::Text(ref text)) => {
-                    let tag_value = text.decode().or_throw(&ctx)?;
+                    let tag_value = Cow::Borrowed(text.as_ref());
 
                     self.process_text(
                         &mut current_obj,
@@ -217,7 +214,12 @@ impl<'js> XMLParser<'js> {
                         tag_value,
                     )?;
                 },
-                Err(e) => panic!("Error at position {}: {:?}", reader.buffer_position(), e),
+                Err(e) => {
+                    return Err(Exception::throw_message(
+                        &ctx,
+                        &format!("Error at position {}: {}", reader.buffer_position(), e),
+                    ))
+                },
                 Ok(Event::Eof) => break,
                 _ => {},
             }
@@ -251,14 +253,8 @@ impl<'js> XMLParser<'js> {
         Ok(())
     }
 
-    fn get_tag_name(
-        ctx: &Ctx<'js>,
-        reader: &Reader<&[u8]>,
-        tag: &BytesStart<'_>,
-    ) -> Result<Rc<str>> {
-        let tag = tag.name();
-        let tag_name = reader.decoder().decode(tag.as_ref()).or_throw(ctx)?;
-        Ok(tag_name.as_ref().into())
+    fn get_tag_name(tag: &BytesStart<'_>) -> Rc<str> {
+        tag.name().as_ref().into()
     }
 
     fn process_end(
@@ -312,7 +308,6 @@ impl<'js> XMLParser<'js> {
     fn process_attributes(
         &self,
         ctx: &Ctx<'js>,
-        reader: &Reader<&[u8]>,
         path: &[(Rc<str>, StackObject<'js>)],
         tag: &BytesStart<'_>,
         stack_object: &mut StackObject<'js>,
@@ -325,21 +320,18 @@ impl<'js> XMLParser<'js> {
                 *has_attributes = true;
                 let attr = attribute.or_throw(ctx)?;
 
-                let value = reader.decoder().decode(attr.value.as_ref()).or_throw(ctx)?;
-                let value = value.as_ref();
+                let value = attr.value.as_ref();
+                let key_str = attr.key.as_ref();
 
-                let key_slice = attr.key.as_ref();
                 if !self.attribute_name_prefix.is_empty() {
-                    let prefix_bytes = self.attribute_name_prefix.as_bytes();
-                    let mut key_bytes = Vec::with_capacity(prefix_bytes.len() + key_slice.len());
-                    key_bytes.extend_from_slice(prefix_bytes);
-                    key_bytes.extend_from_slice(key_slice);
+                    let mut key =
+                        String::with_capacity(self.attribute_name_prefix.len() + key_str.len());
+                    key.push_str(&self.attribute_name_prefix);
+                    key.push_str(key_str);
 
-                    let key = reader.decoder().decode(&key_bytes).or_throw(ctx)?;
-                    self.set_attribute(stack_object, &jpath_str, key.as_ref(), value)?;
+                    self.set_attribute(stack_object, &jpath_str, &key, value)?;
                 } else {
-                    let key = reader.decoder().decode(key_slice).or_throw(ctx)?;
-                    self.set_attribute(stack_object, &jpath_str, key.as_ref(), value)?;
+                    self.set_attribute(stack_object, &jpath_str, key_str, value)?;
                 };
             }
         }
