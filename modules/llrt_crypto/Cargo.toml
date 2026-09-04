@@ -160,7 +160,7 @@ pkcs8 = { version = "0.11", default-features = false, features = [
 ], optional = true }
 sponge-cursor = { version = "0.1", default-features = false, optional = true }
 sha1 = { version = "0.11", features = ["oid"], default-features = false, optional = true }
-sha3 = { version = "0.11", default-features = false, optional = true }
+sha3 = { version = "0.12", default-features = false, optional = true }
 spki = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }
