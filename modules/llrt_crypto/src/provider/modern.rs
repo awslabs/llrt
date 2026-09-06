@@ -404,10 +404,10 @@ struct HybridKeyPair {
 }
 
 fn shake256(input: &[u8], output_length: usize) -> Vec<u8> {
-    use sha3::digest::{ExtendableOutput, Update, XofReader};
+    use shake::{ExtendableOutput, Update, XofReader};
 
     let mut output = vec![0; output_length];
-    let mut hash = sha3::Shake256::default();
+    let mut hash = shake::Shake256::default();
     hash.update(input);
     hash.finalize_xof().read(&mut output);
     output

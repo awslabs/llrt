@@ -1939,6 +1939,7 @@ dependencies = [
  "rsa",
  "sha1",
  "sha3 0.12.0",
+ "shake",
  "spki",
  "sponge-cursor",
  "x25519-dalek",
