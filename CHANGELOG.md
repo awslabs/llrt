@@ -15,6 +15,9 @@
   - Exposed the bundled AWS SDK version (@dills122)
   - Exposed base64 encode/decode from the codec library (@nabetti1720)
   - Increased WPT compatibility and expanded the WPT test targets, including Intl402/Temporal (@richarddavison, @nabetti1720)
+  - Added modern WebCrypto algorithms: SHA-3, cSHAKE, TurboSHAKE, ChaCha20-Poly1305, ML-DSA, ML-KEM and hybrid KEMs (@panva)
+  - Added `SubtleCrypto.getPublicKey` and `SubtleCrypto.supports` (@panva)
+  - Added raw key format aliases for WebCrypto import and export (@panva)
 
 ### Fixes
   - Validate offsets against view bounds to prevent OOB panics and cross-view corruption in buffer and crypto (@richarddavison)
@@ -48,6 +51,9 @@
   - Get `rustls-graviola` from crates.io (@nabetti1720)
   - Fix incompatibilities caused by the latest cargo fix (@nabetti1720)
   - Clear test output after a successful test (@richarddavison)
+  - Align WebCrypto validation, key derivation and key import/export behaviour with the specification (@panva)
+  - Derive ECDH shared secrets into KDF keys and limit derived output lengths (@panva)
+  - Compare HMAC signatures in constant time (@panva)
 
 ### Maintenance
   - Upgrade rquickjs to 0.12 (@richarddavison, @nabetti1720)
@@ -63,6 +69,9 @@
   - Fix Windows openssl test linking and the Windows modules CI build (@richarddavison)
   - Update API documentation with new features (@WuJunkai2004)
   - Replace the unmaintained `users` crate with the maintained `uzers` fork (@richarddavison)
+  - Enable the modern WPT WebCrypto suites and normalize test exclusion criteria (@panva, @nabetti1720)
+  - Pin the CI nightly toolchain so upstream regressions don't break every build (@richarddavison)
+  - Remove the AWS SDK sample and clean up dependencies (@nabetti1720)
   - Dependency upgrades
 
 Thanks for all the reports and contributors
