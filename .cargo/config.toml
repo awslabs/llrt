@@ -7,9 +7,6 @@ rustflags = [
     "-Zpanic_abort_tests",
     "-Zthreads=8",
 ]
-linker = "./linker/cc-aarch64-linux-musl"
-ar = "./linker/ar"
-
 
 [target.x86_64-unknown-linux-musl]
 rustflags = [
@@ -20,8 +17,6 @@ rustflags = [
     "-Zpanic_abort_tests",
     "-Zthreads=8",
 ]
-linker = "./linker/cc-x86_64-linux-musl"
-ar = "./linker/ar"
 
 [env]
 CC_aarch64_apple_darwin = "/usr/bin/clang"
