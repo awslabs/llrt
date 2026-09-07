@@ -30,7 +30,7 @@ uzers = { version = "0.12", features = ["cache"], default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 whoami = { version = "2", default-features = false }
-windows-registry = { version = "0.6", features = [
+windows-registry = { version = "0.100", features = [
   "std",
 ], default-features = false }
 windows-result = { version = "0.4", features = [
