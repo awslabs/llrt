@@ -36,7 +36,7 @@ windows-registry = { version = "0.100", features = [
 windows-result = { version = "0.100", features = [
   "std",
 ], default-features = false }
-windows-version = { version = "0.1", default-features = false }
+windows-version = { version = "0.100", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

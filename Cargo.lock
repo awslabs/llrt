@@ -4238,11 +4238,11 @@ dependencies = [
 
 [[package]]
 name = "windows-version"
-version = "0.1.7"
+version = "0.100.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4060a1da109b9d0326b7262c8e12c84df67cc0dbc9e33cf49e01ccc2eb63631"
+checksum = "f5d2a42ae19ff386c4680514519a225a2a99bcfada6aff0ab3766f928ff84365"
 dependencies = [
- "windows-link 0.2.1",
+ "windows-link 0.100.0",
 ]
 
 [[package]]
