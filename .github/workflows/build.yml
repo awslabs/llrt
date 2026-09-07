@@ -84,6 +84,11 @@ jobs:
         with:
           toolchain: ${{ inputs.toolchain }}
           cache-bin: false
+      - name: Install cargo-zigbuild
+        if: inputs.platform == 'linux'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
       - name: Map crypto to features
         id: features
         if: inputs.crypto != ''
