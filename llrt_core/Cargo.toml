@@ -67,7 +67,7 @@ simd-json = { version = "0.18", default-features = false }
 terminal_size = { version = "0.4", default-features = false }
 tokio = { version = "1", features = ["sync", "time"], default-features = false }
 tracing = { version = "0.1", features = ["log"], default-features = false }
-zstd = { version = "0.13", default-features = false }
+zstd = { version = "0.14", default-features = false }
 openssl = { version = "0.10", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
