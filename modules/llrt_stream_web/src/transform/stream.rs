@@ -222,10 +222,10 @@ pub(crate) fn sink_write_algorithm<'js>(
         if let Some(bp_promise) = bp_promise {
             let sc = stream_class.clone();
             let cc = controller_class.clone();
-            return crate::utils::promise::upon_promise::<Value<'js>, _>(
+            return crate::utils::promise::upon_promise(
                 ctx.clone(),
                 bp_promise,
-                move |ctx, _| {
+                Box::new(move |ctx, _| {
                     let p = controller::transform_stream_default_controller_perform_transform(
                         ctx.clone(),
                         &sc,
@@ -233,7 +233,7 @@ pub(crate) fn sink_write_algorithm<'js>(
                         chunk,
                     )?;
                     Ok(p.into_value())
-                },
+                }),
             );
         }
     } else {
@@ -257,10 +257,10 @@ pub(crate) fn sink_close_algorithm<'js>(
 
     let sc = stream_class.clone();
     let cc = controller_class.clone();
-    crate::utils::promise::upon_promise::<Value<'js>, _>(
+    crate::utils::promise::upon_promise(
         ctx.clone(),
         flush_promise,
-        move |ctx, result| {
+        Box::new(move |ctx, result| {
             cc.borrow_mut().clear_algorithms();
             match result {
                 Ok(_) => {
@@ -292,7 +292,7 @@ pub(crate) fn sink_close_algorithm<'js>(
                     Err(ctx.throw(r))
                 },
             }
-        },
+        }),
     )
 }
 
@@ -304,16 +304,16 @@ pub(crate) fn sink_abort_algorithm<'js>(
     let cancel_promise = controller::perform_cancel(ctx.clone(), controller_class, reason)?;
 
     let cc = controller_class.clone();
-    crate::utils::promise::upon_promise::<Value<'js>, _>(
+    crate::utils::promise::upon_promise(
         ctx.clone(),
         cancel_promise,
-        move |ctx, result| {
+        Box::new(move |ctx, result| {
             cc.borrow_mut().clear_algorithms();
             match result {
                 Ok(_) => Ok(Value::new_undefined(ctx)),
                 Err(r) => Err(ctx.throw(r)),
             }
-        },
+        }),
     )
 }
 
@@ -336,16 +336,16 @@ pub(crate) fn source_cancel_algorithm<'js>(
 
     let sc = stream_class.clone();
     let cc = controller_class.clone();
-    crate::utils::promise::upon_promise::<Value<'js>, _>(
+    crate::utils::promise::upon_promise(
         ctx.clone(),
         cancel_promise,
-        move |ctx, result| {
+        Box::new(move |ctx, result| {
             cc.borrow_mut().clear_algorithms();
             controller::transform_stream_error_writable_and_unblock_write(&sc, reason)?;
             match result {
                 Ok(_) => Ok(Value::new_undefined(ctx)),
                 Err(r) => Err(ctx.throw(r)),
             }
-        },
+        }),
     )
 }

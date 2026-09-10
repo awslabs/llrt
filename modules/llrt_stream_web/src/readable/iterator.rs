@@ -343,22 +343,24 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
             upon_promise(
                 ctx,
                 next_promise,
-                move |ctx, result: std::result::Result<Value<'js>, _>| {
+                Box::new(move |ctx, result| {
                     let mut iterator = OwnedBorrowMut::from_class(iterator_class);
                     match result {
                         Ok(next) => {
                             iterator.ongoing_promise = None;
                             if next.as_symbol() == Some(&iterator.end_of_iteration) {
                                 iterator.is_finished.store(true, Ordering::Release);
-                                Ok(ReadableStreamReadResult {
+                                ReadableStreamReadResult {
                                     value: None,
                                     done: true,
-                                })
+                                }
+                                .into_js(&ctx)
                             } else {
-                                Ok(ReadableStreamReadResult {
+                                ReadableStreamReadResult {
                                     value: Some(next),
                                     done: false,
-                                })
+                                }
+                                .into_js(&ctx)
                             }
                         },
                         Err(reason) => {
@@ -367,7 +369,7 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
                             Err(ctx.throw(reason))
                         },
                     }
-                },
+                }),
             )
         };
 
@@ -378,10 +380,10 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
             Some(ongoing_promise) => upon_promise(
                 ctx,
                 ongoing_promise,
-                move |ctx, _: std::result::Result<Value<'js>, _>| {
+                Box::new(move |ctx, _| {
                     let iterator = OwnedBorrow::from_class(iterator_class.clone());
-                    next_steps(ctx, &iterator, iterator_class)
-                },
+                    next_steps(ctx.clone(), &iterator, iterator_class)?.into_js(&ctx)
+                }),
             )?,
             None => next_steps(ctx, &iterator, iterator_class)?,
         };
@@ -424,22 +426,27 @@ impl<'js> ReadableStreamAsyncIterator<'js> {
             Some(ongoing_promise) => upon_promise(
                 ctx.clone(),
                 ongoing_promise,
-                move |ctx, _: std::result::Result<Value<'js>, _>| {
+                Box::new(move |ctx, _| {
                     let iterator = OwnedBorrow::from_class(iterator_class.clone());
-                    return_steps(ctx, &iterator)
-                },
+                    return_steps(ctx.clone(), &iterator)?.into_js(&ctx)
+                }),
             )?,
             None => return_steps(ctx.clone(), &iterator)?,
         };
 
         iterator.ongoing_promise = Some(ongoing_promise.clone());
 
-        upon_promise_fulfilment(ctx, ongoing_promise, move |_, ()| {
-            Ok(ReadableStreamReadResult {
-                value: Some(value),
-                done: true,
-            })
-        })
+        upon_promise_fulfilment(
+            ctx,
+            ongoing_promise,
+            Box::new(move |ctx, _| {
+                ReadableStreamReadResult {
+                    value: Some(value),
+                    done: true,
+                }
+                .into_js(&ctx)
+            }),
+        )
     }
 }
 

@@ -235,8 +235,8 @@ impl<'js> ReadableStream<'js> {
                 let tee_state = tee_state.clone();
                 let branch_1_objects = branch_1_objects.clone();
                 let branch_2_objects = branch_2_objects.clone();
-                move |_, result| match result {
-                    Ok(()) => Ok(()),
+                Box::new(move |ctx, result| match result {
+                    Ok(_) => Ok(Value::new_undefined(ctx)),
                     // Upon rejection of reader.[[closedPromise]] with reason r,
                     Err(reason) => {
                         // Perform ! ReadableStreamDefaultControllerError(branch1.[[controller]], r).
@@ -261,9 +261,9 @@ impl<'js> ReadableStream<'js> {
                             state.cancel_promise.resolve_undefined()?;
                         }
 
-                        Ok(())
+                        Ok(Value::new_undefined(ctx))
                     },
-                }
+                })
             },
         )?;
 
@@ -760,11 +760,11 @@ impl<'js> ReadableStream<'js> {
         upon_promise(
             ctx,
             this_reader.closed_promise(),
-            move |_, result| match result {
+            Box::new(move |ctx, result| match result {
                 Err(r) => {
                     // If thisReader is not reader, return.
                     if !reader.borrow().eq(&this_reader) {
-                        return Ok(());
+                        return Ok(Value::new_undefined(ctx));
                     }
 
                     let objects_1 =
@@ -789,10 +789,10 @@ impl<'js> ReadableStream<'js> {
                     if reason_1.get().is_none() || reason_2.get().is_none() {
                         cancel_promise.resolve_undefined()?;
                     }
-                    Ok(())
+                    Ok(Value::new_undefined(ctx))
                 },
-                Ok(()) => Ok(()),
-            },
+                Ok(_) => Ok(Value::new_undefined(ctx)),
+            }),
         )?;
         Ok(())
     }

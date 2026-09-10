@@ -484,9 +484,9 @@ impl<'js> WritableStream<'js> {
         let objects_class = objects.into_inner();
 
         // Upon fulfillment of promise,
-        let _ = upon_promise::<Value<'js>, _>(ctx.clone(), promise, {
+        let _ = upon_promise(ctx.clone(), promise, {
             let objects_class = objects_class.clone();
-            move |_, result| {
+            Box::new(move |ctx, result| {
                 let objects =
                     WritableStreamObjects::from_class_no_writer(objects_class).refresh_writer();
                 match result {
@@ -498,7 +498,7 @@ impl<'js> WritableStream<'js> {
                         WritableStream::writable_stream_reject_close_and_closed_promise_if_needed(
                             objects,
                         )?;
-                        Ok(())
+                        Ok(Value::new_undefined(ctx))
                     },
                     // Upon rejection of promise with reason reason,
                     Err(reason) => {
@@ -508,10 +508,10 @@ impl<'js> WritableStream<'js> {
                         WritableStream::writable_stream_reject_close_and_closed_promise_if_needed(
                             objects,
                         )?;
-                        Ok(())
+                        Ok(Value::new_undefined(ctx))
                     },
                 }
-            }
+            })
         })?;
 
         Ok(WritableStreamObjects::from_class(objects_class))

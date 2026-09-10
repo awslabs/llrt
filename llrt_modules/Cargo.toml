@@ -12,6 +12,8 @@ default = ["base", "console", "tls-ring", "crypto-rust"]
 lambda = ["base"]
 no-sdk = ["llrt_process?/no-sdk"]
 
+pqc = ["llrt_crypto?/pqc"]
+
 # TLS crypto backend features
 tls-ring = ["llrt_http?/tls-ring", "llrt_tls?/tls-ring", "llrt_fetch?/tls-ring"]
 tls-aws-lc = [
