@@ -192,7 +192,10 @@ impl StringDecoder {
     }
 
     fn flush(&mut self, ctx: &Ctx<'_>) -> Result<String> {
-        if matches!(self.encoder, Encoder::Utf16le) && self.buffered_bytes % 2 == 1 {
+        let odd_utf16_byte =
+            matches!(self.encoder, Encoder::Utf16le) && self.buffered_bytes % 2 == 1;
+
+        if odd_utf16_byte {
             // Ignore a single trailing byte, like the JS decoder does.
             self.missing_bytes -= 1;
             self.buffered_bytes -= 1;
@@ -202,13 +205,23 @@ impl StringDecoder {
             return Ok(String::new());
         }
 
-        let res = self.make_string(ctx, &self.buffer);
+        let decode_len = self.buffer.len() - usize::from(odd_utf16_byte);
+
+        let mut res = self.make_string(ctx, &self.buffer[..decode_len])?;
+
+        if odd_utf16_byte && decode_len >= 2 {
+            let code_unit =
+                u16::from_le_bytes([self.buffer[decode_len - 2], self.buffer[decode_len - 1]]);
+            if (0xD800..=0xDBFF).contains(&code_unit) {
+                res.push('\u{FFFD}');
+            }
+        }
 
         self.missing_bytes = 0;
         self.buffered_bytes = 0;
         self.buffer.clear();
 
-        res
+        Ok(res)
     }
 }
 
