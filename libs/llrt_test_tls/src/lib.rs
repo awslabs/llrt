@@ -4,14 +4,35 @@
 // FIXME this library is only needed until TLS is natively supported in wiremock.
 // See https://github.com/LukeMathWalker/wiremock-rs/issues/58
 
+#[cfg(all(feature = "tls-rust", feature = "tls-ring"))]
+compile_error!("Features `tls-rust` and `tls-ring` are mutually exclusive");
+
+#[cfg(all(feature = "tls-rust", feature = "tls-aws-lc"))]
+compile_error!("Features `tls-rust` and `tls-aws-lc` are mutually exclusive");
+
+#[cfg(all(feature = "tls-rust", feature = "tls-graviola"))]
+compile_error!("Features `tls-rust` and `tls-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "tls-rust", feature = "tls-openssl"))]
+compile_error!("Features `tls-rust` and `tls-openssl` are mutually exclusive");
+
 #[cfg(all(feature = "tls-ring", feature = "tls-aws-lc"))]
-compile_error!("Features 'tls-ring' and 'tls-aws-lc' are mutually exclusive");
+compile_error!("Features `tls-ring` and `tls-aws-lc` are mutually exclusive");
 
 #[cfg(all(feature = "tls-ring", feature = "tls-graviola"))]
-compile_error!("Features 'tls-ring' and 'tls-graviola' are mutually exclusive");
+compile_error!("Features `tls-ring` and `tls-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "tls-ring", feature = "tls-openssl"))]
+compile_error!("Features `tls-ring` and `tls-openssl` are mutually exclusive");
 
 #[cfg(all(feature = "tls-aws-lc", feature = "tls-graviola"))]
-compile_error!("Features 'tls-aws-lc' and 'tls-graviola' are mutually exclusive");
+compile_error!("Features `tls-aws-lc` and `tls-graviola` are mutually exclusive");
+
+#[cfg(all(feature = "tls-aws-lc", feature = "tls-openssl"))]
+compile_error!("Features `tls-aws-lc` and `tls-openssl` are mutually exclusive");
+
+#[cfg(all(feature = "tls-graviola", feature = "tls-openssl"))]
+compile_error!("Features `tls-graviola` and `tls-openssl` are mutually exclusive");
 
 use std::net::{Ipv4Addr, SocketAddr};
 
