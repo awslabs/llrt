@@ -12,6 +12,8 @@ no-sdk = ["llrt_core/no-sdk"]
 uncompressed = ["llrt_core/uncompressed"]
 bindgen = ["llrt_core/bindgen"]
 
+pqc = ["llrt_core/pqc"]
+
 # TLS crypto backend features
 tls-ring = ["llrt_core/tls-ring"]
 tls-aws-lc = ["llrt_core/tls-aws-lc"]

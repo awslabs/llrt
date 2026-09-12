@@ -6,6 +6,9 @@ rustflags = [
     "-Cpanic=immediate-abort",
     "-Zpanic_abort_tests",
     "-Zthreads=8",
+    "-Cforce-unwind-tables=no",
+    "-Zlocation-detail=none",
+    "-Crelocation-model=static",
 ]
 
 [target.x86_64-unknown-linux-musl]
@@ -16,6 +19,9 @@ rustflags = [
     "-Cpanic=immediate-abort",
     "-Zpanic_abort_tests",
     "-Zthreads=8",
+    "-Cforce-unwind-tables=no",
+    "-Zlocation-detail=none",
+    "-Crelocation-model=static",
 ]
 
 [env]

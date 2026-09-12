@@ -369,9 +369,11 @@ deploy:
 	cd example/infrastructure && yarn deploy --require-approval never
 
 check:
+	cargo clippy --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring,pqc" -- -D warnings
 	cargo clippy --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring" -- -D warnings
 
 test-rs:
+	cargo test --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring,pqc"
 	cargo test --all-targets --no-default-features --features "lambda,macro,no-sdk,uncompressed,crypto-rust,tls-ring"
 
 check-crates:

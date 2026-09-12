@@ -12,6 +12,8 @@ uncompressed = []
 macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
 
+pqc = ["llrt_modules/pqc"]
+
 # TLS crypto backend features
 tls-ring = ["rustls/ring", "llrt_modules/tls-ring"]
 tls-aws-lc = ["rustls/aws_lc_rs", "llrt_modules/tls-aws-lc"]

@@ -7,7 +7,7 @@ use rquickjs::{
     function::Constructor,
     prelude::{IntoArg, OnceFn, This},
     promise::PromiseState,
-    Ctx, Error, FromJs, Function, IntoJs, JsLifetime, Object, Promise, Result, Value,
+    Ctx, Error, Function, JsLifetime, Object, Promise, Result, Value,
 };
 
 pub fn promise_rejected_with<'js>(
@@ -101,11 +101,15 @@ impl<'js> Primordial<'js> for PromisePrimordials<'js> {
     }
 }
 
+pub type PromiseThen<'js> = Box<
+    dyn FnOnce(Ctx<'js>, std::result::Result<Value<'js>, Value<'js>>) -> Result<Value<'js>> + 'js,
+>;
+
 // https://webidl.spec.whatwg.org/#dfn-perform-steps-once-promise-is-settled
-pub fn upon_promise<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js> + 'js>(
+pub fn upon_promise<'js>(
     ctx: Ctx<'js>,
     promise: Promise<'js>,
-    then: impl FnOnce(Ctx<'js>, std::result::Result<Input, Value<'js>>) -> Result<Output> + 'js,
+    then: PromiseThen<'js>,
 ) -> Result<Promise<'js>> {
     let promise_then = PromisePrimordials::get(&ctx)?
         .promise_prototype_then
@@ -138,10 +142,10 @@ pub fn upon_promise<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js> + 'js>(
     ))
 }
 
-pub fn upon_promise_fulfilment<'js, Input: FromJs<'js> + 'js, Output: IntoJs<'js> + 'js>(
+pub fn upon_promise_fulfilment<'js>(
     ctx: Ctx<'js>,
     promise: Promise<'js>,
-    then: impl FnOnce(Ctx<'js>, Input) -> Result<Output> + 'js,
+    then: Box<dyn FnOnce(Ctx<'js>, Value<'js>) -> Result<Value<'js>> + 'js>,
 ) -> Result<Promise<'js>> {
     let promise_then = PromisePrimordials::get(&ctx)?
         .promise_prototype_then

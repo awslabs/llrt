@@ -9,7 +9,7 @@ use llrt_utils::{option::Undefined, result::ResultExt};
 use rquickjs::{
     class::{OwnedBorrow, Trace},
     prelude::{OnceFn, This},
-    Class, Coerced, Ctx, Error, FromJs, Function, Promise, Result, Value,
+    Class, Coerced, Ctx, Error, FromJs, Function, IntoJs, Promise, Result, Value,
 };
 
 use crate::{
@@ -391,13 +391,18 @@ impl<'js> PipeTo<'js> {
         } else {
             let pipe_step_promise = self.pipe_step(ctx.clone())?;
             upon_promise(ctx, pipe_step_promise, {
-                {
-                    let pipe_to = self.clone();
-                    move |ctx, result| match result {
-                        Ok(done) => pipe_to.next(ctx, done, loop_promise),
-                        Err(err) => loop_promise.reject(err),
-                    }
-                }
+                let pipe_to = self.clone();
+                Box::new(move |ctx, result| match result {
+                    Ok(value) => {
+                        let done = bool::from_js(&ctx, value)?;
+                        pipe_to.next(ctx.clone(), done, loop_promise)?;
+                        Ok(Value::new_undefined(ctx))
+                    },
+                    Err(err) => {
+                        loop_promise.reject(err)?;
+                        Ok(Value::new_undefined(ctx))
+                    },
+                })
             })?;
         }
 
@@ -425,7 +430,7 @@ impl<'js> PipeTo<'js> {
             let current_write = self.current_write.clone();
             let source_objects = self.source_objects.clone();
             let dest_objects = self.dest_objects.clone();
-            move |ctx: Ctx<'js>, ()| -> Result<Promise<'js>> {
+            Box::new(move |ctx, _| {
                 let read_promise = ResolveablePromise::new(&ctx)?;
 
                 struct ReadRequest<'js> {
@@ -510,8 +515,8 @@ impl<'js> PipeTo<'js> {
                     },
                 )?;
 
-                Ok(promise)
-            }
+                Ok(promise.into_value())
+            })
         })
     }
 
@@ -540,7 +545,14 @@ impl<'js> PipeTo<'js> {
         if already_closed {
             action(ctx)?;
         } else {
-            upon_promise_fulfilment(ctx, promise, |ctx, ()| action(ctx))?;
+            upon_promise_fulfilment(
+                ctx,
+                promise,
+                Box::new(move |ctx, _| {
+                    action(ctx.clone())?;
+                    Ok(Value::new_undefined(ctx))
+                }),
+            )?;
         }
         Ok(())
     }
@@ -560,10 +572,17 @@ impl<'js> PipeTo<'js> {
             let pipe_to = self.clone();
             move |ctx: Ctx<'js>| -> Result<()> {
                 let action_promise = action(ctx.clone())?;
-                upon_promise(ctx, action_promise, move |ctx, result| match result {
-                    Ok(()) => pipe_to.finalize(ctx, original_error),
-                    Err(new_error) => pipe_to.finalize(ctx, Some(new_error)),
-                })?;
+                upon_promise(
+                    ctx,
+                    action_promise,
+                    Box::new(move |ctx, result| {
+                        match result {
+                            Ok(_) => pipe_to.finalize(ctx.clone(), original_error),
+                            Err(new_error) => pipe_to.finalize(ctx.clone(), Some(new_error)),
+                        }?;
+                        Ok(Value::new_undefined(ctx))
+                    }),
+                )?;
                 Ok(())
             }
         };
@@ -577,7 +596,14 @@ impl<'js> PipeTo<'js> {
         if writable {
             let wait_promise =
                 Self::wait_for_writes_to_finish(ctx.clone(), self.current_write.clone())?;
-            upon_promise_fulfilment(ctx, wait_promise, |ctx: Ctx<'js>, ()| do_the_rest(ctx))?;
+            upon_promise_fulfilment(
+                ctx,
+                wait_promise,
+                Box::new(move |ctx, _| {
+                    do_the_rest(ctx.clone())?;
+                    Ok(Value::new_undefined(ctx))
+                }),
+            )?;
         } else {
             do_the_rest(ctx)?
         }
@@ -600,9 +626,14 @@ impl<'js> PipeTo<'js> {
             let wait_promise =
                 Self::wait_for_writes_to_finish(ctx.clone(), self.current_write.clone())?;
             let pipe_to = self.clone();
-            upon_promise_fulfilment(ctx, wait_promise, move |ctx, ()| {
-                pipe_to.finalize(ctx, error)
-            })?;
+            upon_promise_fulfilment(
+                ctx,
+                wait_promise,
+                Box::new(move |ctx, _| {
+                    pipe_to.finalize(ctx.clone(), error)?;
+                    Ok(Value::new_undefined(ctx))
+                }),
+            )?;
         } else {
             self.finalize(ctx, error)?;
         }
@@ -618,16 +649,14 @@ impl<'js> PipeTo<'js> {
         upon_promise_fulfilment(
             ctx,
             old_current_write.clone(),
-            move |ctx: Ctx<'js>, ()| -> Result<Undefined<Promise<'js>>> {
+            Box::new(move |ctx, _| {
                 if !old_current_write.eq(&current_write.as_ref().borrow()) {
-                    Ok(Undefined(Some(Self::wait_for_writes_to_finish(
-                        ctx,
-                        current_write,
-                    )?)))
+                    let p = Self::wait_for_writes_to_finish(ctx.clone(), current_write)?;
+                    Undefined(Some(p)).into_js(&ctx)
                 } else {
-                    Ok(Undefined(None))
+                    Undefined::<Promise<'js>>(None).into_js(&ctx)
                 }
-            },
+            }),
         )
     }
 
