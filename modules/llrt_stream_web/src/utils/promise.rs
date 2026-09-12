@@ -101,8 +101,9 @@ impl<'js> Primordial<'js> for PromisePrimordials<'js> {
     }
 }
 
-pub type PromiseThen<'js> =
-    Box<dyn FnOnce(Ctx<'js>, std::result::Result<Value<'js>, Value<'js>>) -> Result<Value<'js>> + 'js>;
+pub type PromiseThen<'js> = Box<
+    dyn FnOnce(Ctx<'js>, std::result::Result<Value<'js>, Value<'js>>) -> Result<Value<'js>> + 'js,
+>;
 
 // https://webidl.spec.whatwg.org/#dfn-perform-steps-once-promise-is-settled
 pub fn upon_promise<'js>(

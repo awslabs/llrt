@@ -65,7 +65,10 @@ mod pqc {
         B32 as MlKemRandomness,
     };
 
-    trait MlDsaParameterSet: MlDsaParams + AssociatedAlgorithmIdentifier<Params = AnyRef<'static>> {}
+    trait MlDsaParameterSet:
+        MlDsaParams + AssociatedAlgorithmIdentifier<Params = AnyRef<'static>>
+    {
+    }
 
     impl MlDsaParameterSet for MlDsa44 {}
     impl MlDsaParameterSet for MlDsa65 {}
@@ -198,7 +201,8 @@ mod pqc {
         spki: bool,
     ) -> Result<Vec<u8>, CryptoError> {
         let key = if spki {
-            VerifyingKey::<P>::from_public_key_der(data).map_err(|_| CryptoError::InvalidKey(None))?
+            VerifyingKey::<P>::from_public_key_der(data)
+                .map_err(|_| CryptoError::InvalidKey(None))?
         } else {
             ml_dsa_verifying_key::<P>(data)?
         };
@@ -276,7 +280,8 @@ mod pqc {
         variant: MlKemVariant,
     ) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
         let seed = crate::random_byte_array(64);
-        let seed = MlKemSeed::try_from(seed.as_slice()).map_err(|_| CryptoError::InvalidKey(None))?;
+        let seed =
+            MlKemSeed::try_from(seed.as_slice()).map_err(|_| CryptoError::InvalidKey(None))?;
         dispatch_ml_kem!(variant, |Kem| {
             let private_key = ml_kem::DecapsulationKey::<Kem>::from_seed(seed);
             let public_key = private_key.encapsulation_key().to_bytes().to_vec();
@@ -585,7 +590,8 @@ mod pqc {
             },
             TraditionalPrivateKey::X25519(private_key) => {
                 let public_key = x25519_dalek::PublicKey::from(
-                    <[u8; 32]>::try_from(ciphertext).map_err(|_| CryptoError::OperationFailed(None))?,
+                    <[u8; 32]>::try_from(ciphertext)
+                        .map_err(|_| CryptoError::OperationFailed(None))?,
                 );
                 let shared_key = private_key.diffie_hellman(&public_key);
                 if shared_key.as_bytes().iter().all(|byte| *byte == 0) {
@@ -629,7 +635,8 @@ mod pqc {
             return Err(CryptoError::InvalidKey(None));
         }
         let (pq_public_key, traditional_public_key) = data.split_at(variant.pq_public_key_length());
-        let pq_public_key = import_ml_kem_public_key(variant.ml_kem_variant(), pq_public_key, false)?;
+        let pq_public_key =
+            import_ml_kem_public_key(variant.ml_kem_variant(), pq_public_key, false)?;
         match variant {
             HybridKemVariant::MlKem768P256 => {
                 p256::PublicKey::from_sec1_bytes(traditional_public_key)
