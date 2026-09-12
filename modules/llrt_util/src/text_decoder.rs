@@ -146,10 +146,6 @@ impl<'js> TextDecoder {
             &combined
         };
 
-        if !stream {
-            self.bom_seen.set(false);
-        }
-
         // Strip BOM if needed (only on first chunk of a decode sequence)
         if !self.ignore_bom && !self.bom_seen.get() {
             let skip = match self.encoder {
@@ -209,8 +205,19 @@ impl<'js> TextDecoder {
             }
         }
 
-        self.encoder
+        let result = self
+            .encoder
             .encode_to_string(&data[..decode_end], !self.fatal)
-            .or_throw_type(&ctx, "")
+            .inspect_err(|_| {
+                pending.clear();
+                self.bom_seen.set(false);
+            })
+            .or_throw_type(&ctx, "")?;
+
+        if !stream {
+            self.bom_seen.set(false);
+        }
+
+        Ok(result)
     }
 }
