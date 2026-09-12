@@ -739,7 +739,7 @@ impl<'js> ReadableStream<'js> {
                 let promise = upon_promise_fulfilment(
                     ctx,
                     source_cancel_promise,
-                    Box::new(move |ctx, _| Ok(Value::new_undefined(ctx))),
+                    Box::new(move |ctx, _| rquickjs::Undefined.into_js(&ctx)),
                 )?;
 
                 Ok((promise, objects))
@@ -1041,7 +1041,7 @@ impl<'js> ReadableStream<'js> {
                             return Err(Exception::throw_type(&ctx, "The promise returned by the iterator.next() method must fulfill with an object"));
                         }
                         // Return undefined.
-                        Ok(Value::new_undefined(ctx))
+                        rquickjs::Undefined.into_js(&ctx)
                     }),
                 )
             }
