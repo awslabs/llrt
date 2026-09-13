@@ -191,7 +191,7 @@ test: export JS_MINIFY = 0
 test: export TEST_SUB_DIR = unit
 test: export LLRT_ASYNC_HOOKS = 1
 test: js
-	cargo run --features pqc,intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+	cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 setup-wpt:
 	@if [ ! -d wpt/.git ]; then \
@@ -269,7 +269,7 @@ test-wpt: setup-wpt js
 		[ -n "$$ready" ] || { echo " timeout."; cat wpt_server.log; exit 1; }; \
 	done; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
-	TEST_REPORT_FILE=wpt_errors.txt cargo run --features pqc,intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR); \
+	TEST_REPORT_FILE=wpt_errors.txt cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR); \
 	kill $$WPT_PID 2>/dev/null
 
 # Run the WPT suite and compare the failing-test list (wpt_errors.txt, written

@@ -8,7 +8,7 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["base", "console", "tls-ring", "crypto-rust"]
+default = ["base", "console", "tls-ring", "crypto-rust", "pqc"]
 lambda = ["base"]
 no-sdk = ["llrt_process?/no-sdk"]
 

@@ -5,7 +5,7 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro", "tls-ring", "crypto-rust"]
+default = ["macro", "tls-ring", "crypto-rust", "pqc"]
 lambda = []
 no-sdk = ["llrt_modules/no-sdk"]
 uncompressed = []
