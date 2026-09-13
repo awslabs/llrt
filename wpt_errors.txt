@@ -1,18 +1,4 @@
-FileAPI/blob > should pass Blob-textStream.any.js tests
-WebCryptoAPI > should pass getPublicKey.tentative.https.any.js tests
 WebCryptoAPI > should pass historical.any.js tests
-WebCryptoAPI/encap_decap > should pass encap_decap_bits.tentative.https.any.js tests
-WebCryptoAPI/encap_decap > should pass encap_decap_keys.tentative.https.any.js tests
-WebCryptoAPI/generateKey > should pass successes_Hybrid-KEM.tentative.https.any.js tests
-WebCryptoAPI/generateKey > should pass successes_ML-DSA.tentative.https.any.js tests
-WebCryptoAPI/generateKey > should pass successes_ML-KEM.tentative.https.any.js tests
-WebCryptoAPI/import_export > should pass Hybrid-KEM_importKey.tentative.https.any.js tests
-WebCryptoAPI/import_export > should pass ML-DSA_importKey.tentative.https.any.js tests
-WebCryptoAPI/import_export > should pass ML-KEM_importKey.tentative.https.any.js tests
-WebCryptoAPI/serialization > should pass hybridkem.tentative.https.window.js tests
-WebCryptoAPI/serialization > should pass mldsa.tentative.https.any.js tests
-WebCryptoAPI/serialization > should pass mlkem.tentative.https.any.js tests
-WebCryptoAPI/sign_verify > should pass mldsa.tentative.https.any.js tests
 fetch/api/basic > should pass conditional-get.any.js tests
 fetch/api/basic > should pass header-value-combining.any.js tests
 fetch/api/basic > should pass integrity.sub.any.js tests
@@ -21,9 +7,6 @@ fetch/api/basic > should pass mode-same-origin.any.js tests
 fetch/api/basic > should pass referrer.any.js tests
 fetch/api/basic > should pass request-headers-case.any.js tests
 fetch/api/basic > should pass request-referrer.any.js tests
-fetch/api/body > should pass textstream.any.js tests
-streams/readable-byte-streams > should pass tee.any.js tests
-streams/readable-streams > should pass from.any.js tests
 streams/transferable > should pass transform-stream-members.any.js tests
 streams/transform-streams > should pass strategies.any.js tests
 streams/transform-streams > should pass terminate.any.js tests
@@ -37,5 +20,4 @@ third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass in
 third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass sub-minute-offset.js tests
 url > should pass IdnaTestV2.any.js tests
 url > should pass url-constructor.any.js tests
-url > should pass url-origin.any.js tests
 url > should pass url-setters.any.js tests
