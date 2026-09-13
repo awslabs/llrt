@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 #[cfg(not(feature = "lambda"))]
 pub use llrt_modules::console;
-#[cfg(feature = "intl402")]
-pub use llrt_modules::{intl, temporal};
 pub use llrt_modules::{
     abort, assert, async_hooks, buffer, child_process, crypto, dns, events, exceptions, fetch, fs,
     https, module, navigator, net, os, path, perf_hooks, process, stream_web, string_decoder,
     timers, tls, tty, url, util, zlib,
 };
+#[cfg(feature = "intl402")]
+pub use llrt_modules::{intl, temporal};
 pub use llrt_modules::{module_builder, package, CJS_IMPORT_PREFIX, CJS_LOADER_PREFIX};
 
 #[cfg(feature = "lambda")]
