@@ -2,7 +2,9 @@ use llrt_utils::{
     module::{export_default, ModuleInfo},
     primordials::{BasePrimordials, Primordial},
 };
-use queuing_strategy::{ByteLengthQueuingStrategy, CountQueuingStrategy};
+use queuing_strategy::{
+    ByteLengthQueuingStrategy, CountQueuingStrategy, NativeSizeFunctionPrimordials,
+};
 use readable::{
     ReadableByteStreamController, ReadableStreamBYOBReader, ReadableStreamBYOBRequest,
     ReadableStreamDefaultController, ReadableStreamDefaultReader,
@@ -56,6 +58,7 @@ pub fn create_transform_stream<'js>(
 
 fn init_primordials(ctx: &Ctx<'_>) -> Result<()> {
     BasePrimordials::init(ctx)?;
+    NativeSizeFunctionPrimordials::init(ctx)?;
     PromisePrimordials::init(ctx)?;
     ArrayConstructorPrimordials::init(ctx)?;
     WritableStreamDefaultControllerPrimordials::init(ctx)?;

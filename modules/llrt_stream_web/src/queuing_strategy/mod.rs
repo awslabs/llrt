@@ -1,9 +1,7 @@
+use llrt_utils::primordials::Primordial;
 use rquickjs::{
-    class::{JsCell, JsClass, Readable, Trace},
-    convert::Coerced,
-    function::{Constructor, Params},
-    prelude::This,
-    Class, Ctx, Error, Exception, FromJs, Function, JsLifetime, Object, Result, Value,
+    class::Trace, convert::Coerced, prelude::This, Ctx, Error, Exception, FromJs, Function,
+    JsLifetime, Result, Value,
 };
 
 pub(crate) use byte_length::ByteLengthQueuingStrategy;
@@ -144,8 +142,12 @@ pub(super) enum SizeFunction<'js> {
 
 impl<'js> FromJs<'js> for SizeFunction<'js> {
     fn from_js(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Self> {
-        if let Ok(nsf) = Class::<NativeSizeFunction>::from_value(&value) {
-            return Ok(SizeFunction::Native(*nsf.borrow()));
+        let primordials = NativeSizeFunctionPrimordials::get(ctx)?;
+        if value == primordials.count.clone().into_value() {
+            return Ok(SizeFunction::Native(NativeSizeFunction::Count));
+        }
+        if value == primordials.byte_length.clone().into_value() {
+            return Ok(SizeFunction::Native(NativeSizeFunction::ByteLength));
         }
 
         Ok(SizeFunction::Js(Function::from_js(ctx, value)?))
@@ -175,43 +177,28 @@ impl<'js> FromJs<'js> for QueueingStrategyInit {
     }
 }
 
-/// NativeSizeFunction is a callable class which allows us to keep track that these size functions are not user provided, but
-/// in fact represent the native size functions. This allows us to avoid JS calls by noticing that a size function is this class.
+/// Identifies a built-in queuing-strategy size algorithm so it can be handled
+/// without calling the JavaScript function.
 #[derive(JsLifetime, Trace, Clone, Copy)]
 pub(super) enum NativeSizeFunction {
     ByteLength,
     Count,
 }
 
-impl<'js> JsClass<'js> for NativeSizeFunction {
-    const NAME: &'static str = "NativeSizeFunction";
+#[derive(Clone, JsLifetime, Trace)]
+pub(super) struct NativeSizeFunctionPrimordials<'js> {
+    pub(super) count: Function<'js>,
+    pub(super) byte_length: Function<'js>,
+}
 
-    const KIND: rquickjs::class::ClassKind = rquickjs::class::ClassKind::Callable;
+impl<'js> Primordial<'js> for NativeSizeFunctionPrimordials<'js> {
+    fn new(ctx: &Ctx<'js>) -> Result<Self> {
+        let count: Function = Function::new(ctx.clone(), || 1)?;
+        let byte_length: Function = Function::new(ctx.clone(), native_byte_length_size)?;
+        count.set_name("size")?;
+        byte_length.set_name("size")?;
 
-    type Mutable = Readable;
-
-    fn prototype(ctx: &Ctx<'js>) -> Result<Option<Object<'js>>> {
-        Ok(Some(Function::prototype(ctx.clone())))
-    }
-
-    fn constructor(_ctx: &Ctx<'js>) -> Result<Option<Constructor<'js>>> {
-        Ok(None)
-    }
-
-    fn call<'a>(this: &JsCell<'js, Self>, params: Params<'a, 'js>) -> Result<Value<'js>> {
-        match &*this.borrow() {
-            NativeSizeFunction::Count => Ok(Value::new_int(params.ctx().clone(), 1)),
-            NativeSizeFunction::ByteLength => {
-                let Some(chunk) = params.arg(0) else {
-                    return Err(Exception::throw_type(
-                        params.ctx(),
-                        "ByteLengthQueuingStrategy expects an argument 'chunk'",
-                    ));
-                };
-
-                byte_length_queueing_strategy_size_function(params.ctx(), &chunk)
-            },
-        }
+        Ok(Self { count, byte_length })
     }
 }
 
@@ -219,12 +206,21 @@ fn byte_length_queueing_strategy_size_function<'js>(
     ctx: &Ctx<'js>,
     chunk: &Value<'js>,
 ) -> Result<Value<'js>> {
+    if chunk.is_null() || chunk.is_undefined() {
+        return Err(Exception::throw_type(
+            ctx,
+            "ByteLengthQueuingStrategy argument 'chunk' must be an object",
+        ));
+    }
+
     if let Some(chunk) = chunk.as_object() {
         chunk.get("byteLength")
     } else {
-        Err(Exception::throw_type(
-            ctx,
-            "ByteLengthQueuingStrategy argument 'chunk' must be an object",
-        ))
+        Ok(Value::new_undefined(ctx.clone()))
     }
+}
+
+fn native_byte_length_size<'js>(chunk: Value<'js>) -> Result<Value<'js>> {
+    let ctx = chunk.ctx().clone();
+    byte_length_queueing_strategy_size_function(&ctx, &chunk)
 }

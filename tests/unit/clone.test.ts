@@ -68,14 +68,18 @@ describe("structuredClone", () => {
   });
 
   it("Handles transfer list", () => {
-    const originalObject: any = { foo: { bar: "baz", arr: [1, 2, 3] } };
+    const buffer = new ArrayBuffer(3);
+    new Uint8Array(buffer).set([1, 2, 3]);
+    const originalObject: any = { foo: { bar: "baz", buffer } };
     const clonedObject1 = structuredClone(originalObject);
 
-    expect(clonedObject1.foo.arr).not.toBe(originalObject.foo.arr);
+    expect(clonedObject1.foo.buffer).not.toBe(originalObject.foo.buffer);
 
     const clonedObject2 = structuredClone(originalObject, {
-      transfer: [originalObject.foo.arr],
+      transfer: [originalObject.foo.buffer],
     });
-    expect(clonedObject2.foo.arr).toEqual(originalObject.foo.arr);
+    expect(new Uint8Array(clonedObject2.foo.buffer)).toEqual(
+      new Uint8Array([1, 2, 3])
+    );
   });
 });

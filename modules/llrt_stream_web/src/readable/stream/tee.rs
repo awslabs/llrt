@@ -1414,6 +1414,12 @@ impl<'js> ReadableStream<'js> {
                 chunk: Value<'js>,
             ) -> Result<ReadableStreamBYOBObjects<'js>> {
                 let ctx = chunk.ctx().clone();
+                let objects_class = objects.into_inner();
+                let function_array_buffer_is_view = objects_class
+                    .controller
+                    .borrow()
+                    .function_array_buffer_is_view
+                    .clone();
 
                 // Set reading to false.
                 self.reading.store(false, Ordering::Release);
@@ -1451,11 +1457,8 @@ impl<'js> ReadableStream<'js> {
 
                 // If chunk is not undefined,
                 if !chunk.is_undefined() {
-                    let chunk = ViewBytes::from_value(
-                        &ctx,
-                        &objects.controller.function_array_buffer_is_view,
-                        Some(&chunk),
-                    )?;
+                    let chunk =
+                        ViewBytes::from_value(&ctx, &function_array_buffer_is_view, Some(&chunk))?;
 
                     // If byobCanceled is false, perform ! ReadableByteStreamControllerRespondWithNewView(byobBranch.[[controller]], chunk).
                     if !byob_canceled {
@@ -1485,7 +1488,7 @@ impl<'js> ReadableStream<'js> {
                     self.cancel_promise.resolve_undefined()?
                 }
 
-                Ok(objects)
+                Ok(ReadableStreamObjects::from_class(objects_class))
             }
 
             fn error_steps(
@@ -1657,23 +1660,26 @@ impl<'js> ReadableStream<'js> {
                 cancel_promise,
             )?,
             // Otherwise, perform pullWithBYOBReader, given byobRequest.[[view]] and true.
-            Some(byob_request) => Self::readable_byte_stream_pull_with_byob_reader(
-                ctx.clone(),
-                objects,
-                reader.clone(),
-                reading.clone(),
-                read_again_for_branch_1,
-                read_again_for_branch_2,
-                reason_1,
-                reason_2,
-                objects_1,
-                objects_2,
-                cancel_promise,
-                byob_request.borrow().view.clone().expect(
+            Some(byob_request) => {
+                let view = byob_request.borrow().view.clone().expect(
                     "ReadableByteStream tee pull2Algorithm called with invalidated byobRequest",
-                ),
-                true,
-            )?,
+                );
+                Self::readable_byte_stream_pull_with_byob_reader(
+                    ctx.clone(),
+                    objects,
+                    reader.clone(),
+                    reading.clone(),
+                    read_again_for_branch_1,
+                    read_again_for_branch_2,
+                    reason_1,
+                    reason_2,
+                    objects_1,
+                    objects_2,
+                    cancel_promise,
+                    view,
+                    true,
+                )?
+            },
         };
 
         // Return a promise resolved with undefined.
