@@ -405,6 +405,23 @@ impl<'js> Request<'js> {
         })
     }
 
+    pub fn text_stream(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let body = match self.take_body_sync(&ctx) {
+            Ok(Some(body)) => Some(body),
+            Ok(None) => None,
+            Err(err) => return Err(err),
+        };
+        let body = match body {
+            None => return crate::body_helpers::create_text_stream(&ctx, None),
+            Some(BodyTaken::Bytes(bytes)) => Some(crate::body_helpers::create_body_value_stream(
+                &ctx,
+                bytes.into_js(&ctx)?,
+            )?),
+            Some(BodyTaken::Stream(stream)) => Some(stream.into_value()),
+        };
+        crate::body_helpers::create_text_stream(&ctx, body)
+    }
+
     pub fn json(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         let body = match self.take_body_sync(&ctx) {
             Ok(b) => b,

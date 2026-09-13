@@ -85,6 +85,10 @@ declare global {
      */
     text(): Promise<string>;
     /**
+     * Returns a readable stream that yields the contents of the `Blob` decoded as UTF-8 text.
+     */
+    textStream(): ReadableStream<string>;
+    /**
      * Returns a promise that resolves with an Uint8Array containing the contents of the Blob.
      */
     bytes(): Promise<Uint8Array>;
@@ -260,6 +264,10 @@ declare global {
      */
     readonly text: () => Promise<string>;
     /**
+     * Returns a readable stream that yields the request body decoded as UTF-8 text.
+     */
+    readonly textStream: () => ReadableStream<string>;
+    /**
      * Creates a copy of the current {@link Request} object.
      */
     readonly clone: () => Request;
@@ -344,6 +352,10 @@ declare global {
      * Returns a promise that resolves with a text representation of the response body.
      */
     readonly text: () => Promise<string>;
+    /**
+     * Returns a readable stream that yields the response body decoded as UTF-8 text.
+     */
+    readonly textStream: () => ReadableStream<string>;
     /**
      * Creates a clone of a {@link Response} object.
      */

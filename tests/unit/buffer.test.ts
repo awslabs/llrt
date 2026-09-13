@@ -1511,6 +1511,26 @@ describe("Blob class", () => {
     expect(slicedBlob.size).toEqual(5);
     expect(slicedBlob.type).toEqual("text/plain");
   });
+
+  it("can read a blob as a text stream", async () => {
+    const blob = new Blob(["hello 👋"]);
+    const reader = blob.textStream().getReader();
+
+    const first = await reader.read();
+    const second = await reader.read();
+
+    expect(first).toStrictEqual({ value: "hello 👋", done: false });
+    expect(second).toStrictEqual({ value: undefined, done: true });
+  });
+
+  it("closes an empty blob text stream without a chunk", async () => {
+    const reader = new Blob().textStream().getReader();
+
+    await expect(reader.read()).resolves.toStrictEqual({
+      value: undefined,
+      done: true,
+    });
+  });
 });
 
 describe("File class", () => {
