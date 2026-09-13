@@ -182,8 +182,8 @@ impl<'js> WritableStreamDefaultController<'js> {
         // Let startPromise be a promise resolved with startResult.
         let start_promise = promise_resolved_with(&ctx, &promise_primordials, Ok(start_result))?;
 
-        let _ = upon_promise::<Value<'js>, _>(ctx.clone(), start_promise, {
-            move |ctx, result| {
+        let _ = upon_promise(ctx.clone(), start_promise, {
+            Box::new(move |ctx, result| {
                 let mut objects =
                     WritableStreamObjects::from_class_no_writer(objects_class).refresh_writer();
                 match result {
@@ -193,7 +193,8 @@ impl<'js> WritableStreamDefaultController<'js> {
                         objects.controller.started = true;
                         // Perform ! WritableStreamDefaultControllerAdvanceQueueIfNeeded(controller).
                         Self::writable_stream_default_controller_advance_queue_if_needed(
-                            ctx, objects,
+                            ctx.clone(),
+                            objects,
                         )?;
                     },
                     // Upon rejection of startPromise with reason r,
@@ -202,11 +203,15 @@ impl<'js> WritableStreamDefaultController<'js> {
                         objects.controller.started = true;
 
                         // Perform ! WritableStreamDealWithRejection(stream, r).
-                        WritableStream::writable_stream_deal_with_rejection(ctx, objects, r)?;
+                        WritableStream::writable_stream_deal_with_rejection(
+                            ctx.clone(),
+                            objects,
+                            r,
+                        )?;
                     },
                 }
-                Ok(())
-            }
+                Ok(Value::new_undefined(ctx))
+            })
         })?;
 
         Ok(())
@@ -443,25 +448,31 @@ impl<'js> WritableStreamDefaultController<'js> {
             .controller
             .writable_stream_default_controller_clear_algorithms();
 
-        upon_promise::<Value<'js>, ()>(ctx, sink_close_promise, |ctx, result| {
-            let objects = WritableStreamObjects::from_class(objects_class);
-            match result {
-                // Upon fulfillment of sinkClosePromise,
-                Ok(_) => {
-                    // Perform ! WritableStreamFinishInFlightClose(stream).
-                    WritableStream::writable_stream_finish_in_flight_close(objects)?;
-                },
-                // Upon rejection of sinkClosePromise with reason reason,
-                Err(reason) => {
-                    // Perform ! WritableStreamFinishInFlightCloseWithError(stream, reason).
-                    WritableStream::writable_stream_finish_in_flight_close_with_error(
-                        ctx, objects, reason,
-                    )?;
-                },
-            }
+        upon_promise(
+            ctx,
+            sink_close_promise,
+            Box::new(move |ctx, result| {
+                let objects = WritableStreamObjects::from_class(objects_class);
+                match result {
+                    // Upon fulfillment of sinkClosePromise,
+                    Ok(_) => {
+                        // Perform ! WritableStreamFinishInFlightClose(stream).
+                        WritableStream::writable_stream_finish_in_flight_close(objects)?;
+                    },
+                    // Upon rejection of sinkClosePromise with reason reason,
+                    Err(reason) => {
+                        // Perform ! WritableStreamFinishInFlightCloseWithError(stream, reason).
+                        WritableStream::writable_stream_finish_in_flight_close_with_error(
+                            ctx.clone(),
+                            objects,
+                            reason,
+                        )?;
+                    },
+                }
 
-            Ok(())
-        })?;
+                Ok(Value::new_undefined(ctx))
+            }),
+        )?;
 
         Ok(objects)
     }
@@ -481,9 +492,9 @@ impl<'js> WritableStreamDefaultController<'js> {
         let (sink_write_promise, objects_class) = Self::write_algorithm(&ctx, objects, chunk)?;
 
         // Upon fulfillment of sinkWritePromise,
-        upon_promise::<Value<'js>, ()>(ctx, sink_write_promise, {
+        upon_promise(ctx, sink_write_promise, {
             let objects_class = objects_class.clone();
-            |ctx, result| {
+            Box::new(move |ctx, result| {
                 let mut objects = WritableStreamObjects::from_class(objects_class).refresh_writer();
                 match result {
                     Ok(_) => {
@@ -515,7 +526,7 @@ impl<'js> WritableStreamDefaultController<'js> {
                         }
 
                         // Perform ! WritableStreamDefaultControllerAdvanceQueueIfNeeded(controller).
-                        WritableStreamDefaultController::writable_stream_default_controller_advance_queue_if_needed(ctx, objects)?;
+                        WritableStreamDefaultController::writable_stream_default_controller_advance_queue_if_needed(ctx.clone(), objects)?;
                     },
                     Err(reason) => {
                         // Upon rejection of sinkWritePromise with reason,
@@ -527,13 +538,15 @@ impl<'js> WritableStreamDefaultController<'js> {
                         }
                         // Perform ! WritableStreamFinishInFlightWriteWithError(stream, reason).
                         WritableStream::writable_stream_finish_in_flight_write_with_error(
-                            ctx, objects, reason,
+                            ctx.clone(),
+                            objects,
+                            reason,
                         )?;
                     },
                 }
 
-                Ok(())
-            }
+                Ok(Value::new_undefined(ctx))
+            })
         })?;
 
         Ok(WritableStreamObjects::from_class(objects_class))

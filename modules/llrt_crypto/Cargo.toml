@@ -14,6 +14,9 @@ path = "src/lib.rs"
 [features]
 default = ["crypto-rust"]
 
+# Post-quantum algorithms (ML-DSA/ML-KEM/hybrid KEM)
+pqc = ["ml-dsa", "ml-kem"]
+
 # Internal feature: enables DER parsing for SubtleCrypto key import/export
 _subtle-full = [
   "llrt_json",
@@ -30,8 +33,6 @@ _modern-webcrypto = [
   "chacha20poly1305",
   "cshake",
   "keccak",
-  "ml-dsa",
-  "ml-kem",
   "p256",
   "p384",
   "sha3",

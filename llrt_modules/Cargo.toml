@@ -8,9 +8,12 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["base", "console", "tls-ring", "crypto-rust"]
+default = ["base", "console", "tls-ring", "crypto-rust", "pqc"]
 lambda = ["base"]
 no-sdk = ["llrt_process?/no-sdk"]
+
+pqc = ["llrt_crypto?/pqc"]
+intl402 = ["intl", "temporal"]
 
 # TLS crypto backend features
 tls-ring = ["llrt_http?/tls-ring", "llrt_tls?/tls-ring", "llrt_fetch?/tls-ring"]
@@ -51,7 +54,6 @@ base = [
   "fetch",
   "fs",
   "https",
-  "intl",
   "navigator",
   "net",
   "os",
@@ -60,7 +62,6 @@ base = [
   "process",
   "stream-web",
   "string-decoder",
-  "temporal",
   "timers",
   "tls",
   "tty",

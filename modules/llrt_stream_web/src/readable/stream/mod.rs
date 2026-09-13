@@ -736,9 +736,11 @@ impl<'js> ReadableStream<'js> {
                 let (source_cancel_promise, objects) = C::cancel_steps(&ctx, objects, reason)?;
 
                 // Return the result of reacting to sourceCancelPromise with a fulfillment step that returns undefined.
-                let promise = upon_promise_fulfilment(ctx, source_cancel_promise, |_, ()| {
-                    Ok(rquickjs::Undefined)
-                })?;
+                let promise = upon_promise_fulfilment(
+                    ctx,
+                    source_cancel_promise,
+                    Box::new(move |ctx, _| rquickjs::Undefined.into_js(&ctx)),
+                )?;
 
                 Ok((promise, objects))
             },
@@ -946,7 +948,7 @@ impl<'js> ReadableStream<'js> {
                 // Return the result of reacting to nextPromise with the following fulfillment steps, given iterResult:
                 upon_promise_fulfilment(ctx, next_promise, {
                     let stream = stream.clone();
-                    move |ctx, iter_result: Value<'js>| {
+                    Box::new(move |ctx, iter_result| {
                         let iter_result = match iter_result.into_object() {
                             // If Type(iterResult) is not Object, throw a TypeError.
                             None => {
@@ -978,8 +980,8 @@ impl<'js> ReadableStream<'js> {
                             ReadableStreamDefaultController::readable_stream_default_controller_enqueue(ctx.clone(), objects, value)?;
                         }
 
-                        Ok(())
-                    }
+                        Ok(Value::new_undefined(ctx))
+                    })
                 })
             }
         };
@@ -1033,14 +1035,14 @@ impl<'js> ReadableStream<'js> {
                 upon_promise_fulfilment(
                     ctx,
                     return_promise,
-                    move |ctx: Ctx<'js>, iter_result: Value<'js>| {
+                    Box::new(move |ctx, iter_result| {
                         // If Type(iterResult) is not Object, throw a TypeError.
                         if !iter_result.is_object() {
                             return Err(Exception::throw_type(&ctx, "The promise returned by the iterator.next() method must fulfill with an object"));
                         }
                         // Return undefined.
-                        Ok(rquickjs::Undefined)
-                    },
+                        rquickjs::Undefined.into_js(&ctx)
+                    }),
                 )
             }
         };
