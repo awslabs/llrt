@@ -435,6 +435,24 @@ impl<'js> Response<'js> {
         })
     }
 
+    pub(crate) fn text_stream(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if this.0.borrow().body_consumed.load(Ordering::Acquire)
+            || body_helpers::is_body_stream_disturbed(&this.0.borrow().body_stream)
+        {
+            return Err(Exception::throw_type(&ctx, "Body is already read"));
+        }
+
+        if matches!(&*this.0.borrow().body.read().unwrap(), BodyVariant::Empty) {
+            return body_helpers::create_text_stream(&ctx, None);
+        }
+
+        let body = this.0.borrow().body(ctx.clone())?;
+        let stream = Class::<ReadableStream>::from_value(&body)?;
+        body_helpers::validate_stream_usable(&ctx, &stream, "read body")?;
+        mark_consumed(&this.0);
+        body_helpers::create_text_stream(&ctx, Some(body))
+    }
+
     pub(crate) fn json(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
         mark_consumed(&this.0);
         let class = this.0.clone();

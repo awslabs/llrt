@@ -4,7 +4,9 @@ use std::ops::RangeInclusive;
 
 use llrt_stream_web::{
     readable_byte_stream_controller_close_stream,
-    readable_byte_stream_controller_enqueue_bytes_borrowed, utils::promise::PromisePrimordials,
+    readable_byte_stream_controller_enqueue_bytes_borrowed,
+    readable_stream_default_controller_close_stream,
+    readable_stream_default_controller_enqueue_value, utils::promise::PromisePrimordials,
     CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamControllerClass,
 };
 use llrt_utils::{
@@ -113,6 +115,36 @@ impl<'js> Blob<'js> {
 
     pub async fn text(&self) -> String {
         String::from_utf8_lossy(self.as_bytes()).to_string()
+    }
+
+    #[qjs(rename = "textStream")]
+    pub fn text_stream(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let text = String::from_utf8_lossy(self.as_bytes()).to_string();
+        let pull = PullAlgorithm::from_fn_once(
+            move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
+                let ctrl = match controller {
+                    ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c,
+                    _ => return Err(Exception::throw_type(&ctx, "Expected default controller")),
+                };
+                if !text.is_empty() {
+                    readable_stream_default_controller_enqueue_value(
+                        ctx.clone(),
+                        ctrl.clone(),
+                        text.clone().into_js(&ctx)?,
+                    )?;
+                }
+                readable_stream_default_controller_close_stream(ctx.clone(), ctrl)?;
+                Ok(PromisePrimordials::get(&ctx)?
+                    .promise_resolved_with_undefined
+                    .clone())
+            },
+        );
+        let stream = ReadableStream::from_pull_algorithm(
+            ctx,
+            pull,
+            CancelAlgorithm::ReturnPromiseUndefined,
+        )?;
+        Ok(stream.into_value())
     }
 
     #[qjs(rename = "arrayBuffer")]
