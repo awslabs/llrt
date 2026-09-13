@@ -13,6 +13,7 @@ macro = ["rquickjs/macro"]
 bindgen = ["rquickjs/bindgen"]
 
 pqc = ["llrt_modules/pqc"]
+intl402 = ["llrt_modules/intl402"]
 
 # TLS crypto backend features
 tls-ring = ["rustls/ring", "llrt_modules/tls-ring"]
