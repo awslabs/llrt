@@ -1,11 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use super::{
-    headers::{Headers, HeadersGuard},
-    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_OCTET_STREAM,
-    MIME_TYPE_TEXT,
-};
-use crate::body_helpers::strip_bom;
+use std::sync::RwLock;
+
 use hyper::{header::CONTENT_TYPE, Method};
 use llrt_abort::AbortSignal;
 use llrt_http::Agent;
@@ -17,7 +13,14 @@ use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, prelude::This, ArrayBuffer, Class, Coerced,
     Ctx, Exception, FromJs, IntoJs, Null, Object, Promise, Result, TypedArray, Value,
 };
-use std::sync::RwLock;
+
+use crate::body_helpers::{bytes_to_utf8_string_lossy, strip_bom};
+
+use super::{
+    headers::{Headers, HeadersGuard},
+    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_OCTET_STREAM,
+    MIME_TYPE_TEXT,
+};
 
 #[derive(Clone, Default, PartialEq)]
 pub enum RequestMode {
@@ -396,10 +399,7 @@ impl<'js> Request<'js> {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             if let Some(bytes) = bytes_opt {
                 let bytes = strip_bom(bytes);
-                return Result::<String>::Ok(match String::from_utf8(bytes.into()) {
-                    Ok(s) => s,
-                    Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
-                });
+                return Result::<String>::Ok(bytes_to_utf8_string_lossy(bytes));
             }
             Ok(String::new())
         })
