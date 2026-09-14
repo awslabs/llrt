@@ -31,7 +31,7 @@ pub(crate) fn create_text_stream<'js>(
             let text = if let Some(source) = source {
                 let bytes = collect_readable_stream(&source).await?;
                 let stripped = strip_bom(bytes);
-                Some(String::from_utf8_lossy(&stripped).into_owned())
+                Some(bytes_to_utf8_string_lossy(stripped))
             } else {
                 None
             };
@@ -211,6 +211,16 @@ pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
         }
     } else {
         cow
+    }
+}
+
+pub fn bytes_to_utf8_string_lossy(bytes: Cow<'_, [u8]>) -> String {
+    match bytes {
+        Cow::Owned(vec) => match String::from_utf8(vec) {
+            Ok(s) => s,
+            Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
+        },
+        Cow::Borrowed(b) => String::from_utf8_lossy(b).into_owned(),
     }
 }
 
