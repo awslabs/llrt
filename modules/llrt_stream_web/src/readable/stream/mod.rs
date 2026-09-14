@@ -283,6 +283,12 @@ impl<'js> ReadableStream<'js> {
     // static ReadableStream from(any asyncIterable);
     #[qjs(static)]
     fn from(ctx: Ctx<'js>, async_iterable: Value<'js>) -> Result<Class<'js, Self>> {
+        if async_iterable.is_string() {
+            return Err(Exception::throw_type(
+                &ctx,
+                "ReadableStream.from does not accept strings",
+            ));
+        }
         // Return ? ReadableStreamFromIterable(asyncIterable).
         Self::readable_stream_from_iterable(&ctx, async_iterable)
     }

@@ -1,12 +1,13 @@
-use rquickjs::{class::Trace, methods, Class, Ctx, JsLifetime, Result};
+use llrt_utils::primordials::Primordial;
+use rquickjs::{class::Trace, methods, Ctx, Function, JsLifetime, Result};
 
-use super::{NativeSizeFunction, QueueingStrategyInit};
+use super::{NativeSizeFunctionPrimordials, QueueingStrategyInit};
 
 #[derive(JsLifetime, Trace)]
 #[rquickjs::class]
 pub(crate) struct CountQueuingStrategy<'js> {
     high_water_mark: f64,
-    size: Class<'js, NativeSizeFunction>,
+    size: Function<'js>,
 }
 
 #[methods(rename_all = "camelCase")]
@@ -16,14 +17,14 @@ impl<'js> CountQueuingStrategy<'js> {
         // Set this.[[highWaterMark]] to init["highWaterMark"].
         Ok(Self {
             high_water_mark: init.high_water_mark,
-            size: Class::instance(ctx, NativeSizeFunction::Count)?,
+            size: NativeSizeFunctionPrimordials::get(&ctx)?.count.clone(),
         })
     }
 
     // readonly attribute Function size;
     // size is an attribute, not a method, so this function is not itself the size function, but instead returns one
     #[qjs(get)]
-    pub(crate) fn size(&self) -> Class<'js, NativeSizeFunction> {
+    pub(crate) fn size(&self) -> Function<'js> {
         self.size.clone()
     }
 

@@ -1,3 +1,4 @@
+use llrt_utils::primordials::Primordial;
 use rquickjs::{
     class::{OwnedBorrowMut, Trace},
     prelude::{Opt, This},
@@ -11,9 +12,8 @@ use crate::{
         readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
     },
     utils::promise::{promise_resolved_with, ResolveablePromise},
+    writable::WritableStream,
 };
-
-use llrt_utils::primordials::Primordial;
 
 use super::stream::TransformStreamClass;
 
@@ -142,7 +142,19 @@ pub(super) fn transform_stream_default_controller_enqueue<'js>(
     let controller_class = get_readable_default_controller(stream_class)
         .ok_or_else(|| Exception::throw_type(&ctx, "readable controller not available"))?;
 
-    readable_stream_default_controller_enqueue_value(ctx.clone(), controller_class.clone(), chunk)?;
+    if let Err(error) = readable_stream_default_controller_enqueue_value(
+        ctx.clone(),
+        controller_class.clone(),
+        chunk,
+    ) {
+        if matches!(error, rquickjs::Error::Exception) {
+            let reason = ctx.catch();
+            let writable = stream_class.borrow().writable.clone().unwrap();
+            WritableStream::error_stream(ctx.clone(), writable, reason.clone())?;
+            return Err(ctx.throw(reason));
+        }
+        return Err(error);
+    }
 
     // Update backpressure
     let has_backpressure = {
@@ -191,8 +203,12 @@ pub(super) fn transform_stream_error<'js>(
 
 pub(super) fn transform_stream_error_writable_and_unblock_write<'js>(
     stream_class: &TransformStreamClass<'js>,
-    _e: Value<'js>,
+    e: Value<'js>,
 ) -> Result<()> {
+    let writable = stream_class.borrow().writable.clone();
+    if let Some(writable) = writable {
+        WritableStream::error_stream(e.ctx().clone(), writable, e.clone())?;
+    }
     let mut stream = stream_class.borrow_mut();
     if let Some(ref controller_class) = stream.controller {
         controller_class.borrow_mut().clear_algorithms();
@@ -229,10 +245,17 @@ pub(super) fn transform_stream_default_controller_perform_transform<'js>(
     chunk: Value<'js>,
 ) -> Result<Promise<'js>> {
     let controller = controller_class.borrow();
-    let algorithm = controller
-        .transform_algorithm
-        .clone()
-        .expect("transform algorithm must exist");
+    let Some(algorithm) = controller.transform_algorithm.clone() else {
+        let promise_primordials = crate::utils::promise::PromisePrimordials::get(&ctx)?.clone();
+        return promise_resolved_with(
+            &ctx,
+            &promise_primordials,
+            Err(Exception::throw_type(
+                &ctx,
+                "TransformStream is no longer writable",
+            )),
+        );
+    };
     drop(controller);
 
     let promise_primordials = crate::utils::promise::PromisePrimordials::get(&ctx)?.clone();

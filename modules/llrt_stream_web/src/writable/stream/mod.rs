@@ -717,6 +717,10 @@ impl<'js> WritableStream<'js> {
         mut objects: WritableStreamObjects<'js, W>,
         backpressure: bool,
     ) -> Result<WritableStreamObjects<'js, W>> {
+        if !matches!(objects.stream.state, WritableStreamState::Writable) {
+            return Ok(objects);
+        }
+
         // If writer is not undefined and backpressure is not stream.[[backpressure]],
         objects = objects.with_writer(
             |mut objects| {
@@ -752,6 +756,20 @@ impl<'js> WritableStream<'js> {
             | WritableStreamState::Errored(ref stored_error) => Some(stored_error.clone()),
             _ => None,
         }
+    }
+
+    pub(crate) fn error_stream(
+        ctx: Ctx<'js>,
+        stream_class: WritableStreamClass<'js>,
+        reason: Value<'js>,
+    ) -> Result<()> {
+        if !matches!(stream_class.borrow().state, WritableStreamState::Writable) {
+            return Ok(());
+        }
+        let objects = WritableStreamObjects::from_stream(OwnedBorrowMut::from_class(stream_class))
+            .refresh_writer();
+        Self::writable_stream_start_erroring(ctx, objects, reason)?;
+        Ok(())
     }
 }
 

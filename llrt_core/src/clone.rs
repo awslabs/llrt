@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::collections::HashSet;
 
+use llrt_modules::exceptions::DOMException;
 use llrt_utils::{
     clone::clone_platform_object,
     hash,
@@ -57,7 +58,19 @@ pub fn structured_clone<'js>(
             let mut set = HashSet::with_capacity(transfer_array.len());
 
             for item in transfer_array.iter::<Value>() {
-                set.insert(item?);
+                let item = item?;
+                if !set.insert(item.clone()) {
+                    return Err(DOMException::data_clone_error(
+                        ctx,
+                        "Transfer list contains duplicate values",
+                    ));
+                }
+                if ArrayBuffer::from_value(item).is_none() {
+                    return Err(DOMException::data_clone_error(
+                        ctx,
+                        "Value is not transferable",
+                    ));
+                }
             }
             transfer_set = Some(set);
         }
