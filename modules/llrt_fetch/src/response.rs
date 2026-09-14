@@ -1,12 +1,16 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use super::{
-    headers::{Headers, HeadersGuard},
-    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_JSON_STATIC,
-    MIME_TYPE_OCTET_STREAM, MIME_TYPE_TEXT,
+use std::{
+    pin::Pin,
+    rc::Rc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, RwLock,
+    },
+    task::{Context, Poll, Waker},
+    time::Instant,
 };
-use crate::body_helpers::{self, strip_bom};
-use crate::{body_helpers::collect_readable_stream, utils::BodyDrain};
+
 use either::Either;
 use http_body::Body as _;
 use http_body_util::BodyExt;
@@ -35,15 +39,14 @@ use rquickjs::{
     ArrayBuffer, Class, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Promise,
     Result, TypedArray, Value,
 };
-use std::{
-    pin::Pin,
-    rc::Rc,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, RwLock,
-    },
-    task::{Context, Poll, Waker},
-    time::Instant,
+
+use crate::body_helpers::{self, bytes_to_utf8_string_lossy, strip_bom};
+use crate::{body_helpers::collect_readable_stream, utils::BodyDrain};
+
+use super::{
+    headers::{Headers, HeadersGuard},
+    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_JSON_STATIC,
+    MIME_TYPE_OCTET_STREAM, MIME_TYPE_TEXT,
 };
 
 /// A validated HTTP status code (200-599 per WHATWG Fetch spec).
@@ -425,14 +428,29 @@ impl<'js> Response<'js> {
             match bytes_opt {
                 Some(bytes) => {
                     let bytes = strip_bom(bytes);
-                    Result::<String>::Ok(match String::from_utf8(bytes.into()) {
-                        Ok(s) => s,
-                        Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
-                    })
+                    Result::<String>::Ok(bytes_to_utf8_string_lossy(bytes))
                 },
                 None => Ok(String::new()),
             }
         })
+    }
+
+    pub(crate) fn text_stream(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        if this.0.borrow().body_consumed.load(Ordering::Acquire)
+            || body_helpers::is_body_stream_disturbed(&this.0.borrow().body_stream)
+        {
+            return Err(Exception::throw_type(&ctx, "Body is already read"));
+        }
+
+        if matches!(&*this.0.borrow().body.read().unwrap(), BodyVariant::Empty) {
+            return body_helpers::create_text_stream(&ctx, None);
+        }
+
+        let body = this.0.borrow().body(ctx.clone())?;
+        let stream = Class::<ReadableStream>::from_value(&body)?;
+        body_helpers::validate_stream_usable(&ctx, &stream, "read body")?;
+        mark_consumed(&this.0);
+        body_helpers::create_text_stream(&ctx, Some(body))
     }
 
     pub(crate) fn json(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<Promise<'js>> {
