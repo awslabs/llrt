@@ -14,7 +14,7 @@ use rquickjs::{
     Ctx, Exception, FromJs, IntoJs, Null, Object, Promise, Result, TypedArray, Value,
 };
 
-use crate::body_helpers::{bytes_to_utf8_string_lossy, strip_bom};
+use crate::body_helpers::{bytes_to_utf8_simd_lossy, strip_bom};
 
 use super::{
     headers::{Headers, HeadersGuard},
@@ -399,7 +399,7 @@ impl<'js> Request<'js> {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             if let Some(bytes) = bytes_opt {
                 let bytes = strip_bom(bytes);
-                return Result::<String>::Ok(bytes_to_utf8_string_lossy(bytes));
+                return Result::<String>::Ok(bytes_to_utf8_simd_lossy(bytes));
             }
             Ok(String::new())
         })

@@ -15,6 +15,7 @@ use rquickjs::{
     prelude::This, Class, Ctx, Exception, Function, IntoJs, Object, Promise, Result, TypedArray,
     Value,
 };
+use simdutf8::basic::from_utf8;
 
 /// Creates a native UTF-8 text stream from a byte ReadableStream.
 pub(crate) fn create_text_stream<'js>(
@@ -31,7 +32,7 @@ pub(crate) fn create_text_stream<'js>(
             let text = if let Some(source) = source {
                 let bytes = collect_readable_stream(&source).await?;
                 let stripped = strip_bom(bytes);
-                Some(bytes_to_utf8_string_lossy(stripped))
+                Some(bytes_to_utf8_simd_lossy(stripped))
             } else {
                 None
             };
@@ -214,11 +215,15 @@ pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
     }
 }
 
-pub fn bytes_to_utf8_string_lossy(bytes: Cow<'_, [u8]>) -> String {
+pub fn bytes_to_utf8_simd_lossy(bytes: Cow<'_, [u8]>) -> String {
     match bytes {
-        Cow::Owned(vec) => match String::from_utf8(vec) {
-            Ok(s) => s,
-            Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
+        Cow::Owned(vec) => {
+            if from_utf8(&vec).is_ok() {
+                // SAFTEY: valid UFT8
+                unsafe { String::from_utf8_unchecked(vec) }
+            } else {
+                String::from_utf8_lossy(&vec).into_owned()
+            }
         },
         Cow::Borrowed(b) => String::from_utf8_lossy(b).into_owned(),
     }

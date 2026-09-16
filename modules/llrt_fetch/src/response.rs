@@ -40,7 +40,7 @@ use rquickjs::{
     Result, TypedArray, Value,
 };
 
-use crate::body_helpers::{self, bytes_to_utf8_string_lossy, strip_bom};
+use crate::body_helpers::{self, bytes_to_utf8_simd_lossy, strip_bom};
 use crate::{body_helpers::collect_readable_stream, utils::BodyDrain};
 
 use super::{
@@ -428,7 +428,7 @@ impl<'js> Response<'js> {
             match bytes_opt {
                 Some(bytes) => {
                     let bytes = strip_bom(bytes);
-                    Result::<String>::Ok(bytes_to_utf8_string_lossy(bytes))
+                    Result::<String>::Ok(bytes_to_utf8_simd_lossy(bytes))
                 },
                 None => Ok(String::new()),
             }
