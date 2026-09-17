@@ -5,14 +5,66 @@ use std::{borrow::Cow, sync::RwLock};
 use llrt_buffer::Blob;
 use llrt_stream_web::{
     readable_byte_stream_controller_close_stream, readable_byte_stream_controller_enqueue_bytes,
-    readable_stream_default_controller_close_stream, utils::promise::PromisePrimordials,
+    readable_stream_default_controller_close_stream,
+    readable_stream_default_controller_enqueue_value, utils::promise::PromisePrimordials,
     CancelAlgorithm, PullAlgorithm, ReadableStream, ReadableStreamControllerClass,
 };
 use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::primordials::Primordial;
 use rquickjs::{
-    prelude::This, Class, Ctx, Exception, Function, Object, Promise, Result, TypedArray, Value,
+    prelude::This, Class, Ctx, Exception, Function, IntoJs, Object, Promise, Result, TypedArray,
+    Value,
 };
+use simdutf8::basic::from_utf8;
+
+/// Creates a native UTF-8 text stream from a byte ReadableStream.
+pub(crate) fn create_text_stream<'js>(
+    ctx: &Ctx<'js>,
+    body: Option<Value<'js>>,
+) -> Result<Value<'js>> {
+    let source = body
+        .map(|body| Class::<ReadableStream>::from_value(&body))
+        .transpose()?;
+    let pull = PullAlgorithm::from_fn_once(move |ctx, controller| {
+        let source = source.clone();
+        let future_ctx = ctx.clone();
+        Promise::wrap_future(&ctx, async move {
+            let text = if let Some(source) = source {
+                let bytes = collect_readable_stream(&source).await?;
+                let stripped = strip_bom(bytes);
+                Some(bytes_to_utf8_simd_lossy(stripped))
+            } else {
+                None
+            };
+            let ctrl = match controller {
+                ReadableStreamControllerClass::ReadableStreamDefaultController(c) => c,
+                _ => {
+                    return Err(Exception::throw_type(
+                        &future_ctx,
+                        "Expected default controller",
+                    ))
+                },
+            };
+            if let Some(text) = text.filter(|text| !text.is_empty()) {
+                readable_stream_default_controller_enqueue_value(
+                    future_ctx.clone(),
+                    ctrl.clone(),
+                    text.into_js(&future_ctx)?,
+                )?;
+            }
+            readable_stream_default_controller_close_stream(future_ctx.clone(), ctrl)?;
+            Ok(PromisePrimordials::get(&future_ctx)?
+                .promise_resolved_with_undefined
+                .clone())
+        })
+    });
+    Ok(ReadableStream::from_pull_algorithm(
+        ctx.clone(),
+        pull,
+        CancelAlgorithm::ReturnPromiseUndefined,
+    )?
+    .into_value())
+}
 
 /// Creates a ReadableStream from a body value (string, Blob, ArrayBuffer, etc.)
 pub(crate) fn create_body_value_stream<'js>(
@@ -160,6 +212,20 @@ pub(crate) fn strip_bom<'a>(bytes: impl Into<Cow<'a, [u8]>>) -> Cow<'a, [u8]> {
         }
     } else {
         cow
+    }
+}
+
+pub fn bytes_to_utf8_simd_lossy(bytes: Cow<'_, [u8]>) -> String {
+    match bytes {
+        Cow::Owned(vec) => {
+            if from_utf8(&vec).is_ok() {
+                // SAFTEY: valid UFT8
+                unsafe { String::from_utf8_unchecked(vec) }
+            } else {
+                String::from_utf8_lossy(&vec).into_owned()
+            }
+        },
+        Cow::Borrowed(b) => String::from_utf8_lossy(b).into_owned(),
     }
 }
 

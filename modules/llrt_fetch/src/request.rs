@@ -1,11 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use super::{
-    headers::{Headers, HeadersGuard},
-    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_OCTET_STREAM,
-    MIME_TYPE_TEXT,
-};
-use crate::body_helpers::strip_bom;
+use std::sync::RwLock;
+
 use hyper::{header::CONTENT_TYPE, Method};
 use llrt_abort::AbortSignal;
 use llrt_http::Agent;
@@ -17,7 +13,14 @@ use rquickjs::{
     atom::PredefinedAtom, class::Trace, function::Opt, prelude::This, ArrayBuffer, Class, Coerced,
     Ctx, Exception, FromJs, IntoJs, Null, Object, Promise, Result, TypedArray, Value,
 };
-use std::sync::RwLock;
+
+use crate::body_helpers::{bytes_to_utf8_simd_lossy, strip_bom};
+
+use super::{
+    headers::{Headers, HeadersGuard},
+    Blob, FormData, MIME_TYPE_FORM_DATA, MIME_TYPE_FORM_URLENCODED, MIME_TYPE_OCTET_STREAM,
+    MIME_TYPE_TEXT,
+};
 
 #[derive(Clone, Default, PartialEq)]
 pub enum RequestMode {
@@ -396,13 +399,27 @@ impl<'js> Request<'js> {
             let bytes_opt = resolve_body_taken(&ctx_clone, body).await?;
             if let Some(bytes) = bytes_opt {
                 let bytes = strip_bom(bytes);
-                return Result::<String>::Ok(match String::from_utf8(bytes.into()) {
-                    Ok(s) => s,
-                    Err(e) => String::from_utf8_lossy(e.as_bytes()).into_owned(),
-                });
+                return Result::<String>::Ok(bytes_to_utf8_simd_lossy(bytes));
             }
             Ok(String::new())
         })
+    }
+
+    pub fn text_stream(&self, ctx: Ctx<'js>) -> Result<Value<'js>> {
+        let body = match self.take_body_sync(&ctx) {
+            Ok(Some(body)) => Some(body),
+            Ok(None) => None,
+            Err(err) => return Err(err),
+        };
+        let body = match body {
+            None => return crate::body_helpers::create_text_stream(&ctx, None),
+            Some(BodyTaken::Bytes(bytes)) => Some(crate::body_helpers::create_body_value_stream(
+                &ctx,
+                bytes.into_js(&ctx)?,
+            )?),
+            Some(BodyTaken::Stream(stream)) => Some(stream.into_value()),
+        };
+        crate::body_helpers::create_text_stream(&ctx, body)
     }
 
     pub fn json(&self, ctx: Ctx<'js>) -> Result<Promise<'js>> {
