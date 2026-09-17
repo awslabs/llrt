@@ -14,7 +14,7 @@ path = "src/lib.rs"
 llrt_abort = { version = "0.9.0-beta", path = "../llrt_abort" }
 llrt_exceptions = { version = "0.9.0-beta", path = "../llrt_exceptions" }
 llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { version = "0.12", default-features = false }
+rquickjs = { version = "0.13", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }

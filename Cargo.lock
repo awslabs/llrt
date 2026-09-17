@@ -474,6 +474,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1af709f1f33454bf52eadfc8c78b3b9ef9cb26fb54d16dc9cd9a7299f899fd1b"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1759,7 +1768,7 @@ dependencies = [
  "llrt_test",
  "llrt_timers",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -1769,7 +1778,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.12.2",
 ]
 
 [[package]]
@@ -1778,7 +1787,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_hooking",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tracing",
 ]
 
@@ -1791,7 +1800,7 @@ dependencies = [
  "llrt_stream_web",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "ryu",
  "tokio",
 ]
@@ -1815,7 +1824,7 @@ dependencies = [
  "llrt_stream",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -1835,7 +1844,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_logging",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
@@ -1845,7 +1854,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
  "tracing",
 ]
@@ -1879,7 +1888,7 @@ dependencies = [
  "phf_codegen",
  "quick-xml",
  "rand",
- "rquickjs",
+ "rquickjs 0.13.0",
  "rustls",
  "rustls-pemfile",
  "ryu",
@@ -1936,7 +1945,7 @@ dependencies = [
  "pkcs8",
  "rand",
  "ring",
- "rquickjs",
+ "rquickjs 0.13.0",
  "rsa",
  "sha1",
  "sha3 0.12.0",
@@ -1956,7 +1965,7 @@ dependencies = [
  "llrt_events",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
  "tracing",
 ]
@@ -1970,7 +1979,7 @@ dependencies = [
  "llrt_hooking",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.12.2",
  "tokio",
 ]
 
@@ -2002,7 +2011,7 @@ name = "llrt_events"
 version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tracing",
 ]
 
@@ -2011,7 +2020,7 @@ name = "llrt_exceptions"
 version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
@@ -2041,7 +2050,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "rand",
- "rquickjs",
+ "rquickjs 0.13.0",
  "sha2",
  "simdutf8",
  "tokio",
@@ -2062,7 +2071,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rand",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2072,7 +2081,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
  "once_cell",
- "rquickjs",
+ "rquickjs 0.12.2",
 ]
 
 [[package]]
@@ -2090,7 +2099,7 @@ dependencies = [
  "llrt_utils",
  "once_cell",
  "openssl",
- "rquickjs",
+ "rquickjs 0.13.0",
  "rustls",
 ]
 
@@ -2101,7 +2110,7 @@ dependencies = [
  "itoa",
  "jiff",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
@@ -2113,7 +2122,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "ryu",
  "simd-json",
  "tokio",
@@ -2129,7 +2138,7 @@ dependencies = [
  "llrt_json",
  "llrt_numbers",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.12.2",
  "ryu",
 ]
 
@@ -2174,7 +2183,7 @@ dependencies = [
  "llrt_zlib",
  "once_cell",
  "openssl",
- "rquickjs",
+ "rquickjs 0.13.0",
  "simd-json",
  "tokio",
  "tracing",
@@ -2184,7 +2193,7 @@ dependencies = [
 name = "llrt_navigator"
 version = "0.9.0-beta"
 dependencies = [
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
@@ -2199,7 +2208,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rand",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
  "tracing",
 ]
@@ -2213,7 +2222,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rand",
- "rquickjs",
+ "rquickjs 0.13.0",
  "ryu",
 ]
 
@@ -2227,7 +2236,7 @@ dependencies = [
  "llrt_utils",
  "num_cpus",
  "once_cell",
- "rquickjs",
+ "rquickjs 0.13.0",
  "sysinfo",
  "tokio",
  "uzers",
@@ -2246,7 +2255,7 @@ dependencies = [
  "memchr",
  "once_cell",
  "rand",
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
@@ -2256,7 +2265,7 @@ dependencies = [
  "llrt_events",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
@@ -2266,7 +2275,7 @@ dependencies = [
  "libc",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2278,7 +2287,7 @@ dependencies = [
  "llrt_context",
  "llrt_events",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2290,7 +2299,7 @@ dependencies = [
  "llrt_exceptions",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2302,7 +2311,7 @@ dependencies = [
  "llrt_encoding",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2312,14 +2321,14 @@ version = "0.9.0-beta"
 dependencies = [
  "jiff",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
 name = "llrt_test"
 version = "0.9.0-beta"
 dependencies = [
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
  "uuid",
 ]
@@ -2349,7 +2358,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "once_cell",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2373,7 +2382,7 @@ dependencies = [
  "libc",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2383,7 +2392,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
  "url",
 ]
@@ -2398,7 +2407,7 @@ dependencies = [
  "llrt_stream_web",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
  "tokio",
 ]
 
@@ -2411,7 +2420,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "memchr",
- "rquickjs",
+ "rquickjs 0.13.0",
  "simdutf8",
  "tokio",
  "tracing",
@@ -2427,7 +2436,7 @@ dependencies = [
  "llrt_context",
  "llrt_test",
  "llrt_utils",
- "rquickjs",
+ "rquickjs 0.13.0",
 ]
 
 [[package]]
@@ -3137,8 +3146,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e04e4eedfb060b503b5f0a2644abb890b0b3620d3fb674f9455f230014964e4"
 dependencies = [
  "either",
- "rquickjs-core",
- "rquickjs-macro",
+ "rquickjs-core 0.12.2",
+ "rquickjs-macro 0.12.2",
+]
+
+[[package]]
+name = "rquickjs"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7d96fb23e8ff51c8d4772ea84e44b5238543b7d81e9cc23c0219511a8f16482"
+dependencies = [
+ "either",
+ "rquickjs-core 0.13.0",
+ "rquickjs-macro 0.13.0",
 ]
 
 [[package]]
@@ -3147,12 +3167,24 @@ version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16e4f499ac5b943d97ee6dbc44f23c2c10426f420f7d2f1793d6318911b6608c"
 dependencies = [
+ "either",
+ "hashbrown 0.17.0",
+ "relative-path",
+ "rquickjs-sys 0.12.2",
+]
+
+[[package]]
+name = "rquickjs-core"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c6dbfedfbf458dc119c21ccd032c7527d185210b11a1ae796cd04106e6db280"
+dependencies = [
  "async-lock",
  "either",
  "half",
  "hashbrown 0.17.0",
  "relative-path",
- "rquickjs-sys",
+ "rquickjs-sys 0.13.0",
 ]
 
 [[package]]
@@ -3161,14 +3193,31 @@ version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cbcc8219b70ee2faa08d5339f47f15741cba2ce0cb9640e8495f2ab51293f50"
 dependencies = [
- "convert_case",
+ "convert_case 0.11.0",
  "fnv",
  "ident_case",
  "indexmap",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "rquickjs-core",
+ "rquickjs-core 0.12.2",
+ "syn",
+]
+
+[[package]]
+name = "rquickjs-macro"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4446670c6ae57191ac325a4c9675fee5b31172533ad68753f7afa83759f082fd"
+dependencies = [
+ "convert_case 0.12.0",
+ "fnv",
+ "ident_case",
+ "indexmap",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "rquickjs-core 0.13.0",
  "syn",
 ]
 
@@ -3177,6 +3226,15 @@ name = "rquickjs-sys"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a13ac243b86a74120814ef7e9e30ad5a2c1199b7b9963b1cf7c84e4cdc1cad99"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "rquickjs-sys"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53d0aaff245bed1c6f3c39e477fb6b98d710d9d298bfec7c8dfc589bed0e5cef"
 dependencies = [
  "bindgen",
  "cc",

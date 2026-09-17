@@ -17,7 +17,7 @@ llrt_events = { version = "0.9.0-beta", path = "../llrt_events" }
 llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", features = [
   "bytearray-buffer",
 ], default-features = false }
-rquickjs = { version = "0.12", features = ["std"], default-features = false }
+rquickjs = { version = "0.13", features = ["std"], default-features = false }
 tokio = { version = "1", features = [
   "macros",
   "io-util",
