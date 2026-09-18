@@ -4,7 +4,8 @@ use std::sync::{Arc, Mutex};
 
 use llrt_utils::bytes::ObjectBytes;
 use rquickjs::{
-    atom::PredefinedAtom, function::Opt, prelude::This, Ctx, Function, Object, Result, Value,
+    atom::PredefinedAtom, function::Opt, prelude::This, Ctx, Exception, Function, Object, Result,
+    Value,
 };
 
 use crate::text_decoder::TextDecoder;
@@ -94,7 +95,13 @@ fn transform<'js>(
     chunk: Value<'js>,
     controller: Object<'js>,
 ) -> Result<()> {
+    if chunk.is_undefined() {
+        return Err(Exception::throw_type(&ctx, "chunk must be a BufferSource"));
+    }
     let bytes = ObjectBytes::from(&ctx, &chunk)?;
+    if matches!(bytes, ObjectBytes::Vec(_)) {
+        return Err(Exception::throw_type(&ctx, "chunk must be a BufferSource"));
+    }
     let opts = Object::new(ctx.clone())?;
     opts.set("stream", true)?;
     let text =
