@@ -18,16 +18,10 @@ use rquickjs::{
 // SAFETY (module-wide): QuickJS only emits valid WTF-8, so any run
 // without 0xED is valid strict UTF-8.
 pub fn get_lossy_string(string_value: Value) -> Result<String> {
-    let js_str = string_value.into_string().ok_or_else(|| Error::FromJs {
-        from: "Value",
-        to: "JSString",
-        message: Some("Value is not a string".into()),
-    })?;
-    let cstr = js_str.to_cstring()?;
-    let bytes = unsafe { slice::from_raw_parts(cstr.as_ptr() as *const u8, cstr.len()) };
+    let bytes = get_wtf8_string_bytes(string_value)?;
 
-    let first = match memchr::memchr(0xED, bytes) {
-        None => return Ok(unsafe { String::from_utf8_unchecked(bytes.to_vec()) }),
+    let first = match memchr::memchr(0xED, &bytes) {
+        None => return Ok(unsafe { String::from_utf8_unchecked(bytes) }),
         Some(idx) => idx,
     };
     let mut result = String::with_capacity(bytes.len());
@@ -671,6 +665,85 @@ pub fn get_string_bytes(
         return Ok(Some(bytes_from_js_string(string, offset, length)));
     }
     Ok(None)
+}
+
+pub fn get_wtf8_string_bytes(value: Value<'_>) -> Result<Vec<u8>> {
+    let string = value.into_string().ok_or_else(|| Error::FromJs {
+        from: "Value",
+        to: "JSString",
+        message: Some("Value is not a string".into()),
+    })?;
+    let cstr = string.to_cstring()?;
+    // SAFETY: `cstr` owns a valid NUL-terminated buffer, and its pointer
+    // remains valid for the duration of this block. `cstr.len()` excludes
+    // the terminating NUL, so the resulting slice covers only string bytes.
+    let bytes = unsafe { slice::from_raw_parts(cstr.as_ptr() as *const u8, cstr.len()) };
+    Ok(bytes.to_vec())
+}
+
+pub fn encode_wtf8(bytes: &[u8], pending: &mut Option<u16>, output: &mut Vec<u8>) {
+    let mut index = 0;
+    while index < bytes.len() {
+        let (code_point, width) = decode_wtf8(bytes, index);
+        index += width;
+        let unit = code_point as u16;
+        if let Some(high) = pending.take() {
+            if (0xdc00..=0xdfff).contains(&unit) {
+                let scalar = 0x10000 + (((high - 0xd800) as u32) << 10) + (unit - 0xdc00) as u32;
+                append_code_point(scalar, output);
+                continue;
+            }
+            append_code_point(0xfffd, output);
+        }
+        if (0xd800..=0xdbff).contains(&unit) {
+            *pending = Some(unit);
+        } else if (0xdc00..=0xdfff).contains(&unit) {
+            append_code_point(0xfffd, output);
+        } else {
+            append_code_point(code_point, output);
+        }
+    }
+}
+
+pub fn flush_wtf8(pending: &mut Option<u16>, output: &mut Vec<u8>) {
+    if pending.take().is_some() {
+        append_code_point(0xfffd, output);
+    }
+}
+
+fn decode_wtf8(bytes: &[u8], index: usize) -> (u32, usize) {
+    let first = bytes[index];
+    if first < 0x80 {
+        return (first as u32, 1);
+    }
+    if first < 0xe0 {
+        return (
+            ((first & 0x1f) as u32) << 6 | (bytes[index + 1] & 0x3f) as u32,
+            2,
+        );
+    }
+    if first < 0xf0 {
+        return (
+            ((first & 0x0f) as u32) << 12
+                | ((bytes[index + 1] & 0x3f) as u32) << 6
+                | (bytes[index + 2] & 0x3f) as u32,
+            3,
+        );
+    }
+    (
+        ((first & 0x07) as u32) << 18
+            | ((bytes[index + 1] & 0x3f) as u32) << 12
+            | ((bytes[index + 2] & 0x3f) as u32) << 6
+            | (bytes[index + 3] & 0x3f) as u32,
+        4,
+    )
+}
+
+fn append_code_point(code_point: u32, output: &mut Vec<u8>) {
+    if let Some(ch) = char::from_u32(code_point) {
+        let mut encoded = [0; 4];
+        output.extend_from_slice(ch.encode_utf8(&mut encoded).as_bytes());
+    }
 }
 
 pub fn bytes_to_typed_array<'js>(ctx: Ctx<'js>, bytes: &[u8]) -> Result<Value<'js>> {

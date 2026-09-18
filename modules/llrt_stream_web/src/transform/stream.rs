@@ -212,7 +212,7 @@ pub(crate) fn sink_write_algorithm<'js>(
     chunk: Value<'js>,
 ) -> Result<Promise<'js>> {
     let stream = stream_class.borrow();
-    if stream.backpressure {
+    let transform_promise = if stream.backpressure {
         let bp_promise = stream
             .backpressure_change_promise
             .as_ref()
@@ -222,7 +222,7 @@ pub(crate) fn sink_write_algorithm<'js>(
         if let Some(bp_promise) = bp_promise {
             let sc = stream_class.clone();
             let cc = controller_class.clone();
-            return crate::utils::promise::upon_promise(
+            crate::utils::promise::upon_promise(
                 ctx.clone(),
                 bp_promise,
                 Box::new(move |ctx, _| {
@@ -234,17 +234,36 @@ pub(crate) fn sink_write_algorithm<'js>(
                     )?;
                     Ok(p.into_value())
                 }),
-            );
+            )?
+        } else {
+            controller::transform_stream_default_controller_perform_transform(
+                ctx.clone(),
+                stream_class,
+                controller_class,
+                chunk,
+            )?
         }
     } else {
         drop(stream);
-    }
+        controller::transform_stream_default_controller_perform_transform(
+            ctx.clone(),
+            stream_class,
+            controller_class,
+            chunk,
+        )?
+    };
 
-    controller::transform_stream_default_controller_perform_transform(
-        ctx,
-        stream_class,
-        controller_class,
-        chunk,
+    let sc = stream_class.clone();
+    crate::utils::promise::upon_promise(
+        ctx.clone(),
+        transform_promise,
+        Box::new(move |ctx, result| match result {
+            Ok(value) => Ok(value),
+            Err(reason) => {
+                controller::transform_stream_error(ctx.clone(), &sc, reason.clone())?;
+                Err(ctx.throw(reason))
+            },
+        }),
     )
 }
 

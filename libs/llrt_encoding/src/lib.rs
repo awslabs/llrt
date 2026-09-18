@@ -56,10 +56,7 @@ const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
 
 impl Encoder {
     pub fn from_optional_str(encoding: Option<&str>) -> Result<Self, String> {
-        match encoding {
-            Some(label) if !label.is_empty() => Self::from_str(label),
-            _ => Ok(Self::Utf8),
-        }
+        encoding.map_or(Ok(Self::Utf8), Self::from_str)
     }
 
     #[allow(clippy::should_implement_trait)]

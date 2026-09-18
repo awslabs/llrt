@@ -1,6 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::{bytes::get_lossy_string, result::ResultExt};
+use llrt_utils::{
+    bytes::{encode_wtf8, flush_wtf8, get_lossy_string, get_wtf8_string_bytes},
+    result::ResultExt,
+};
 use rquickjs::{
     atom::PredefinedAtom, function::Opt, Ctx, Exception, Object, Result, TypedArray, Value,
 };
@@ -35,8 +38,12 @@ impl TextEncoder {
     pub fn encode<'js>(&self, ctx: Ctx<'js>, string: Opt<Value<'js>>) -> Result<Value<'js>> {
         if let Some(string) = string.0 {
             if string.is_string() {
-                let s = get_lossy_string(string)?;
-                return TypedArray::new(ctx.clone(), s.as_bytes())
+                let bytes = get_wtf8_string_bytes(string)?;
+                let mut output = Vec::new();
+                let mut pending = None;
+                encode_wtf8(&bytes, &mut pending, &mut output);
+                flush_wtf8(&mut pending, &mut output);
+                return TypedArray::new(ctx.clone(), output)
                     .map(|m: TypedArray<'_, u8>| m.into_value());
             } else if !string.is_undefined() {
                 return Err(Exception::throw_message(
