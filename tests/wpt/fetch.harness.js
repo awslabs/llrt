@@ -69,6 +69,13 @@ function WrappedRequest(input, options) {
 
 WrappedRequest.prototype = UpstreamRequest.prototype;
 
+const UpstreamURL = globalThis.URL;
+function WrappedURL(input, base) {
+  if (base === LOCATION) base = LOCATION.href;
+  return new UpstreamURL(input, base);
+}
+WrappedURL.prototype = UpstreamURL.prototype;
+
 const runTestDynamic = makeRunner({
   context: () => ({
     extras: {
@@ -77,6 +84,7 @@ const runTestDynamic = makeRunner({
       RESOURCES_DIR: "../resources/",
       fetch: makeFetch(),
       Request: WrappedRequest,
+      URL: WrappedURL,
     },
     scripts: [
       "encoding/resources/encodings.js",
