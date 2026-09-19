@@ -210,7 +210,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -466,15 +466,6 @@ checksum = "136d3e02915a2cea4d74caa8681e2d44b1c3254bdbf17d11d41d587ff858832c"
 
 [[package]]
 name = "convert_case"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "affbf0190ed2caf063e3def54ff444b449371d55c58e513a95ab98eca50adb49"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "convert_case"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1af709f1f33454bf52eadfc8c78b3b9ef9cb26fb54d16dc9cd9a7299f899fd1b"
@@ -694,7 +685,7 @@ checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -735,7 +726,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -767,7 +758,7 @@ checksum = "59600e2c2d636fde9b65e99cc6445ac770c63d3628195ff39932b8d6d7409903"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -790,7 +781,7 @@ checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -1064,7 +1055,7 @@ checksum = "e835b70203e41293343137df5c0664546da5745f82ec9b84d40be8336958447b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -1509,12 +1500,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d3067d79b975e8844ca9eb072e16b31c3c1c36928edf9c6789548c524d0d954"
 
 [[package]]
-name = "ident_case"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
-
-[[package]]
 name = "idna"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1607,7 +1592,7 @@ dependencies = [
  "jiff-core",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -1768,7 +1753,7 @@ dependencies = [
  "llrt_test",
  "llrt_timers",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -1778,7 +1763,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.12.2",
+ "rquickjs",
 ]
 
 [[package]]
@@ -1787,7 +1772,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_hooking",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tracing",
 ]
 
@@ -1800,7 +1785,7 @@ dependencies = [
  "llrt_stream_web",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "ryu",
  "tokio",
 ]
@@ -1824,7 +1809,7 @@ dependencies = [
  "llrt_stream",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -1844,7 +1829,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_logging",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
@@ -1854,7 +1839,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
  "tracing",
 ]
@@ -1888,7 +1873,7 @@ dependencies = [
  "phf_codegen",
  "quick-xml",
  "rand",
- "rquickjs 0.13.0",
+ "rquickjs",
  "rustls",
  "rustls-pemfile",
  "ryu",
@@ -1945,7 +1930,7 @@ dependencies = [
  "pkcs8",
  "rand",
  "ring",
- "rquickjs 0.13.0",
+ "rquickjs",
  "rsa",
  "sha1",
  "sha3 0.12.0",
@@ -1965,7 +1950,7 @@ dependencies = [
  "llrt_events",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
  "tracing",
 ]
@@ -1979,7 +1964,7 @@ dependencies = [
  "llrt_hooking",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.12.2",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2011,7 +1996,7 @@ name = "llrt_events"
 version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tracing",
 ]
 
@@ -2020,7 +2005,7 @@ name = "llrt_exceptions"
 version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
@@ -2050,7 +2035,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "rand",
- "rquickjs 0.13.0",
+ "rquickjs",
  "sha2",
  "simdutf8",
  "tokio",
@@ -2071,7 +2056,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rand",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2081,7 +2066,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_utils",
  "once_cell",
- "rquickjs 0.12.2",
+ "rquickjs",
 ]
 
 [[package]]
@@ -2099,7 +2084,7 @@ dependencies = [
  "llrt_utils",
  "once_cell",
  "openssl",
- "rquickjs 0.13.0",
+ "rquickjs",
  "rustls",
 ]
 
@@ -2110,7 +2095,7 @@ dependencies = [
  "itoa",
  "jiff",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
@@ -2122,7 +2107,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "ryu",
  "simd-json",
  "tokio",
@@ -2138,7 +2123,7 @@ dependencies = [
  "llrt_json",
  "llrt_numbers",
  "llrt_utils",
- "rquickjs 0.12.2",
+ "rquickjs",
  "ryu",
 ]
 
@@ -2183,7 +2168,7 @@ dependencies = [
  "llrt_zlib",
  "once_cell",
  "openssl",
- "rquickjs 0.13.0",
+ "rquickjs",
  "simd-json",
  "tokio",
  "tracing",
@@ -2193,7 +2178,7 @@ dependencies = [
 name = "llrt_navigator"
 version = "0.9.0-beta"
 dependencies = [
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
@@ -2208,7 +2193,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rand",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
  "tracing",
 ]
@@ -2222,7 +2207,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rand",
- "rquickjs 0.13.0",
+ "rquickjs",
  "ryu",
 ]
 
@@ -2236,7 +2221,7 @@ dependencies = [
  "llrt_utils",
  "num_cpus",
  "once_cell",
- "rquickjs 0.13.0",
+ "rquickjs",
  "sysinfo",
  "tokio",
  "uzers",
@@ -2255,7 +2240,7 @@ dependencies = [
  "memchr",
  "once_cell",
  "rand",
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
@@ -2265,7 +2250,7 @@ dependencies = [
  "llrt_events",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
@@ -2275,7 +2260,7 @@ dependencies = [
  "libc",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2287,7 +2272,7 @@ dependencies = [
  "llrt_context",
  "llrt_events",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2299,7 +2284,7 @@ dependencies = [
  "llrt_exceptions",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2311,7 +2296,7 @@ dependencies = [
  "llrt_encoding",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2321,14 +2306,14 @@ version = "0.9.0-beta"
 dependencies = [
  "jiff",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
 name = "llrt_test"
 version = "0.9.0-beta"
 dependencies = [
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
  "uuid",
 ]
@@ -2358,7 +2343,7 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "once_cell",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2382,7 +2367,7 @@ dependencies = [
  "libc",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2392,7 +2377,7 @@ version = "0.9.0-beta"
 dependencies = [
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
  "url",
 ]
@@ -2407,7 +2392,7 @@ dependencies = [
  "llrt_stream_web",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
  "tokio",
 ]
 
@@ -2420,7 +2405,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "memchr",
- "rquickjs 0.13.0",
+ "rquickjs",
  "simdutf8",
  "tokio",
  "tracing",
@@ -2436,7 +2421,7 @@ dependencies = [
  "llrt_context",
  "llrt_test",
  "llrt_utils",
- "rquickjs 0.13.0",
+ "rquickjs",
 ]
 
 [[package]]
@@ -2631,7 +2616,7 @@ checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -2806,7 +2791,7 @@ dependencies = [
  "phf_shared",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -2835,7 +2820,7 @@ checksum = "d9b20ed30f105399776b9c883e68e536ef602a16ae6f596d2c473591d6ad64c6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -2922,7 +2907,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "479ca8adacdd7ce8f1fb39ce9ecccbfe93a3f1344b3d0d97f20bc0196208f62b"
 dependencies = [
  "proc-macro2",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -2979,7 +2964,7 @@ dependencies = [
  "proc-macro-error-attr2",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -3074,7 +3059,7 @@ checksum = "b7186006dcb21920990093f30e3dea63b7d6e977bf1256be20c3563a5db070da"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -3141,100 +3126,49 @@ dependencies = [
 
 [[package]]
 name = "rquickjs"
-version = "0.12.2"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e04e4eedfb060b503b5f0a2644abb890b0b3620d3fb674f9455f230014964e4"
+checksum = "a0a22bf72f515cc4189dd7c63d016f6de92a11eee98ddf7dd64794198f6eb34e"
 dependencies = [
  "either",
- "rquickjs-core 0.12.2",
- "rquickjs-macro 0.12.2",
-]
-
-[[package]]
-name = "rquickjs"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d96fb23e8ff51c8d4772ea84e44b5238543b7d81e9cc23c0219511a8f16482"
-dependencies = [
- "either",
- "rquickjs-core 0.13.0",
- "rquickjs-macro 0.13.0",
+ "rquickjs-core",
+ "rquickjs-macro",
 ]
 
 [[package]]
 name = "rquickjs-core"
-version = "0.12.2"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16e4f499ac5b943d97ee6dbc44f23c2c10426f420f7d2f1793d6318911b6608c"
-dependencies = [
- "either",
- "hashbrown 0.17.0",
- "relative-path",
- "rquickjs-sys 0.12.2",
-]
-
-[[package]]
-name = "rquickjs-core"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c6dbfedfbf458dc119c21ccd032c7527d185210b11a1ae796cd04106e6db280"
+checksum = "6657979a24d543e5fc66f32cef2f47ca82ce8eb55cec5f7d59a12b7b570bbf24"
 dependencies = [
  "async-lock",
  "either",
  "half",
  "hashbrown 0.17.0",
  "relative-path",
- "rquickjs-sys 0.13.0",
+ "rquickjs-sys",
 ]
 
 [[package]]
 name = "rquickjs-macro"
-version = "0.12.2"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cbcc8219b70ee2faa08d5339f47f15741cba2ce0cb9640e8495f2ab51293f50"
+checksum = "0a2ea9adb03b669c933482ff740b683cd36be7cef23891657a8ccb850401d286"
 dependencies = [
- "convert_case 0.11.0",
- "fnv",
- "ident_case",
+ "convert_case",
  "indexmap",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "rquickjs-core 0.12.2",
- "syn",
-]
-
-[[package]]
-name = "rquickjs-macro"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4446670c6ae57191ac325a4c9675fee5b31172533ad68753f7afa83759f082fd"
-dependencies = [
- "convert_case 0.12.0",
- "fnv",
- "ident_case",
- "indexmap",
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "rquickjs-core 0.13.0",
- "syn",
+ "rquickjs-core",
+ "syn 3.0.6",
 ]
 
 [[package]]
 name = "rquickjs-sys"
-version = "0.12.2"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13ac243b86a74120814ef7e9e30ad5a2c1199b7b9963b1cf7c84e4cdc1cad99"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "rquickjs-sys"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53d0aaff245bed1c6f3c39e477fb6b98d710d9d298bfec7c8dfc589bed0e5cef"
+checksum = "cee271d0eeba64f0915b846cb7ae02e16faf3dfdffdca91731101d9d30fe3423"
 dependencies = [
  "bindgen",
  "cc",
@@ -3454,7 +3388,7 @@ checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -3691,6 +3625,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "synstructure"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3698,7 +3643,7 @@ checksum = "728a70f3dbaf5bab7f0c4b1ac8d7ae5ea60a4b5549c8a5914361c99147a709d2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -3742,7 +3687,7 @@ checksum = "ebc4ee7f67670e9b64d05fa4253e753e016c6c95ff35b89b7941d6b856dec1d5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -3790,7 +3735,7 @@ checksum = "385a6cb71ab9ab790c5fe8d67f1645e6c450a7ce006a33de03daa956cf70a496"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -4171,7 +4116,7 @@ checksum = "053e2e040ab57b9dc951b72c264860db7eb3b0200ba345b4e4c3b14f67855ddf"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -4182,7 +4127,7 @@ checksum = "3f316c4a2570ba26bbec722032c4099d8c8bc095efccdc15688708623367e358"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -4416,7 +4361,7 @@ dependencies = [
  "heck",
  "indexmap",
  "prettyplease",
- "syn",
+ "syn 2.0.117",
  "wasm-metadata",
  "wit-bindgen-core",
  "wit-component",
@@ -4432,7 +4377,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
  "wit-bindgen-core",
  "wit-bindgen-rust",
 ]
@@ -4521,7 +4466,7 @@ checksum = "b659052874eb698efe5b9e8cf382204678a0086ebf46982b79d6ca3182927e5d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
  "synstructure",
 ]
 
@@ -4542,7 +4487,7 @@ checksum = "0e8bc7269b54418e7aeeef514aa68f8690b8c0489a06b0136e5f57c4c5ccab89"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -4562,7 +4507,7 @@ checksum = "d71e5d6e06ab090c67b5e44993ec16b72dcbaabc526db883a360057678b48502"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
  "synstructure",
 ]
 
@@ -4602,7 +4547,7 @@ checksum = "eadce39539ca5cb3985590102671f2567e659fca9666581ad3411d59207951f3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.117",
 ]
 
 [[package]]

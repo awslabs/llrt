@@ -26,6 +26,9 @@ use std::ffi::c_void;
 
 use rquickjs::{qjs, ArrayBuffer, Ctx, Exception, Result, Value};
 
+const FIXED_SIZE: qjs::size_t = 0;
+const FREE: qjs::size_t = 0;
+
 /// Mark an `ArrayBuffer` as immutable: subsequent writes through any
 /// `Uint8Array` / `DataView` view silently fail (or `TypeError` in strict
 /// mode), and `.transfer()` throws `TypeError: ArrayBuffer is immutable`.
@@ -74,10 +77,10 @@ pub fn shared_array_buffer_view<'js>(
         .as_raw()
         .ok_or_else(|| Exception::throw_type(ctx, "cannot view a detached ArrayBuffer"))?;
     debug_assert!(
-        offset.checked_add(len).is_some_and(|e| e <= raw.len),
+        offset.checked_add(len).is_some_and(|e| e <= raw.len()),
         "shared_array_buffer_view: slice out of range"
     );
-    let ptr = unsafe { raw.ptr.as_ptr().add(offset) };
+    let ptr = unsafe { raw.cast::<u8>().as_ptr().add(offset) };
 
     // Dup the source's JSValue. The returned ArrayBuffer's free-callback
     // (below) will drop this reference.
@@ -86,7 +89,15 @@ pub fn shared_array_buffer_view<'js>(
     let source_val = unsafe { qjs::JS_DupValueRT(rt, source.as_value().as_raw()) };
     let opaque = Box::into_raw(Box::new(source_val)) as *mut c_void;
 
-    extern "C" fn free_shared(rt: *mut qjs::JSRuntime, opaque: *mut c_void, _ptr: *mut c_void) {
+    extern "C" fn free_shared(
+        rt: *mut qjs::JSRuntime,
+        opaque: *mut c_void,
+        _ptr: *mut c_void,
+        size: qjs::size_t,
+    ) -> *mut c_void {
+        if size != FREE {
+            return std::ptr::null_mut();
+        }
         // `opaque` is guaranteed non-null: the only QuickJS code path
         // that loses it is `.transfer()`, which is blocked by the
         // immutability flag we set below.
@@ -94,6 +105,7 @@ pub fn shared_array_buffer_view<'js>(
             let boxed = Box::from_raw(opaque as *mut qjs::JSValue);
             qjs::JS_FreeValueRT(rt, *boxed);
         }
+        std::ptr::null_mut()
     }
 
     let view = unsafe {
@@ -101,14 +113,14 @@ pub fn shared_array_buffer_view<'js>(
             ctx_ptr,
             ptr,
             len as _,
+            FIXED_SIZE,
             Some(free_shared),
             opaque,
             /*is_shared=*/ false,
         );
         if qjs::JS_IsException(val) {
             // QuickJS didn't take ownership of `opaque`; drop it ourselves.
-            let boxed = Box::from_raw(opaque as *mut qjs::JSValue);
-            qjs::JS_FreeValueRT(rt, *boxed);
+            free_shared(rt, opaque, ptr as *mut c_void, FREE);
             return Err(ctx.throw(ctx.catch()));
         }
         let value = Value::from_raw(ctx.clone(), val);

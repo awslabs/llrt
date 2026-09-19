@@ -70,7 +70,7 @@ impl TextEncoder {
                 .or_throw(&ctx)?;
 
             let dst = unsafe {
-                std::slice::from_raw_parts_mut(raw.ptr.as_ptr().add(dst_offset), dst_length)
+                std::slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(dst_offset), dst_length)
             };
 
             let mut written = 0;

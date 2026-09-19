@@ -312,7 +312,7 @@ impl<'js> Blob<'js> {
     /// Borrow the underlying bytes directly. Returns `&[]` if the ArrayBuffer
     /// has been detached (shouldn't happen in normal blob flow).
     pub fn as_bytes(&self) -> &[u8] {
-        self.data.as_bytes().unwrap_or(&[])
+        unsafe { self.data.as_bytes() }.unwrap_or(&[])
     }
 }
 
@@ -364,7 +364,7 @@ where
                 continue;
             }
             if let Some(x) = ArrayBuffer::from_object(object.clone()) {
-                data.extend_from_slice(x.as_bytes().ok_or_else(|| {
+                data.extend_from_slice(unsafe { x.as_bytes() }.ok_or_else(|| {
                     Exception::throw_type(ctx, "Cannot create a blob with detached buffer")
                 })?);
                 continue;

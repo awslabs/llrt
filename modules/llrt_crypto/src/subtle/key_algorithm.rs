@@ -1151,8 +1151,7 @@ fn from_rsa<'js>(
                 let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
                 let public_exponent: TypedArray<u8> =
                     obj.get_required("publicExponent", "algorithm")?;
-                let public_exponent = public_exponent
-                    .as_bytes()
+                let public_exponent = unsafe { public_exponent.as_bytes() }
                     .ok_or_else(|| {
                         DOMException::not_supported_error(ctx, "Array buffer has been detached")
                     })?
@@ -1178,8 +1177,7 @@ fn from_rsa<'js>(
         let value = get_required_dictionary_value(obj, "modulusLength", "algorithm")?;
         let modulus_length = enforce_range_u32(ctx, value, "modulusLength")?;
         let public_exponent: TypedArray<u8> = obj.get_required("publicExponent", "algorithm")?;
-        let public_exponent = public_exponent
-            .as_bytes()
+        let public_exponent = unsafe { public_exponent.as_bytes() }
             .ok_or_else(|| {
                 DOMException::not_supported_error(ctx, "Array buffer has been detached")
             })?

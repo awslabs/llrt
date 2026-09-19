@@ -1702,8 +1702,7 @@ fn clone_as_uint8_array<'js>(
     // Let buffer be ? CloneArrayBuffer(O.[[ViewedArrayBuffer]], O.[[ByteOffset]], O.[[ByteLength]], %ArrayBuffer%).
     let buffer = ArrayBuffer::new_copy(
         ctx.clone(),
-        &buffer
-            .as_bytes()
+        &unsafe { buffer.as_bytes() }
             .expect("CloneAsUInt8Array called on detached buffer")
             [byte_offset..byte_offset + byte_length],
     )?;

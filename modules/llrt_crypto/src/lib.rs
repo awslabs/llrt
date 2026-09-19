@@ -170,7 +170,7 @@ fn random_fill_sync<'js>(
         // SAFETY: source_offset..+source_length stays in the backing buffer;
         // start/end are clamped to it above.
         let bytes = unsafe {
-            slice::from_raw_parts_mut(raw.ptr.as_ptr().add(source_offset), source_length)
+            slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(source_offset), source_length)
         };
 
         rand::rng().fill(&mut bytes[start..end]);
@@ -210,7 +210,7 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
         }
 
         let bytes = unsafe {
-            std::slice::from_raw_parts_mut(raw.ptr.as_ptr().add(source_offset), source_length)
+            std::slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(source_offset), source_length)
         };
 
         rand::rng().fill(bytes)
