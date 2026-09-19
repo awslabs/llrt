@@ -210,7 +210,10 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
         }
 
         let bytes = unsafe {
-            std::slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(source_offset), source_length)
+            std::slice::from_raw_parts_mut(
+                raw.cast::<u8>().as_ptr().add(source_offset),
+                source_length,
+            )
         };
 
         rand::rng().fill(bytes)

@@ -56,7 +56,9 @@ fn resolve_view_bytes<'js>(
     }
 
     // SAFETY: bounds checked above.
-    Ok(unsafe { slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(byte_offset), byte_length) })
+    Ok(unsafe {
+        slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(byte_offset), byte_length)
+    })
 }
 
 impl<'js> IntoJs<'js> for Buffer {
