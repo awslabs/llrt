@@ -872,7 +872,7 @@ impl<'js> ReadableByteStreamController<'js> {
         // Let cloneResult be CloneArrayBuffer(buffer, byteOffset, byteLength, %ArrayBuffer%).
         let clone_result = match ArrayBuffer::new_copy(
             ctx.clone(),
-            &buffer.as_bytes().expect(
+            &unsafe { buffer.as_bytes() }.expect(
                 "ReadableByteStreamControllerEnqueueClonedChunkToQueue called on detached buffer",
             )[byte_offset..byte_offset + byte_length],
         ) {
@@ -1955,7 +1955,7 @@ impl<'js> ReadableStreamBYOBRequest<'js> {
         drop(byob_request);
 
         // If ! IsDetachedBuffer(this.[[view]].[[ArrayBuffer]]) is true, throw a TypeError exception.
-        if buffer.as_bytes().is_none() {
+        if buffer.as_raw().is_none() {
             return Err(Exception::throw_type(
                 &ctx,
                 "The BYOB request's buffer has been detached and so cannot be used as a response",
@@ -2002,7 +2002,7 @@ impl<'js> ReadableStreamBYOBRequest<'js> {
         let (buffer, _, _) = view.get_array_buffer()?;
 
         // If ! IsDetachedBuffer(view.[[ViewedArrayBuffer]]) is true, throw a TypeError exception.
-        if buffer.as_bytes().is_none() {
+        if buffer.as_raw().is_none() {
             return Err(Exception::throw_type(
                 &ctx,
                 "The given view's buffer has been detached and so cannot be used as a response",
@@ -2084,16 +2084,16 @@ fn copy_data_block_bytes(
     from_index: usize,
     count: usize,
 ) -> Result<()> {
-    let to_raw = to_block
+    let mut to_raw = to_block
         .as_raw()
         .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
         .or_throw(ctx)?;
-    let to_slice = unsafe { std::slice::from_raw_parts_mut(to_raw.ptr.as_ptr(), to_raw.len) };
+    let to_slice = unsafe { to_raw.as_mut() };
     let from_raw = from_block
         .as_raw()
         .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED)
         .or_throw(ctx)?;
-    let from_slice = unsafe { std::slice::from_raw_parts(from_raw.ptr.as_ptr(), from_raw.len) };
+    let from_slice = unsafe { from_raw.as_ref() };
 
     to_slice[to_index..to_index + count]
         .copy_from_slice(&from_slice[from_index..from_index + count]);

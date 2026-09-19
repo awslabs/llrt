@@ -1489,7 +1489,7 @@ mod tests {
                             }
                             let value: rquickjs::Value = chunk.get("value")?;
                             if let Ok(ta) = rquickjs::TypedArray::<u8>::from_value(value) {
-                                if let Some(bytes) = ta.as_bytes() {
+                                if let Some(bytes) = unsafe { ta.as_bytes() } {
                                     result.extend_from_slice(bytes);
                                 }
                             }

@@ -205,7 +205,7 @@ impl<'js> ReadableStreamBYOBReader<'js> {
             }
 
             // If ! IsDetachedBuffer(view.[[ViewedArrayBuffer]]) is true, return a promise rejected with a TypeError exception.
-            if buffer.as_bytes().is_none() {
+            if buffer.as_raw().is_none() {
                 return promise_rejected_with_constructor(
                     &reader.generic.constructor_type_error,
                     &reader.generic.promise_primordials,

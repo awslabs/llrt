@@ -251,7 +251,7 @@ mod tests {
                 BasePrimordials::init(&ctx).unwrap();
                 let output = process_input(&ctx, "throw new Error('err')", false).await;
 
-                assert_eq!(output, "Error: err\n  at <eval> (eval_script:1:10)");
+                assert_eq!(output, "Error: err\n  at <eval> (eval_script:1:11)");
 
                 let output = process_input(&ctx, "Promise.reject(1)", false).await;
 

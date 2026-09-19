@@ -356,24 +356,29 @@ impl<'js> ObjectBytes<'js> {
     }
 
     fn as_bytes_inner(&self) -> std::result::Result<&[u8], Rc<str>> {
-        match self {
-            ObjectBytes::U8Array(array) => array.as_bytes(),
-            ObjectBytes::I8Array(array) => array.as_bytes(),
-            ObjectBytes::U16Array(array) => array.as_bytes(),
-            ObjectBytes::I16Array(array) => array.as_bytes(),
-            ObjectBytes::U32Array(array) => array.as_bytes(),
-            ObjectBytes::I32Array(array) => array.as_bytes(),
-            ObjectBytes::U64Array(array) => array.as_bytes(),
-            ObjectBytes::I64Array(array) => array.as_bytes(),
-            ObjectBytes::F16Array(array) => array.as_bytes(),
-            ObjectBytes::F32Array(array) => array.as_bytes(),
-            ObjectBytes::F64Array(array) => array.as_bytes(),
-            ObjectBytes::U8ClampedArray(array) => array.as_bytes(),
-            ObjectBytes::DataView(ab, offset, length) => ab.as_bytes().and_then(|bytes| {
-                let end = offset.checked_add(*length)?;
-                bytes.get(*offset..end)
-            }),
-            ObjectBytes::Vec(bytes) => Some(bytes.as_ref()),
+        // Safety: the returned slice is used immediately and no JS runs while
+        // it's alive, so the backing store can't be written, detached, or
+        // reallocated out from under it.
+        unsafe {
+            match self {
+                ObjectBytes::U8Array(array) => array.as_bytes(),
+                ObjectBytes::I8Array(array) => array.as_bytes(),
+                ObjectBytes::U16Array(array) => array.as_bytes(),
+                ObjectBytes::I16Array(array) => array.as_bytes(),
+                ObjectBytes::U32Array(array) => array.as_bytes(),
+                ObjectBytes::I32Array(array) => array.as_bytes(),
+                ObjectBytes::U64Array(array) => array.as_bytes(),
+                ObjectBytes::I64Array(array) => array.as_bytes(),
+                ObjectBytes::F16Array(array) => array.as_bytes(),
+                ObjectBytes::F32Array(array) => array.as_bytes(),
+                ObjectBytes::F64Array(array) => array.as_bytes(),
+                ObjectBytes::U8ClampedArray(array) => array.as_bytes(),
+                ObjectBytes::DataView(ab, offset, length) => ab.as_bytes().and_then(|bytes| {
+                    let end = offset.checked_add(*length)?;
+                    bytes.get(*offset..end)
+                }),
+                ObjectBytes::Vec(bytes) => Some(bytes.as_ref()),
+            }
         }
         .ok_or(ERROR_MSG_ARRAY_BUFFER_DETACHED.into())
     }

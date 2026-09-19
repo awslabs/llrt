@@ -80,7 +80,7 @@ pub(crate) fn create_body_value_stream<'js>(
 
             // Collect bytes from whatever the body value is.
             let bytes: Vec<u8> = if let Ok(ta) = TypedArray::<u8>::from_value(body_value.clone()) {
-                ta.as_bytes().unwrap_or(&[]).to_vec()
+                unsafe { ta.as_bytes() }.unwrap_or(&[]).to_vec()
             } else if let Some(blob) = body_value.as_object().and_then(Class::<Blob>::from_object) {
                 blob.borrow().get_bytes()
             } else {
@@ -156,7 +156,7 @@ pub(crate) async fn collect_readable_stream<'js>(
         let mut result = Vec::new();
         for chunk in chunks {
             if let Ok(typed_array) = TypedArray::<u8>::from_value(chunk.clone()) {
-                if let Some(bytes) = typed_array.as_bytes() {
+                if let Some(bytes) = unsafe { typed_array.as_bytes() } {
                     result.extend_from_slice(bytes);
                 }
             } else {
@@ -186,7 +186,7 @@ pub(crate) async fn collect_readable_stream<'js>(
 
         let value: Value = read_result.get("value")?;
         if let Ok(typed_array) = TypedArray::<u8>::from_value(value.clone()) {
-            if let Some(bytes) = typed_array.as_bytes() {
+            if let Some(bytes) = unsafe { typed_array.as_bytes() } {
                 result.extend_from_slice(bytes);
             }
         } else {

@@ -16,7 +16,7 @@ either = { version = "1", default-features = false }
 llrt_context = { version = "0.9.0-beta", path = "../../libs/llrt_context" }
 llrt_hooking = { version = "0.9.0-beta", path = "../../libs/llrt_hooking" }
 llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-features = false }
-rquickjs = { version = "0.12", features = [
+rquickjs = { version = "0.14", features = [
   "macro",
   "either",
 ], default-features = false }
