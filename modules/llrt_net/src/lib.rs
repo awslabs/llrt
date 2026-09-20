@@ -59,13 +59,13 @@ enum NetStream {
 }
 
 impl NetStream {
-    async fn process<'js>(
+    fn start_process<'js>(
         self,
         socket: &Class<'js, Socket<'js>>,
         ctx: &Ctx<'js>,
         allow_half_open: bool,
-    ) -> Result<bool> {
-        let (readable_done, writable_done) = match self {
+    ) -> Result<(Receiver<bool>, Receiver<bool>)> {
+        match self {
             NetStream::Tcp((stream, _)) => {
                 Socket::process_tcp_stream(socket, ctx, stream, allow_half_open)
             },
@@ -73,9 +73,7 @@ impl NetStream {
             NetStream::Unix((stream, _)) => {
                 Socket::process_unix_stream(socket, ctx, stream, allow_half_open)
             },
-        }?;
-        let had_error = rw_join(ctx, readable_done, writable_done).await?;
-        Ok(had_error)
+        }
     }
 }
 

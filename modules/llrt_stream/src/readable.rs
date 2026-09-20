@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{atomic::AtomicUsize, Arc, RwLock};
 
+use llrt_async_context::lifecycle::register_native_resource;
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
@@ -232,10 +233,13 @@ where
         readable: T,
         on_end: C,
     ) -> Result<Receiver<bool>> {
+        let async_resource = register_native_resource(ctx)?;
+
         let ctx2 = ctx.clone();
         ctx.spawn_exit(async move {
             let this2 = this.clone();
             let ctx3 = ctx2.clone();
+            let read_resource = async_resource.clone();
 
             let borrow = this2.borrow();
             let inner = borrow.inner();
@@ -280,13 +284,16 @@ where
                                             break;
                                         }
 
-                                        Self::emit_str(
-                                            this2.clone(),
-                                            &ctx3,
-                                            "data",
-                                            vec![Buffer(buffer.clone()).into_js(&ctx3)?],
-                                            false
-                                        )?;
+                                        let args = vec![Buffer(buffer.clone()).into_js(&ctx3)?];
+                                        read_resource.run(&ctx3, || {
+                                            Self::emit_str(
+                                                this2.clone(),
+                                                &ctx3,
+                                                "data",
+                                                args,
+                                                false,
+                                            )
+                                        })?;
                                         buffer.clear();
                                     },
                                     ReadableState::Paused => {
@@ -296,13 +303,15 @@ where
                                         }
 
                                         let write_buffer_future = ba_buffer.write(&mut buffer);
-                                        Self::emit_str(
-                                            this2.clone(),
-                                            &ctx3,
-                                            "readable",
-                                            vec![],
-                                            false
-                                        )?;
+                                        read_resource.run(&ctx3, || {
+                                            Self::emit_str(
+                                                this2.clone(),
+                                                &ctx3,
+                                                "readable",
+                                                vec![],
+                                                false,
+                                            )
+                                        })?;
                                         tokio::select!{
                                             capacity = write_buffer_future => {
                                                 buffer.clear();
@@ -350,7 +359,9 @@ where
 
                 if !is_destroyed {
                     on_end();
-                    Self::emit_str(this2.clone(), &ctx3, "end", vec![], false)?;
+                    read_resource.run(&ctx3, || {
+                        Self::emit_str(this2.clone(), &ctx3, "end", vec![], false)
+                    })?;
                 }
 
                 if let Some(error_value) = error_value{
@@ -361,10 +372,17 @@ where
             }
             .await;
 
-            let had_error = read_function.emit_error("readable",&ctx2, this.clone())?;
+            let mut read_result = Ok(false);
+            async_resource.run(&ctx2, || {
+                read_result = read_function.emit_error("readable", &ctx2, this.clone());
+                Ok(())
+            })?;
+            let had_error = read_result?;
 
             if emit_close {
-                Self::emit_close(this,&ctx2,had_error)?;
+                async_resource.run(&ctx2, || {
+                    Self::emit_close(this, &ctx2, had_error)
+                })?;
             }
 
             Ok::<_, Error>(had_error)
