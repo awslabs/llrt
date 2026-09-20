@@ -85,9 +85,9 @@ pub fn invoke_async_hook(
         ProviderType::UdpWrap => Cow::Borrowed("UDPWRAP"),
     };
 
-    let stored = ctx
-        .userdata::<AsyncHookBridge>()
-        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookBridge is not initialized"))?;
+    let Some(stored) = ctx.userdata::<AsyncHookBridge>() else {
+        return Ok((0, 0));
+    };
     let invoke_async_hook = stored.invoke_async_hook.clone().restore(ctx)?;
     let result: Object =
         invoke_async_hook.call((hook_, provider_.as_ref(), async_id, trigger_id))?;
@@ -107,16 +107,14 @@ pub fn register_finalization_registry<'js>(
         return Ok(());
     }
 
-    let (registry, register, register_async_resource) = {
-        let stored = ctx
-            .userdata::<AsyncHookBridge>()
-            .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookBridge is not initialized"))?;
-        (
-            stored.registry.clone().restore(ctx)?,
-            stored.register.clone(),
-            stored.register_async_resource.clone(),
-        )
+    let Some(stored) = ctx.userdata::<AsyncHookBridge>() else {
+        return Ok(());
     };
+    let (registry, register, register_async_resource) = (
+        stored.registry.clone().restore(ctx)?,
+        stored.register.clone(),
+        stored.register_async_resource.clone(),
+    );
     let register = register.restore(ctx)?;
     let token = Object::new(ctx.clone())?;
     token.set("kind", kind as u8)?;
