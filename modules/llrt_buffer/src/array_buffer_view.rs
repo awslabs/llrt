@@ -39,84 +39,84 @@ impl<'js> FromJs<'js> for ArrayBufferView<'js> {
         if let Some(array_buffer) = ArrayBuffer::from_object(obj.clone()) {
             let buffer = array_buffer
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<i8>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<u8>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<i16>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<u16>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<i32>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<u32>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<f32>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<f64>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<i64>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(typed_array) = TypedArray::<u64>::from_object(obj.clone()) {
             let buffer = typed_array
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 
         if let Ok(array_buffer) = obj.get::<_, ArrayBuffer>("buffer") {
             let buffer = array_buffer
                 .as_raw()
-                .map(|raw| RawArrayBuffer::new(raw.len, raw.ptr));
+                .map(|raw| RawArrayBuffer::new(raw.len(), raw.cast::<u8>()));
             return Ok(ArrayBufferView { value, buffer });
         }
 

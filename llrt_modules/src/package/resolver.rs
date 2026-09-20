@@ -141,8 +141,17 @@ pub fn require_resolve<'a>(
 
     // 1'. If X is a bytecode cache,
     if let Some(hooked_resolve) = hooked_fn {
-        if let Ok(path) = hooked_resolve.call::<_, String>((x, y)) {
-            return Ok(path.into());
+        match hooked_resolve.call::<_, String>((x, y)) {
+            Ok(path) => return Ok(path.into()),
+            Err(_) => {
+                // Not found via the hook (e.g. not in the embedded bytecode
+                // cache) is an expected outcome, not a real error: fall
+                // through to normal resolution. Clear the exception the
+                // failed call left pending so it isn't later mistaken for a
+                // real exception by unrelated code (e.g. the module loader's
+                // "is this module already loaded" check).
+                ctx.catch();
+            },
         }
     }
 

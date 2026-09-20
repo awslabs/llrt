@@ -235,7 +235,9 @@ async fn send_stream<'js>(
                     // Per fetch spec, stream chunks must be Uint8Array. Anything
                     // else (ArrayBuffer, Blob, String, null, etc.) is an error.
                     let bytes = match rquickjs::TypedArray::<u8>::from_value(value) {
-                        Ok(typed_array) => typed_array.as_bytes().map(Bytes::copy_from_slice),
+                        Ok(typed_array) => {
+                            unsafe { typed_array.as_bytes() }.map(Bytes::copy_from_slice)
+                        },
                         Err(_) => {
                             let _ = err_tx
                                 .send("Failed to read body: chunk is not a Uint8Array".into());

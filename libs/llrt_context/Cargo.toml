@@ -7,7 +7,7 @@ license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
 
 [dependencies]
-rquickjs = { version = "0.12", features = [
+rquickjs = { version = "0.14", features = [
     "futures",
 ], default-features = false }
 llrt_utils = { version = "0.9.0-beta", path = "../llrt_utils", default-features = false }
