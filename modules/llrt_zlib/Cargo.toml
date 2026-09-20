@@ -26,6 +26,7 @@ compression-rust = [
 ]
 
 [dependencies]
+llrt_async_context = { workspace = true }
 llrt_buffer = { workspace = true }
 llrt_compression = { workspace = true, default-features = false }
 llrt_context = { workspace = true }

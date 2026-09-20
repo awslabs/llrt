@@ -12,6 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 llrt_abort = { workspace = true }
+llrt_async_context = { workspace = true }
 llrt_exceptions = { workspace = true }
 llrt_utils = { workspace = true, default-features = false }
 rquickjs = { version = "0.14", default-features = false }

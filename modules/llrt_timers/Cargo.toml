@@ -11,16 +11,12 @@ name = "llrt_timers"
 path = "src/lib.rs"
 
 [dependencies]
+llrt_scheduler = { workspace = true }
 llrt_context = { workspace = true }
-llrt_hooking = { workspace = true }
 llrt_utils = { workspace = true, default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.14", default-features = false }
-tokio = { version = "1", features = [
-  "macros",
-  "sync",
-  "time",
-], default-features = false }
 
 [dev-dependencies]
 llrt_test = { workspace = true }
+tokio = { version = "1", features = ["macros", "rt"], default-features = false }
