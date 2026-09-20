@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
-use llrt_hooking::{invoke_async_hook, register_finalization_registry, AsyncTokenKind, HookType};
+use llrt_async_runtime::poll_timers;
+use llrt_hooking::{
+    invoke_async_hook, register_finalization_registry, AsyncTokenKind, HookType, ProviderType,
+};
 use llrt_json::parse::json_parse;
-use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT, provider::ProviderType};
+use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT};
 use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, Function, Module, Object, Result, Value};
 use tokio::time::Instant;
 use tracing::trace;
 
-use crate::modules::{path::resolve_path, timers::poll_timers};
+use crate::modules::path::resolve_path;
 use crate::package::resolver::require_resolve;
 use crate::CJS_IMPORT_PREFIX;
 

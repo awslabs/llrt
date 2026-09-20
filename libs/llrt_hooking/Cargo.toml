@@ -11,6 +11,5 @@ name = "llrt_hooking"
 path = "src/lib.rs"
 
 [dependencies]
-llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.14", default-features = false }

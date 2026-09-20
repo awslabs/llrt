@@ -11,6 +11,9 @@ mod abort_controller;
 mod abort_signal;
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    #[cfg(feature = "sleep-timers")]
+    llrt_async_runtime::init(ctx)?;
+
     let globals = ctx.globals();
 
     BasePrimordials::init(ctx)?;

@@ -2,13 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{borrow::Cow, env};
 
-use llrt_utils::provider::ProviderType;
 use once_cell::sync::Lazy;
 use rquickjs::{
     function::This, BigInt, Ctx, Exception, Function, JsLifetime, Object, Persistent, Result, Value,
 };
 
 static HOOKING_MODE: Lazy<bool> = Lazy::new(|| env::var("LLRT_ASYNC_HOOKS").as_deref() == Ok("1"));
+
+#[derive(PartialEq)]
+pub enum ProviderType {
+    None,
+    Resource(String),
+    Immediate,
+    Interval,
+    MessagePort,
+    Microtask,
+    TickObject,
+    Timeout,
+    FsReqCallback,
+    GetAddrInfoReqWrap,
+    GetNameInfoReqWrap,
+    PipeWrap,
+    StatWatcher,
+    TcpWrap,
+    TimerWrap,
+    TlsWrap,
+    UdpWrap,
+}
 
 #[inline]
 pub fn is_hooking_enabled() -> bool {

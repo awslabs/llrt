@@ -46,6 +46,7 @@ impl Default for ModuleBuilder {
         let mut builder = Self::new();
 
         builder = builder
+            .with_global(llrt_async_runtime::init)
             .with_global(crate::module::init)
             .with_module(crate::module::ModuleModule);
 
@@ -165,9 +166,7 @@ impl Default for ModuleBuilder {
         }
         #[cfg(feature = "timers")]
         {
-            builder = builder
-                .with_global(crate::modules::timers::init)
-                .with_module(crate::modules::timers::TimersModule);
+            builder = builder.with_module(crate::modules::timers::TimersModule);
         }
         #[cfg(feature = "tty")]
         {

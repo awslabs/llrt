@@ -1,0 +1,22 @@
+[package]
+name = "llrt_async_runtime"
+description = "LLRT async runtime primitives"
+version = "0.9.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_async_runtime"
+path = "src/lib.rs"
+
+[dependencies]
+llrt_context = { version = "0.9.0-beta", path = "../llrt_context" }
+llrt_hooking = { version = "0.9.0-beta", path = "../llrt_hooking" }
+once_cell = { version = "1", features = ["std"], default-features = false }
+rquickjs = { version = "0.14", default-features = false }
+tokio = { version = "1", features = [
+  "macros",
+  "sync",
+  "time",
+], default-features = false }

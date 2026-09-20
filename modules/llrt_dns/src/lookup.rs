@@ -6,9 +6,10 @@ use std::result::Result as StdResult;
 use either::Either;
 use llrt_context::CtxExtension;
 use llrt_hooking::{
-    invoke_async_hook, is_hooking_enabled, register_finalization_registry, AsyncTokenKind, HookType,
+    invoke_async_hook, is_hooking_enabled, register_finalization_registry, AsyncTokenKind,
+    HookType, ProviderType,
 };
-use llrt_utils::{provider::ProviderType, result::ResultExt};
+use llrt_utils::result::ResultExt;
 use rquickjs::{
     prelude::Opt, Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Object, Persistent,
     Result, Value,

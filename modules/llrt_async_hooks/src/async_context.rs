@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, collections::HashMap, marker::PhantomData};
 
 use llrt_hooking::AsyncTokenKind;
@@ -6,6 +8,72 @@ use rquickjs::{
     atom::PredefinedAtom, prelude::This, BigInt, Constructor, Ctx, Exception, Function, JsLifetime,
     Object, Persistent, Result, Value,
 };
+
+pub(crate) struct AsyncResourceState<'js> {
+    next_async_id: u64,
+    async_resources: HashMap<u64, Persistent<Object<'static>>>,
+    current_id: (u64, u64),
+    context_stack: Vec<(u64, u64)>,
+    promise_map: Persistent<Object<'static>>,
+    _marker: PhantomData<&'js ()>,
+}
+
+impl AsyncResourceState<'_> {
+    pub(crate) fn new(promise_map: Persistent<Object<'static>>) -> Self {
+        Self {
+            next_async_id: 1,
+            async_resources: HashMap::new(),
+            current_id: (1, 1),
+            context_stack: Vec::new(),
+            promise_map,
+            _marker: PhantomData,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.async_resources.clear();
+        self.context_stack.clear();
+    }
+
+    fn next_id(&mut self, ctx: &Ctx<'_>) -> Result<u64> {
+        self.next_async_id = self
+            .next_async_id
+            .checked_add(1)
+            .ok_or_else(|| Exception::throw_internal(ctx, "Async resource ID overflow"))?;
+        Ok(self.next_async_id)
+    }
+
+    fn current_id(&self) -> (u64, u64) {
+        self.current_id
+    }
+
+    fn update_current_id(&mut self, id: (u64, u64)) {
+        self.current_id = id;
+    }
+
+    fn enter_scope(&mut self, id: (u64, u64)) {
+        self.context_stack.push(self.current_id);
+        self.current_id = id;
+    }
+
+    fn exit_scope(&mut self) {
+        if let Some(previous) = self.context_stack.pop() {
+            self.current_id = previous;
+        }
+    }
+
+    fn insert_resource(&mut self, id: u64, resource: Persistent<Object<'static>>) {
+        self.async_resources.insert(id, resource);
+    }
+
+    fn remove_resource(&mut self, id: u64) {
+        self.async_resources.remove(&id);
+    }
+
+    fn resource(&self, id: u64) -> Option<Persistent<Object<'static>>> {
+        self.async_resources.get(&id).cloned()
+    }
+}
 
 pub(crate) enum AsyncTarget<'js> {
     Native {
@@ -16,33 +84,6 @@ pub(crate) enum AsyncTarget<'js> {
         promise: Value<'js>,
         parent: Value<'js>,
     },
-}
-
-pub(crate) struct AsyncResourceState<'js> {
-    next_async_id: u64,
-    promise_map: Persistent<Object<'static>>,
-    async_resources: HashMap<u64, Persistent<Object<'static>>>,
-    current_id: (u64, u64), // (execution_async_id, trigger_async_id)
-    context_stack: Vec<(u64, u64)>,
-    _marker: PhantomData<&'js ()>,
-}
-
-impl AsyncResourceState<'_> {
-    pub(crate) fn new(promise_map: Persistent<Object<'static>>) -> Self {
-        Self {
-            next_async_id: 1,
-            promise_map,
-            async_resources: HashMap::new(),
-            current_id: (1, 1),
-            context_stack: Vec::new(),
-            _marker: PhantomData,
-        }
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.async_resources.clear();
-        self.context_stack.clear();
-    }
 }
 
 unsafe impl<'js> JsLifetime<'js> for AsyncResourceState<'js> {
@@ -100,13 +141,7 @@ fn parse_promise_id(token: &Value<'_>) -> Result<(u64, u64)> {
 }
 
 fn next_async_id(ctx: &Ctx<'_>) -> Result<u64> {
-    with_state_mut(ctx, |state| {
-        state.next_async_id = state
-            .next_async_id
-            .checked_add(1)
-            .ok_or_else(|| Exception::throw_internal(ctx, "Async resource ID overflow"))?;
-        Ok(state.next_async_id)
-    })?
+    with_state_mut(ctx, |state| state.next_id(ctx))?
 }
 
 pub(crate) fn insert_promise_id<'js>(
@@ -149,9 +184,7 @@ pub(crate) fn register_async_resource<'js>(
     let constructor: Constructor = ctx.globals().get("WeakRef")?;
     let weak_ref: Object = constructor.construct((resource,))?;
     with_state_mut(&ctx, |state| {
-        state
-            .async_resources
-            .insert(target, Persistent::save(&ctx, weak_ref));
+        state.insert_resource(target, Persistent::save(&ctx, weak_ref));
     })?;
     Ok(())
 }
@@ -189,24 +222,22 @@ pub(crate) fn next_native_id(ctx: &Ctx<'_>) -> Result<(u64, u64)> {
 
 pub(crate) fn remove_native_resource(ctx: &Ctx<'_>, async_id: u64) -> Result<()> {
     with_state_mut(ctx, |state| {
-        state.async_resources.remove(&async_id);
+        state.remove_resource(async_id);
     })?;
     Ok(())
 }
 
 pub(crate) fn update_current_id(ctx: &Ctx<'_>, id: (u64, u64)) -> Result<()> {
-    with_state_mut(ctx, |state| state.current_id = id)?;
+    with_state_mut(ctx, |state| state.update_current_id(id))?;
     Ok(())
 }
 
 pub(crate) fn get_current_id(ctx: &Ctx<'_>) -> Result<(u64, u64)> {
-    with_state(ctx, |state| state.current_id)
+    with_state(ctx, |state| state.current_id())
 }
 
 pub(crate) fn get_current_resource(ctx: Ctx<'_>) -> Result<Object<'_>> {
-    let weak_ref = with_state(&ctx, |state| {
-        state.async_resources.get(&state.current_id.0).cloned()
-    })?;
+    let weak_ref = with_state(&ctx, |state| state.resource(state.current_id().0))?;
     let Some(weak_ref) = weak_ref else {
         return Object::new(ctx.clone());
     };
@@ -221,25 +252,92 @@ pub(crate) fn get_current_resource(ctx: Ctx<'_>) -> Result<Object<'_>> {
 }
 
 pub(crate) fn enter_async_scope(ctx: &Ctx<'_>, id: (u64, u64)) -> Result<()> {
-    with_state_mut(ctx, |state| {
-        let previous = state.current_id;
-        state.context_stack.push(previous);
-        state.current_id = id;
-    })?;
+    with_state_mut(ctx, |state| state.enter_scope(id))?;
     Ok(())
 }
 
 pub(crate) fn exit_async_scope(ctx: &Ctx<'_>) -> Result<()> {
-    with_state_mut(ctx, |state| {
-        if let Some(previous) = state.context_stack.pop() {
-            state.current_id = previous;
-        }
-    })?;
+    with_state_mut(ctx, |state| state.exit_scope())?;
     Ok(())
 }
 
 pub(crate) fn cleanup(ctx: &Ctx<'_>) {
     if let Some(state) = ctx.userdata::<RefCell<AsyncResourceState>>() {
         state.borrow_mut().clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AsyncResourceState;
+    use rquickjs::{Context, Object, Persistent, Runtime};
+
+    fn new_state<'js>(ctx: &rquickjs::Ctx<'js>) -> AsyncResourceState<'js> {
+        let promise_map = Persistent::save(ctx, Object::new(ctx.clone()).unwrap());
+        AsyncResourceState::new(promise_map)
+    }
+
+    #[test]
+    fn nested_scopes_restore_previous_ids() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+
+        context.with(|ctx| {
+            let mut state = new_state(&ctx);
+            assert_eq!(state.current_id(), (1, 1));
+
+            state.enter_scope((2, 1));
+            state.enter_scope((3, 2));
+            assert_eq!(state.current_id(), (3, 2));
+
+            state.exit_scope();
+            assert_eq!(state.current_id(), (2, 1));
+            state.exit_scope();
+            assert_eq!(state.current_id(), (1, 1));
+            state.exit_scope();
+            assert_eq!(state.current_id(), (1, 1));
+        });
+    }
+
+    #[test]
+    fn clear_removes_scope_stack_without_resetting_current_id() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+
+        context.with(|ctx| {
+            let mut state = new_state(&ctx);
+            state.update_current_id((8, 4));
+            state.enter_scope((9, 8));
+
+            state.clear();
+            state.exit_scope();
+
+            assert_eq!(state.current_id(), (9, 8));
+        });
+    }
+
+    #[test]
+    fn update_current_id_changes_the_active_context() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+
+        context.with(|ctx| {
+            let mut state = new_state(&ctx);
+            state.update_current_id((12, 7));
+
+            assert_eq!(state.current_id(), (12, 7));
+        });
+    }
+
+    #[test]
+    fn next_id_starts_after_reserved_root_id() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+
+        context.with(|ctx| {
+            let mut state = new_state(&ctx);
+            assert_eq!(state.next_id(&ctx).unwrap(), 2);
+            assert_eq!(state.next_id(&ctx).unwrap(), 3);
+        });
     }
 }
