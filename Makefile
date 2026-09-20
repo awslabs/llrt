@@ -213,7 +213,6 @@ run-cli: js
 
 test: export JS_MINIFY = 0
 test: export TEST_SUB_DIR = unit
-test: export LLRT_ASYNC_HOOKS = 1
 test: js
 	cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
@@ -352,7 +351,6 @@ test-e2e: setup-e2e js
 test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
 test-ci: export TEST_SUB_DIR = unit
-test-ci: export LLRT_ASYNC_HOOKS = 1
 test-ci: clean-js | toolchain js
 ifdef CARGO_FEATURES
 	$(CURRENT_TEST) --target $(CURRENT_TARGET) -Z build-std -Z build-std-features $(CARGO_FEATURES) -- --nocapture --show-output
