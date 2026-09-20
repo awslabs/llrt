@@ -13,8 +13,8 @@ path = "src/lib.rs"
 
 [dependencies]
 either = { version = "1", default-features = false }
+llrt_async_context = { version = "0.9.0-beta", path = "../../libs/llrt_async_context" }
 llrt_context = { version = "0.9.0-beta", path = "../../libs/llrt_context" }
-llrt_hooking = { version = "0.9.0-beta", path = "../../libs/llrt_hooking" }
 llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", features = [
   "macro",
