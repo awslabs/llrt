@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
-use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
+use llrt_hooking::{invoke_async_hook, register_finalization_registry, AsyncTokenKind, HookType};
 use llrt_json::parse::json_parse;
 use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT, provider::ProviderType};
 use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, Function, Module, Object, Result, Value};
@@ -103,10 +103,17 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
 
     let mut executing_timers = Vec::new();
 
-    // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
-    let uid = unsafe { qjs::JS_VALUE_GET_PTR(obj.as_object().unwrap().as_raw()) } as usize;
-    register_finalization_registry(&ctx, obj.clone().into_value(), uid)?;
-    invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, uid)?;
+    let (async_id, trigger_id) =
+        invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, 0, 0)?;
+    if async_id != 0 {
+        register_finalization_registry(
+            &ctx,
+            obj.clone().into_value(),
+            AsyncTokenKind::Native,
+            async_id,
+            trigger_id,
+        )?;
+    }
 
     let imported_object = loop {
         if let Some(x) = import_promise.result::<Object>() {

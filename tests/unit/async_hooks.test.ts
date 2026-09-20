@@ -1,4 +1,5 @@
 import defaultImport from "node:async_hooks";
+import { executionAsyncResource } from "node:async_hooks";
 import legacyImport from "async_hooks";
 
 it("node:async_hooks should be the same as async_hooks", () => {
@@ -48,4 +49,136 @@ it("should track async operations", async () => {
   __gc();
   await new Promise((resolve) => setTimeout(resolve, 1));
   expect(counters.destroy).toBeGreaterThan(0);
+});
+
+it("should assign distinct async IDs to timers sharing a callback", async () => {
+  const executionIds: number[] = [];
+  const hook = createHook({
+    before() {
+      executionIds.push(defaultImport.executionAsyncId());
+    },
+  });
+  hook.enable();
+
+  await new Promise<void>((resolve) => {
+    let completed = 0;
+    const callback = () => {
+      completed++;
+      if (completed === 2) resolve();
+    };
+    setTimeout(callback, 0);
+    setTimeout(callback, 0);
+  });
+  hook.disable();
+
+  expect(executionIds.length).toBeGreaterThanOrEqual(2);
+  expect(executionIds[executionIds.length - 2]).not.toBe(
+    executionIds[executionIds.length - 1]
+  );
+});
+
+it("should use the current execution ID as a native trigger ID", async () => {
+  let parentTimerId = 0;
+  let nestedTriggerId = 0;
+  const hook = createHook({
+    init(asyncId, type, triggerAsyncId) {
+      if (type !== "Timeout") return;
+      if (parentTimerId === 0) {
+        parentTimerId = asyncId;
+      } else {
+        nestedTriggerId = triggerAsyncId;
+      }
+    },
+  });
+  hook.enable();
+
+  await new Promise<void>((resolve) => {
+    setTimeout(() => setTimeout(resolve, 0), 0);
+  });
+  hook.disable();
+
+  expect(nestedTriggerId).toBe(parentTimerId);
+});
+
+it("should expose the current async resource", async () => {
+  let resource: object | undefined;
+  const hook = createHook({
+    before() {
+      resource = executionAsyncResource();
+    },
+  });
+  hook.enable();
+  await new Promise((resolve) => setTimeout(resolve, 1));
+  hook.disable();
+
+  expect(resource).toBeDefined();
+  expect(typeof resource).toBe("object");
+});
+
+it("should allow hook callbacks to register another hook", async () => {
+  let nestedHookCreated = false;
+  const hook = createHook({
+    init() {
+      if (!nestedHookCreated) {
+        nestedHookCreated = true;
+        createHook({}).enable();
+      }
+    },
+  });
+  hook.enable();
+
+  await Promise.resolve();
+  hook.disable();
+  expect(nestedHookCreated).toBe(true);
+});
+
+it("should not retry a hook callback after it throws", () => {
+  let calls = 0;
+  const hook = createHook({
+    init() {
+      calls++;
+      throw new Error("hook failure");
+    },
+  });
+  hook.enable();
+
+  Promise.resolve();
+  hook.disable();
+  expect(calls).toBe(1);
+});
+
+it("should manage hook lifecycle without duplicate callbacks", async () => {
+  let calls = 0;
+  const hook = createHook({
+    init() {
+      calls++;
+    },
+  });
+
+  expect(hook.enable()).toBe(hook);
+  expect(hook.enable()).toBe(hook);
+  await Promise.resolve();
+  const callsWhileEnabled = calls;
+
+  expect(hook.disable()).toBe(hook);
+  await Promise.resolve();
+  expect(calls).toBe(callsWhileEnabled);
+
+  expect(hook.enable()).toBe(hook);
+  await Promise.resolve();
+  expect(calls).toBeGreaterThan(callsWhileEnabled);
+  expect(hook.disable()).toBe(hook);
+});
+
+it("should enter the promise execution context before callbacks", async () => {
+  let observedExecutionId = 0;
+  const hook = createHook({
+    before() {
+      observedExecutionId = defaultImport.executionAsyncId();
+    },
+  });
+  hook.enable();
+  await new Promise((resolve) => setTimeout(resolve, 1)).then(() => undefined);
+  hook.disable();
+  expect(observedExecutionId).toBeGreaterThan(1);
 });

@@ -12,7 +12,9 @@ use std::{
 };
 
 use llrt_context::CtxExtension;
-pub use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
+pub use llrt_hooking::{
+    invoke_async_hook, is_hooking_enabled, register_finalization_registry, AsyncTokenKind, HookType,
+};
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     provider::ProviderType,
@@ -20,8 +22,8 @@ use llrt_utils::{
 use once_cell::sync::Lazy;
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
-    prelude::{Func, Opt},
-    qjs, Ctx, Exception, Function, Persistent, Result, Value,
+    prelude::{Func, OnceFn, Opt},
+    qjs, Ctx, Exception, Function, Object, Persistent, Result, Value,
 };
 use tokio::{
     select,
@@ -55,8 +57,17 @@ impl RuntimeTimerState {
 unsafe impl Send for RuntimeTimerState {}
 
 #[derive(Clone)]
+struct AsyncResource {
+    // Keep the resource alive while the timer exists; async_hooks stores only a WeakRef.
+    resource: Persistent<Object<'static>>,
+    async_id: u64,
+    trigger_id: u64,
+}
+
+#[derive(Clone)]
 pub struct Timeout {
     callback: Option<Persistent<Function<'static>>>,
+    async_resource: Option<AsyncResource>,
     deadline: Instant,
     raw_ctx: NonNull<qjs::JSContext>,
     id: usize,
@@ -68,6 +79,7 @@ impl Default for Timeout {
     fn default() -> Self {
         Self {
             callback: None,
+            async_resource: None,
             deadline: Instant::now(),
             raw_ctx: NonNull::dangling(),
             id: 0,
@@ -77,16 +89,37 @@ impl Default for Timeout {
     }
 }
 
-fn queue_microtask<'js>(_ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
-    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
-    register_finalization_registry(&_ctx, cb.clone().into_value(), uid)?;
-    invoke_async_hook(&_ctx, HookType::Init, ProviderType::Microtask, uid)?;
-    // NOTE: Defer simply registers a task in a microtask queue
-    // and is separate from the timing of when the actual callback runs.
-    // Therefore, asynchronous before/after hooks are not meaningful and will not be implemented.
+fn queue_microtask<'js>(ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
+    if !is_hooking_enabled() {
+        cb.defer::<()>(())?;
+        return Ok(());
+    }
+    let (async_id, trigger_id) =
+        invoke_async_hook(&ctx, HookType::Init, ProviderType::Microtask, 0, 0)?;
+    if async_id == 0 {
+        cb.defer::<()>(())?;
+        return Ok(());
+    }
 
-    cb.defer::<()>(())?;
+    let resource = Object::new(ctx.clone())?;
+    register_finalization_registry(
+        &ctx,
+        resource.clone().into_value(),
+        AsyncTokenKind::Native,
+        async_id,
+        trigger_id,
+    )?;
+
+    let resource = Persistent::save(&ctx, resource);
+    let callback = Persistent::save(&ctx, cb);
+    Function::new(
+        ctx.clone(),
+        OnceFn::new(move |ctx| {
+            let _resource = resource;
+            callback.restore(&ctx)?.call::<_, ()>(())
+        }),
+    )?
+    .defer::<()>(())?;
     Ok(())
 }
 
@@ -96,8 +129,7 @@ pub fn set_timeout_interval<'js>(
     delay: u64,
     provider_type: ProviderType,
 ) -> Result<usize> {
-    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
+    let hooks_enabled = is_hooking_enabled();
 
     // NOTE: https://noncodersuccess.medium.com/understanding-setimmediate-vs-settimeout-in-node-js-6a3ef8fc02d4
     // If `setImmediate(fn)` and `setTimeout(fn, 0) are queued at the exact same time,
@@ -117,8 +149,28 @@ pub fn set_timeout_interval<'js>(
         },
     };
 
-    register_finalization_registry(ctx, cb.clone().into_value(), uid)?;
-    invoke_async_hook(ctx, HookType::Init, provider_type, uid)?;
+    let async_resource = if hooks_enabled {
+        let (async_id, trigger_id) = invoke_async_hook(ctx, HookType::Init, provider_type, 0, 0)?;
+        if async_id == 0 {
+            None
+        } else {
+            let resource = Object::new(ctx.clone())?;
+            register_finalization_registry(
+                ctx,
+                resource.clone().into_value(),
+                AsyncTokenKind::Native,
+                async_id,
+                trigger_id,
+            )?;
+            Some(AsyncResource {
+                resource: Persistent::save(ctx, resource),
+                async_id,
+                trigger_id,
+            })
+        }
+    } else {
+        None
+    };
 
     let id = TIMER_ID.fetch_add(1, Ordering::Relaxed);
 
@@ -127,6 +179,7 @@ pub fn set_timeout_interval<'js>(
     let timeout = Timeout {
         deadline,
         callback: Some(callback),
+        async_resource,
         raw_ctx: ctx.as_raw(),
         id,
         repeating,
@@ -297,6 +350,7 @@ fn create_spawn_loop(
 pub struct ExecutingTimer(
     Instant,
     NonNull<qjs::JSContext>,
+    Option<AsyncResource>,
     Persistent<Function<'static>>,
 );
 
@@ -323,14 +377,24 @@ pub fn poll_timers(
             let ctx = timeout.raw_ctx;
             if let Some(cb) = timeout.callback.take() {
                 if !timeout.repeating {
-                    call_vec.push(Some(ExecutingTimer(timeout.deadline, ctx, cb)));
+                    call_vec.push(Some(ExecutingTimer(
+                        timeout.deadline,
+                        ctx,
+                        timeout.async_resource.take(),
+                        cb,
+                    )));
                     return false;
                 }
                 timeout.deadline = now + Duration::from_millis(timeout.interval);
                 if timeout.deadline < lowest {
                     lowest = timeout.deadline;
                 }
-                call_vec.push(Some(ExecutingTimer(timeout.deadline, ctx, cb.clone())));
+                call_vec.push(Some(ExecutingTimer(
+                    timeout.deadline,
+                    ctx,
+                    timeout.async_resource.clone(),
+                    cb.clone(),
+                )));
                 timeout.callback.replace(cb);
             } else {
                 return false;
@@ -362,7 +426,7 @@ pub fn poll_timers(
 
     let mut is_first_time = true;
     for item in call_vec.iter_mut() {
-        if let Some(ExecutingTimer(_, ctx, timeout)) = item.take() {
+        if let Some(ExecutingTimer(_, ctx, async_resource, timeout)) = item.take() {
             let ctx2 = unsafe { Ctx::from_raw(ctx) };
 
             if is_first_time {
@@ -370,15 +434,32 @@ pub fn poll_timers(
                 is_first_time = false;
             }
 
-            if let Ok(timeout) = timeout.restore(&ctx2) {
-                // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-                let uid: usize = unsafe { qjs::JS_VALUE_GET_PTR(timeout.as_raw()) } as usize;
+            if let Ok(callback) = timeout.restore(&ctx2) {
+                if let Some(async_resource) = async_resource {
+                    let _resource = async_resource.resource;
+                    invoke_async_hook(
+                        &ctx2,
+                        HookType::Before,
+                        ProviderType::None,
+                        async_resource.async_id,
+                        async_resource.trigger_id,
+                    )?;
 
-                invoke_async_hook(&ctx2, HookType::Before, ProviderType::None, uid)?;
+                    let callback_result = callback.call::<_, ()>(());
 
-                timeout.call::<_, ()>(())?;
+                    let after_result = invoke_async_hook(
+                        &ctx2,
+                        HookType::After,
+                        ProviderType::None,
+                        async_resource.async_id,
+                        async_resource.trigger_id,
+                    );
 
-                invoke_async_hook(&ctx2, HookType::After, ProviderType::None, uid)?;
+                    callback_result?;
+                    after_result?;
+                } else {
+                    callback.call::<_, ()>(())?;
+                }
             }
 
             while ctx2.execute_pending_job() {}

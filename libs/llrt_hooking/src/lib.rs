@@ -1,13 +1,19 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::env;
+use std::{borrow::Cow, env};
 
-use llrt_utils::{object::ObjectExt, provider::ProviderType};
+use llrt_utils::provider::ProviderType;
 use once_cell::sync::Lazy;
-use rquickjs::{Ctx, Exception, Function, Result, Value};
+use rquickjs::{
+    function::This, BigInt, Ctx, Exception, Function, JsLifetime, Object, Persistent, Result, Value,
+};
 
-pub static HOOKING_MODE: Lazy<bool> =
-    Lazy::new(|| env::var("LLRT_ASYNC_HOOKS").as_deref() == Ok("1"));
+static HOOKING_MODE: Lazy<bool> = Lazy::new(|| env::var("LLRT_ASYNC_HOOKS").as_deref() == Ok("1"));
+
+#[inline]
+pub fn is_hooking_enabled() -> bool {
+    *HOOKING_MODE
+}
 
 #[derive(PartialEq)]
 pub enum HookType {
@@ -16,14 +22,33 @@ pub enum HookType {
     After,
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AsyncTokenKind {
+    Native = 0,
+    Promise = 1,
+}
+
+pub struct AsyncHookBridge {
+    pub registry: Persistent<Object<'static>>,
+    pub register: Persistent<Function<'static>>,
+    pub register_async_resource: Persistent<Function<'static>>,
+    pub invoke_async_hook: Persistent<Function<'static>>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for AsyncHookBridge {
+    type Changed<'to> = AsyncHookBridge;
+}
+
 pub fn invoke_async_hook(
     ctx: &Ctx<'_>,
     hook_type: HookType,
     provider_type: ProviderType,
-    uid: usize,
-) -> Result<()> {
-    if !HOOKING_MODE.to_owned() {
-        return Ok(());
+    async_id: u64,
+    trigger_id: u64,
+) -> Result<(u64, u64)> {
+    if !is_hooking_enabled() {
+        return Ok((0, 0));
     }
 
     let hook_ = match hook_type {
@@ -32,56 +57,75 @@ pub fn invoke_async_hook(
         HookType::After => "after",
     };
 
-    let provider_ = match provider_type {
-        ProviderType::None if hook_type != HookType::Init => "",
+    let provider_: Cow<'_, str> = match provider_type {
+        ProviderType::None if hook_type != HookType::Init => Cow::Borrowed(""),
         ProviderType::None => {
             return Err(Exception::throw_type(
                 ctx,
                 "Asynchronous types cannot be omitted in init hooks.",
             ))
         },
-        ProviderType::Resource(s) => &["Resource(", &s, ")"].concat(),
+        ProviderType::Resource(s) => Cow::Owned(format!("Resource({s})")),
         // Userland provider types
-        ProviderType::Immediate => "Immediate",
-        ProviderType::Interval => "Interval",
-        ProviderType::MessagePort => "MessagePort",
-        ProviderType::Microtask => "Microtask",
-        ProviderType::TickObject => "TickObject",
-        ProviderType::Timeout => "Timeout",
+        ProviderType::Immediate => Cow::Borrowed("Immediate"),
+        ProviderType::Interval => Cow::Borrowed("Interval"),
+        ProviderType::MessagePort => Cow::Borrowed("MessagePort"),
+        ProviderType::Microtask => Cow::Borrowed("Microtask"),
+        ProviderType::TickObject => Cow::Borrowed("TickObject"),
+        ProviderType::Timeout => Cow::Borrowed("Timeout"),
         // Internal provider types
-        ProviderType::FsReqCallback => "FSREQCALLBACK",
-        ProviderType::GetAddrInfoReqWrap => "GETADDRINFOREQWRAP",
-        ProviderType::GetNameInfoReqWrap => "GETNAMEINFOREQWRAP",
-        ProviderType::PipeWrap => "PIPEWRAP",
-        ProviderType::StatWatcher => "STATWACHER",
-        ProviderType::TcpWrap => "TCPWRAP",
-        ProviderType::TimerWrap => "TIMERWRAP",
-        ProviderType::TlsWrap => "TLSWRAP",
-        ProviderType::UdpWrap => "UDPWRAP",
+        ProviderType::FsReqCallback => Cow::Borrowed("FSREQCALLBACK"),
+        ProviderType::GetAddrInfoReqWrap => Cow::Borrowed("GETADDRINFOREQWRAP"),
+        ProviderType::GetNameInfoReqWrap => Cow::Borrowed("GETNAMEINFOREQWRAP"),
+        ProviderType::PipeWrap => Cow::Borrowed("PIPEWRAP"),
+        ProviderType::StatWatcher => Cow::Borrowed("STATWACHER"),
+        ProviderType::TcpWrap => Cow::Borrowed("TCPWRAP"),
+        ProviderType::TimerWrap => Cow::Borrowed("TIMERWRAP"),
+        ProviderType::TlsWrap => Cow::Borrowed("TLSWRAP"),
+        ProviderType::UdpWrap => Cow::Borrowed("UDPWRAP"),
     };
 
-    let invoke_async_hook = ctx
-        .globals()
-        .get_optional::<_, Function>("invokeAsyncHook")?;
-    if let Some(func) = &invoke_async_hook {
-        func.call::<_, ()>((hook_, provider_, uid))?;
-    }
-    Ok(())
+    let stored = ctx
+        .userdata::<AsyncHookBridge>()
+        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookBridge is not initialized"))?;
+    let invoke_async_hook = stored.invoke_async_hook.clone().restore(ctx)?;
+    let result: Object =
+        invoke_async_hook.call((hook_, provider_.as_ref(), async_id, trigger_id))?;
+    let async_id = result.get::<_, BigInt>("asyncId")?.to_i64()? as u64;
+    let trigger_id = result.get::<_, BigInt>("triggerId")?.to_i64()? as u64;
+    Ok((async_id, trigger_id))
 }
 
 pub fn register_finalization_registry<'js>(
     ctx: &Ctx<'js>,
     target: Value<'js>,
-    uid: usize,
+    kind: AsyncTokenKind,
+    async_id: u64,
+    trigger_id: u64,
 ) -> Result<()> {
-    if !HOOKING_MODE.to_owned() {
+    if !is_hooking_enabled() || async_id == 0 {
         return Ok(());
     }
 
-    if let Ok(register) =
-        ctx.eval::<Function<'js>, &str>("globalThis.asyncFinalizationRegistry.register")
-    {
-        let _ = register.call::<_, ()>((target, uid));
+    let (registry, register, register_async_resource) = {
+        let stored = ctx
+            .userdata::<AsyncHookBridge>()
+            .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookBridge is not initialized"))?;
+        (
+            stored.registry.clone().restore(ctx)?,
+            stored.register.clone(),
+            stored.register_async_resource.clone(),
+        )
+    };
+    let register = register.restore(ctx)?;
+    let token = Object::new(ctx.clone())?;
+    token.set("kind", kind as u8)?;
+    token.set("id", BigInt::from_u64(ctx.clone(), async_id)?)?;
+    token.set("triggerId", BigInt::from_u64(ctx.clone(), trigger_id)?)?;
+    register.call::<_, ()>((This(registry), target.clone(), token.clone()))?;
+    if kind == AsyncTokenKind::Native {
+        let register_resource = register_async_resource.restore(ctx)?;
+        register_resource.call::<_, ()>((token, target))?;
     }
     Ok(())
 }

@@ -9,7 +9,7 @@ use rquickjs::{
 
 use crate::libs::{
     context::set_spawn_error_handler,
-    hooking::HOOKING_MODE,
+    hooking::is_hooking_enabled,
     json,
     logging::print_error_and_exit,
     numbers,
@@ -19,7 +19,7 @@ use crate::libs::{
     },
 };
 use crate::modules::{
-    async_hooks::promise_hook_tracker,
+    async_hooks::{cleanup as cleanup_async_hooks, promise_hook_tracker},
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
     package::{loader::PackageLoader, resolver::PackageResolver},
@@ -130,7 +130,7 @@ impl Vm {
         })
         .await?;
 
-        if HOOKING_MODE.to_owned() {
+        if is_hooking_enabled() {
             runtime.set_promise_hook(Some(promise_hook_tracker())).await;
         }
 
@@ -193,6 +193,19 @@ impl Vm {
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
+        Ok(())
+    }
+
+    pub async fn shutdown(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
+        self.runtime.idle().await;
+        if is_hooking_enabled() {
+            self.runtime.set_promise_hook(None).await;
+            self.ctx.with(|ctx| ctx.run_gc()).await;
+            self.runtime.idle().await;
+            self.ctx.with(|ctx| cleanup_async_hooks(&ctx)).await?;
+            self.ctx.with(|ctx| ctx.run_gc()).await;
+            self.runtime.idle().await;
+        }
         Ok(())
     }
 }

@@ -1773,6 +1773,7 @@ dependencies = [
  "llrt_hooking",
  "llrt_utils",
  "rquickjs",
+ "smallvec",
  "tracing",
 ]
 

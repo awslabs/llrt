@@ -1,28 +1,42 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{cell::RefCell, collections::HashMap, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
-use llrt_hooking::register_finalization_registry;
+use llrt_hooking::{register_finalization_registry, AsyncHookBridge, AsyncTokenKind};
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     result::ResultExt,
 };
 use rquickjs::{
+    atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
-    prelude::Func,
+    prelude::{Func, This},
     promise::PromiseHookType,
-    qjs,
     runtime::PromiseHook,
-    Ctx, Function, JsLifetime, Object, Result, Value,
+    BigInt, Class, Constructor, Ctx, Function, JsLifetime, Object, Persistent, Result, Value,
 };
+use smallvec::SmallVec;
 use tracing::trace;
 
+mod async_context;
+mod async_local_storage;
 mod finalization_registry;
 
-use crate::finalization_registry::init_finalization_registry;
+use crate::async_context::{
+    cleanup as cleanup_async_resource, enter_async_scope, exit_async_scope, get_current_id,
+    get_current_resource, get_promise_id, insert_promise_id, next_native_id,
+    register_async_resource, AsyncResourceState, AsyncTarget,
+};
+use crate::async_local_storage::{
+    bind, propagate_async_local_storage, snapshot, AsyncLocalStorageWeakHandle,
+};
+use crate::finalization_registry::create_finalization_registry;
 
 struct Hook<'js> {
-    enabled: Rc<RefCell<bool>>,
+    callbacks: Rc<HookCallbacks<'js>>,
+}
+
+struct HookCallbacks<'js> {
     init: Option<Function<'js>>,
     before: Option<Function<'js>>,
     after: Option<Function<'js>>,
@@ -30,116 +44,145 @@ struct Hook<'js> {
     destroy: Option<Function<'js>>,
 }
 
+const TRACK_INIT: u8 = 1 << 0;
+const TRACK_BEFORE: u8 = 1 << 1;
+const TRACK_AFTER: u8 = 1 << 2;
+const TRACK_RESOLVE: u8 = 1 << 3;
+const TRACK_DESTROY: u8 = 1 << 4;
+const TRACK_ALS: u8 = 1 << 5;
+
+fn callback_mask(callbacks: &HookCallbacks<'_>) -> u8 {
+    (if callbacks.init.is_some() {
+        TRACK_INIT
+    } else {
+        0
+    }) | (if callbacks.before.is_some() {
+        TRACK_BEFORE
+    } else {
+        0
+    }) | (if callbacks.after.is_some() {
+        TRACK_AFTER
+    } else {
+        0
+    }) | (if callbacks.promise_resolve.is_some() {
+        TRACK_RESOLVE
+    } else {
+        0
+    }) | (if callbacks.destroy.is_some() {
+        TRACK_DESTROY
+    } else {
+        0
+    })
+}
+
+#[derive(Default)]
 struct AsyncHookState<'js> {
     hooks: Vec<Hook<'js>>,
-}
-
-impl Default for AsyncHookState<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl AsyncHookState<'_> {
-    fn new() -> Self {
-        Self { hooks: Vec::new() }
-    }
+    async_local_storages: Vec<AsyncLocalStorageWeakHandle<'js>>,
+    tracking: u8,
 }
 
 unsafe impl<'js> JsLifetime<'js> for AsyncHookState<'js> {
     type Changed<'to> = AsyncHookState<'to>;
 }
 
-struct AsyncHookIds<'js> {
-    next_async_id: u64,
-    id_map: HashMap<usize, (u64, u64)>, // (execution_async_id, trigger_async_id)
-    current_id: (u64, u64),             // (execution_async_id, trigger_async_id)
-    _marker: PhantomData<&'js ()>,
-}
-
-impl Default for AsyncHookIds<'_> {
-    fn default() -> Self {
-        Self::new()
+impl AsyncHookState<'_> {
+    fn recompute_tracking(&mut self) {
+        self.tracking = self.hooks.iter().fold(
+            if async_local_storage::has_active_async_local_storage(&self.async_local_storages) {
+                TRACK_ALS
+            } else {
+                0
+            },
+            |mask, hook| mask | callback_mask(&hook.callbacks),
+        );
     }
 }
 
-impl AsyncHookIds<'_> {
-    fn new() -> Self {
-        Self {
-            next_async_id: 1,
-            id_map: HashMap::new(),
-            current_id: (1, 1),
-            _marker: PhantomData,
-        }
-    }
+fn enable_hook<'js>(
+    ctx: &Ctx<'js>,
+    callbacks: Rc<HookCallbacks<'js>>,
+    hook_mask: u8,
+) -> Result<()> {
+    let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
+    let mut state = state.borrow_mut();
+    state.hooks.push(Hook { callbacks });
+    state.tracking |= hook_mask;
+    Ok(())
 }
 
-unsafe impl<'js> JsLifetime<'js> for AsyncHookIds<'js> {
-    type Changed<'to> = AsyncHookIds<'to>;
+fn disable_hook<'js>(ctx: &Ctx<'js>, callbacks: &Rc<HookCallbacks<'js>>) -> Result<()> {
+    let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
+    let mut state = state.borrow_mut();
+    state
+        .hooks
+        .retain(|hook| !Rc::ptr_eq(&hook.callbacks, callbacks));
+    state.recompute_tracking();
+    Ok(())
 }
 
 fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>> {
-    let init = hooks_obj.get::<_, Function>("init").ok();
-    let before = hooks_obj.get::<_, Function>("before").ok();
-    let after = hooks_obj.get::<_, Function>("after").ok();
-    let promise_resolve = hooks_obj.get::<_, Function>("promiseResolve").ok();
-    let destroy = hooks_obj.get::<_, Function>("destroy").ok();
+    let callbacks = Rc::new(HookCallbacks {
+        init: hooks_obj.get("init").ok(),
+        before: hooks_obj.get("before").ok(),
+        after: hooks_obj.get("after").ok(),
+        promise_resolve: hooks_obj.get("promiseResolve").ok(),
+        destroy: hooks_obj.get("destroy").ok(),
+    });
+    let hook_mask = callback_mask(&callbacks);
     let enabled = Rc::new(RefCell::new(false));
-
-    let hook = Hook {
-        enabled: enabled.clone(),
-        init,
-        before,
-        after,
-        promise_resolve,
-        destroy,
-    };
-
-    let binding = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(&ctx)?;
-    let mut state = binding.borrow_mut();
-    state.hooks.push(hook);
-
     let obj = Object::new(ctx.clone())?;
-    {
-        let enabled_clone = enabled.clone();
-        obj.set(
-            "enable",
-            Function::new(ctx.clone(), move || -> Result<()> {
-                *enabled_clone.borrow_mut() = true;
-                Ok(())
-            }),
-        )?;
-    }
-    {
-        let enabled_clone = enabled.clone();
-        obj.set(
-            "disable",
-            Function::new(ctx.clone(), move || -> Result<()> {
-                *enabled_clone.borrow_mut() = false;
-                Ok(())
-            }),
-        )?;
-    }
+
+    let state_ctx = ctx.clone();
+    let enabled_clone = enabled.clone();
+    let callbacks_clone = callbacks.clone();
+    obj.set(
+        "enable",
+        Function::new(
+            ctx.clone(),
+            move |this: This<Object<'js>>| -> Result<Object<'js>> {
+                if !*enabled_clone.borrow() {
+                    enable_hook(&state_ctx, callbacks_clone.clone(), hook_mask)?;
+                    *enabled_clone.borrow_mut() = true;
+                }
+                Ok(this.0)
+            },
+        ),
+    )?;
+
+    let state_ctx = ctx.clone();
+    let enabled_clone = enabled.clone();
+    obj.set(
+        "disable",
+        Function::new(
+            ctx.clone(),
+            move |this: This<Object<'js>>| -> Result<Object<'js>> {
+                if *enabled_clone.borrow() {
+                    disable_hook(&state_ctx, &callbacks)?;
+                    *enabled_clone.borrow_mut() = false;
+                }
+                Ok(this.0)
+            },
+        ),
+    )?;
 
     Ok(obj.into())
 }
 
 fn current_id() -> u64 {
-    // NOTE: This method is now obsolete. Therefore, it does not return a valid value.
-    // But we will define it because it is used by cls-hooked.
     0
 }
 
 fn execution_async_id(ctx: Ctx<'_>) -> Result<u64> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(&ctx)?;
-    let ids = bind_ids.borrow();
-    Ok(ids.current_id.0)
+    Ok(get_current_id(&ctx)?.0)
+}
+
+fn execution_async_resource(ctx: Ctx<'_>) -> Result<Object<'_>> {
+    get_current_resource(ctx)
 }
 
 fn trigger_async_id(ctx: Ctx<'_>) -> Result<u64> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(&ctx)?;
-    let ids = bind_ids.borrow();
-    Ok(ids.current_id.1)
+    Ok(get_current_id(&ctx)?.1)
 }
 
 pub struct AsyncHooksModule;
@@ -147,61 +190,91 @@ pub struct AsyncHooksModule;
 impl ModuleDef for AsyncHooksModule {
     fn declare(declare: &Declarations) -> Result<()> {
         declare.declare("createHook")?;
+        declare.declare("AsyncLocalStorage")?;
         declare.declare("currentId")?;
         declare.declare("executionAsyncId")?;
+        declare.declare("executionAsyncResource")?;
         declare.declare("triggerAsyncId")?;
         declare.declare("default")?;
-
         Ok(())
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         export_default(ctx, exports, |default| {
             default.set("createHook", Func::from(create_hook))?;
+            Class::<async_local_storage::AsyncLocalStorage>::define(default)?;
+            let constructor: Function = default.get("AsyncLocalStorage")?;
+            constructor.set("bind", Func::from(bind))?;
+            constructor.set("snapshot", Func::from(snapshot))?;
             default.set("currentId", Func::from(current_id))?;
             default.set("executionAsyncId", Func::from(execution_async_id))?;
+            default.set(
+                "executionAsyncResource",
+                Func::from(execution_async_resource),
+            )?;
             default.set("triggerAsyncId", Func::from(trigger_async_id))?;
-
             Ok(())
         })?;
-
         Ok(())
     }
 }
 
 impl From<AsyncHooksModule> for ModuleInfo<AsyncHooksModule> {
-    fn from(val: AsyncHooksModule) -> Self {
+    fn from(module: AsyncHooksModule) -> Self {
         ModuleInfo {
             name: "async_hooks",
-            module: val,
+            module,
         }
     }
+}
+
+fn invoke_native_async_hook(
+    ctx: Ctx<'_>,
+    type_: String,
+    async_type: String,
+    async_id: u64,
+    trigger_id: u64,
+) -> Result<Object<'_>> {
+    let type_ = match type_.as_ref() {
+        "init" => PromiseHookType::Init,
+        "before" => PromiseHookType::Before,
+        "after" => PromiseHookType::After,
+        "resolve" => PromiseHookType::Resolve,
+        _ => return Object::new(ctx),
+    };
+    let (async_id, trigger_id) = invoke_async_hook(
+        &ctx,
+        type_,
+        async_type.as_ref(),
+        AsyncTarget::Native {
+            id: async_id,
+            trigger_id,
+        },
+    )?;
+    let result = Object::new(ctx.clone())?;
+    result.set("asyncId", BigInt::from_u64(ctx.clone(), async_id)?)?;
+    result.set("triggerId", BigInt::from_u64(ctx.clone(), trigger_id)?)?;
+    Ok(result)
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let global = ctx.globals();
 
     let _ = ctx.store_userdata(RefCell::new(AsyncHookState::default()));
-    let _ = ctx.store_userdata(RefCell::new(AsyncHookIds::default()));
+    let weak_map: Constructor = global.get(PredefinedAtom::WeakMap)?;
+    let promise_map: Object = weak_map.construct(())?;
+    let promise_map = Persistent::save(ctx, promise_map);
+    let _ = ctx.store_userdata(RefCell::new(AsyncResourceState::new(promise_map)));
 
-    global.set(
-        "invokeAsyncHook",
-        Func::from(
-            move |ctx: Ctx<'_>, type_: String, async_type: String, uid: usize| {
-                let type_ = match type_.as_ref() {
-                    "init" => PromiseHookType::Init,
-                    "before" => PromiseHookType::Before,
-                    "after" => PromiseHookType::After,
-                    "resolve" => PromiseHookType::Resolve,
-                    _ => return,
-                };
-
-                let _ = invoke_async_hook(&ctx, type_, async_type.as_ref(), uid, None);
-            },
-        ),
-    )?;
-
-    init_finalization_registry(ctx)?;
+    let (registry, register) = create_finalization_registry(ctx)?;
+    let invoke_async_hook = Function::new(ctx.clone(), invoke_native_async_hook)?;
+    let register_async_resource = Function::new(ctx.clone(), register_async_resource)?;
+    let _ = ctx.store_userdata(AsyncHookBridge {
+        registry,
+        register,
+        register_async_resource: Persistent::save(ctx, register_async_resource),
+        invoke_async_hook: Persistent::save(ctx, invoke_async_hook),
+    });
 
     Ok(())
 }
@@ -209,60 +282,108 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
         |ctx: Ctx<'_>, type_: PromiseHookType, promise: Value<'_>, parent: Value<'_>| {
-            // SAFETY: Since it checks in advance whether it is an Object type, we can always get a pointer to the object.
-            let object = promise
-                .as_object()
-                .map(|v| unsafe { qjs::JS_VALUE_GET_PTR(v.as_raw()) } as usize)
-                .unwrap();
-            let parent = parent
-                .as_object()
-                .map(|v| unsafe { qjs::JS_VALUE_GET_PTR(v.as_raw()) } as usize);
-
-            if type_ == PromiseHookType::Init {
-                let _ = register_finalization_registry(&ctx, promise, object);
+            let tracking = tracking_mask(&ctx);
+            if !event_requires_tracking(tracking, type_) {
+                return;
             }
 
-            let _ = invoke_async_hook(&ctx, type_, "PROMISE", object, parent);
+            let _ = invoke_async_hook(
+                &ctx,
+                type_,
+                "PROMISE",
+                AsyncTarget::Promise { promise, parent },
+            );
         },
     )
 }
 
-fn invoke_async_hook(
-    ctx: &Ctx<'_>,
+fn tracking_mask(ctx: &Ctx<'_>) -> u8 {
+    let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() else {
+        return 0;
+    };
+    let tracking = state.borrow().tracking;
+    tracking
+}
+
+fn event_requires_tracking(tracking: u8, type_: PromiseHookType) -> bool {
+    match type_ {
+        PromiseHookType::Init => tracking != 0,
+        PromiseHookType::Before | PromiseHookType::After => {
+            tracking & (TRACK_BEFORE | TRACK_AFTER | TRACK_ALS) != 0
+        },
+        PromiseHookType::Resolve => tracking & TRACK_RESOLVE != 0,
+    }
+}
+
+pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
+    cleanup_async_resource(ctx);
+    if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
+        let mut state = state.borrow_mut();
+        state.hooks.clear();
+        state.async_local_storages.clear();
+    }
+    let _ = ctx.remove_userdata::<RefCell<AsyncResourceState>>();
+    let _ = ctx.remove_userdata::<RefCell<AsyncHookState>>();
+    let _ = ctx.remove_userdata::<AsyncHookBridge>();
+    Ok(())
+}
+
+fn invoke_async_hook<'js>(
+    ctx: &Ctx<'js>,
     type_: PromiseHookType,
     async_type: &str,
-    object: usize,
-    parent: Option<usize>,
-) -> Result<()> {
-    let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
-    let state = bind_state.borrow();
-
-    if state.hooks.is_empty() {
-        return Ok(());
+    target: AsyncTarget<'js>,
+) -> Result<(u64, u64)> {
+    let tracking = tracking_mask(ctx);
+    if !event_requires_tracking(tracking, type_) {
+        return Ok((0, 0));
     }
+    let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
 
     match type_ {
         PromiseHookType::Init => {
-            let current_id = insert_id_map(ctx, object, parent, async_type == "PROMISE")?;
-            trace!("Init(async_id, trigger_id): {:?}", current_id);
-            update_current_id(ctx, current_id)?;
-
-            for hook in &state.hooks {
-                if *hook.enabled.as_ref().borrow() {
-                    if let Some(func) = &hook.init {
-                        let _ = func
-                            .call::<_, ()>((current_id.0, async_type, current_id.1))
-                            .or_else(|_| func.call::<_, ()>((current_id.0, async_type)))
-                            .or_else(|_| func.call::<_, ()>((current_id.0,)))
-                            .or_else(|_| func.call::<_, ()>(()));
+            let current_id = match &target {
+                AsyncTarget::Native { .. } => next_native_id(ctx)?,
+                AsyncTarget::Promise { promise, parent } => {
+                    let current_id = insert_promise_id(ctx, promise, parent)?;
+                    if tracking & (TRACK_DESTROY | TRACK_ALS) != 0 {
+                        let _ = register_finalization_registry(
+                            ctx,
+                            promise.clone(),
+                            AsyncTokenKind::Promise,
+                            current_id.0,
+                            current_id.1,
+                        );
                     }
+                    current_id
+                },
+            };
+            propagate_async_local_storage(ctx, current_id.0)?;
+            trace!("Init(async_id, trigger_id): {:?}", current_id);
+
+            let callbacks = {
+                let state = bind_state.borrow();
+                state
+                    .hooks
+                    .iter()
+                    .filter_map(|hook| hook.callbacks.init.clone())
+                    .collect::<SmallVec<[_; 2]>>()
+            };
+            for callback in callbacks {
+                if let Err(error) = callback.call::<_, ()>((current_id.0, async_type, current_id.1))
+                {
+                    trace!("async_hooks init callback failed: {:?}", error);
                 }
             }
+            Ok(current_id)
         },
         PromiseHookType::Before | PromiseHookType::After | PromiseHookType::Resolve => {
-            let current_id = get_id_map(ctx, object)?;
+            let current_id = match &target {
+                AsyncTarget::Native { id, trigger_id } => (*id, *trigger_id),
+                AsyncTarget::Promise { promise, .. } => get_promise_id(ctx, promise)?,
+            };
             if current_id.0 == 0 {
-                return Ok(());
+                return Ok((0, 0));
             }
 
             let _type = match type_ {
@@ -272,63 +393,33 @@ fn invoke_async_hook(
                 _ => unreachable!(),
             };
             trace!("{}(async_id, trigger_id): {:?}", _type, current_id);
-            update_current_id(ctx, current_id)?;
+            if type_ == PromiseHookType::Before {
+                enter_async_scope(ctx, current_id)?;
+            }
 
-            for hook in &state.hooks {
-                if *hook.enabled.as_ref().borrow() {
-                    if let Some(func) = match type_ {
-                        PromiseHookType::Before => &hook.before,
-                        PromiseHookType::After => &hook.after,
-                        PromiseHookType::Resolve => &hook.promise_resolve,
+            let callbacks = {
+                let state = bind_state.borrow();
+                state
+                    .hooks
+                    .iter()
+                    .filter_map(|hook| match type_ {
+                        PromiseHookType::Before => hook.callbacks.before.clone(),
+                        PromiseHookType::After => hook.callbacks.after.clone(),
+                        PromiseHookType::Resolve => hook.callbacks.promise_resolve.clone(),
                         _ => unreachable!(),
-                    } {
-                        let _ = func
-                            .call::<_, ()>((current_id.0,))
-                            .or_else(|_| func.call::<_, ()>(()));
-                    }
+                    })
+                    .collect::<SmallVec<[_; 2]>>()
+            };
+            for callback in callbacks {
+                if let Err(error) = callback.call::<_, ()>((current_id.0,)) {
+                    trace!("async_hooks callback failed: {:?}", error);
                 }
             }
+
+            if type_ == PromiseHookType::After {
+                exit_async_scope(ctx)?;
+            }
+            Ok(current_id)
         },
     }
-    Ok(())
-}
-
-fn insert_id_map(
-    ctx: &Ctx<'_>,
-    target: usize,
-    parent: Option<usize>,
-    is_promise: bool,
-) -> Result<(u64, u64)> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
-    let mut ids = bind_ids.borrow_mut();
-    ids.next_async_id = ids.next_async_id.wrapping_add(1);
-    let async_id = ids.next_async_id;
-    let trigger_id = parent
-        .and_then(|tid| ids.id_map.get(&tid))
-        .map(|id| id.0)
-        .unwrap_or(if is_promise { 1 } else { ids.current_id.1 });
-    ids.id_map.insert(target, (async_id, trigger_id));
-    Ok((async_id, trigger_id))
-}
-
-fn get_id_map(ctx: &Ctx<'_>, target: usize) -> Result<(u64, u64)> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
-    let ids = bind_ids.borrow();
-    Ok(*ids.id_map.get(&target).unwrap_or(&(0, 0)))
-}
-
-fn remove_id_map(ctx: &Ctx<'_>, target: usize) -> Result<(u64, u64)> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
-    let mut ids = bind_ids.borrow_mut();
-    Ok(ids
-        .id_map
-        .remove_entry(&target)
-        .map(|(_, (async_id, trigger_id))| (async_id, trigger_id))
-        .unwrap_or((0, 0)))
-}
-
-fn update_current_id(ctx: &Ctx<'_>, id: (u64, u64)) -> Result<()> {
-    let bind_ids = ctx.userdata::<RefCell<AsyncHookIds>>().or_throw(ctx)?;
-    bind_ids.borrow_mut().current_id = id;
-    Ok(())
 }
