@@ -27,8 +27,8 @@ use crate::{
     },
     utils::{
         promise::{
-            promise_resolved_with, upon_promise, upon_promise_fulfilment, PromisePrimordials,
-            ResolveablePromise,
+            defer_async_callback, promise_resolved_with, upon_promise, upon_promise_fulfilment,
+            PromisePrimordials, ResolveablePromise,
         },
         UnwrapOrUndefined, ValueOrUndefined,
     },
@@ -462,28 +462,24 @@ impl<'js> PipeTo<'js> {
                         let current_write = self.current_write.clone();
                         let read_promise = self.read_promise.clone();
                         let write_ctx = ctx.clone();
-                        Function::new(
-                            ctx.clone(),
-                            OnceFn::new(move || -> Result<()> {
-                                let dest_objects = WritableStreamObjects::from_class(dest_objects);
-                                let write_promise =
-                                    WritableStreamDefaultWriter::writable_stream_default_writer_write(
-                                        write_ctx.clone(),
-                                        dest_objects,
-                                        chunk,
-                                    )?;
+                        defer_async_callback(&ctx, move || -> Result<()> {
+                            let dest_objects = WritableStreamObjects::from_class(dest_objects);
+                            let write_promise =
+                                WritableStreamDefaultWriter::writable_stream_default_writer_write(
+                                    write_ctx.clone(),
+                                    dest_objects,
+                                    chunk,
+                                )?;
 
-                                let write_promise: Promise<'js> = write_promise.catch()?.call((
-                                    This(write_promise.clone()),
-                                    Function::new(write_ctx.clone(), || {})?,
-                                ))?;
+                            let write_promise: Promise<'js> = write_promise.catch()?.call((
+                                This(write_promise.clone()),
+                                Function::new(write_ctx.clone(), || {})?,
+                            ))?;
 
-                                current_write.replace(write_promise);
-                                read_promise.resolve(Value::new_bool(write_ctx.clone(), false))?;
-                                Ok(())
-                            }),
-                        )?
-                        .defer(())?;
+                            current_write.replace(write_promise);
+                            read_promise.resolve(Value::new_bool(write_ctx.clone(), false))?;
+                            Ok(())
+                        })?;
 
                         Ok(ReadableStreamObjects::from_class(objects))
                     }
