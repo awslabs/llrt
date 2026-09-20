@@ -15,6 +15,20 @@ test("propagates stores through promise continuations", async () => {
   expect(await result).toBe(store);
 });
 
+test("isolates stores across concurrent timer continuations", async () => {
+  const storage = new AsyncLocalStorage<{ requestId: string }>();
+
+  const handleRequest = (requestId: string) =>
+    storage.run({ requestId }, async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      return storage.getStore()?.requestId;
+    });
+
+  await expect(
+    Promise.all([handleRequest("request-1"), handleRequest("request-2")])
+  ).resolves.toEqual(["request-1", "request-2"]);
+});
+
 test("restores the previous store after a synchronous run", () => {
   const storage = new AsyncLocalStorage();
   const store = "request-1";

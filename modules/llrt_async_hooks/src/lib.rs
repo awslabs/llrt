@@ -24,12 +24,13 @@ mod async_local_storage;
 mod finalization_registry;
 
 use crate::async_context::{
-    cleanup as cleanup_async_resource, enter_async_scope, exit_async_scope, get_current_id,
-    get_current_resource, get_promise_id, insert_promise_id, next_native_id,
-    register_async_resource, AsyncResourceState, AsyncTarget,
+    cleanup as cleanup_async_resource, get_current_id, get_current_resource, get_promise_id,
+    insert_promise_id, next_native_id, register_async_resource, update_current_id,
+    AsyncResourceState, AsyncTarget,
 };
 use crate::async_local_storage::{
-    bind, propagate_async_local_storage, snapshot, AsyncLocalStorageWeakHandle,
+    bind, cleanup_async_local_storage, propagate_async_local_storage, snapshot,
+    AsyncLocalStorageWeakHandle,
 };
 use crate::finalization_registry::create_finalization_registry;
 
@@ -321,6 +322,7 @@ pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
     cleanup_async_resource(ctx);
     if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
         let mut state = state.borrow_mut();
+        cleanup_async_local_storage(&state.async_local_storages);
         state.hooks.clear();
         state.async_local_storages.clear();
     }
@@ -360,7 +362,7 @@ fn invoke_async_hook<'js>(
                     current_id
                 },
             };
-            propagate_async_local_storage(ctx, current_id.0)?;
+            propagate_async_local_storage(ctx, current_id.0, current_id.1)?;
             trace!("Init(async_id, trigger_id): {:?}", current_id);
 
             let callbacks = {
@@ -396,7 +398,7 @@ fn invoke_async_hook<'js>(
             };
             trace!("{}(async_id, trigger_id): {:?}", _type, current_id);
             if type_ == PromiseHookType::Before {
-                enter_async_scope(ctx, current_id)?;
+                update_current_id(ctx, current_id)?;
             }
 
             let callbacks = {
@@ -418,9 +420,6 @@ fn invoke_async_hook<'js>(
                 }
             }
 
-            if type_ == PromiseHookType::After {
-                exit_async_scope(ctx)?;
-            }
             Ok(current_id)
         },
     }
