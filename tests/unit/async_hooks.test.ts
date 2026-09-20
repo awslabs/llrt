@@ -170,6 +170,33 @@ it("should manage hook lifecycle without duplicate callbacks", async () => {
   expect(hook.disable()).toBe(hook);
 });
 
+it("should keep tracking while another hook is enabled", async () => {
+  let firstCalls = 0;
+  let secondCalls = 0;
+  const firstHook = createHook({
+    init() {
+      firstCalls++;
+    },
+  });
+  const secondHook = createHook({
+    init() {
+      secondCalls++;
+    },
+  });
+  firstHook.enable();
+  secondHook.enable();
+
+  await Promise.resolve();
+  firstHook.disable();
+  const firstCallsAfterDisable = firstCalls;
+  const secondCallsAfterDisable = secondCalls;
+  await Promise.resolve();
+
+  expect(firstCalls).toBe(firstCallsAfterDisable);
+  expect(secondCalls).toBeGreaterThan(secondCallsAfterDisable);
+  secondHook.disable();
+});
+
 it("should enter the promise execution context before callbacks", async () => {
   let observedExecutionId = 0;
   const hook = createHook({

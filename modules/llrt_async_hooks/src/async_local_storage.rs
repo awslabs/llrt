@@ -15,6 +15,7 @@ use smallvec::SmallVec;
 
 use super::{get_current_id, next_native_id, AsyncHookState, TRACK_ALS};
 use crate::async_context::{enter_async_scope, get_promise_id, insert_promise_id};
+use llrt_hooking::{acquire_hooking, release_hooking};
 
 pub(crate) type AsyncLocalStorageHandle<'js> = Rc<RefCell<AsyncLocalStorageState<'js>>>;
 pub(crate) type AsyncLocalStorageWeakHandle<'js> = Weak<RefCell<AsyncLocalStorageState<'js>>>;
@@ -73,6 +74,7 @@ impl<'js> AsyncLocalStorage<'js> {
         let mut state = state.borrow_mut();
         state.async_local_storages.push(Rc::downgrade(&storage));
         state.tracking |= TRACK_ALS;
+        acquire_hooking();
         Ok(Self { storage })
     }
 
@@ -89,6 +91,9 @@ impl<'js> AsyncLocalStorage<'js> {
         propagate_async_local_storage(&ctx, async_id, parent_id)?;
         let previous = {
             let mut storage = self.storage.borrow_mut();
+            if !storage.enabled {
+                acquire_hooking();
+            }
             storage.enabled = true;
             storage
                 .stores
@@ -125,6 +130,9 @@ impl<'js> AsyncLocalStorage<'js> {
     pub(crate) fn enter_with(&self, ctx: Ctx<'js>, store: Value<'js>) -> Result<()> {
         let (async_id, trigger_id) = get_current_id(&ctx)?;
         let mut storage = self.storage.borrow_mut();
+        if !storage.enabled {
+            acquire_hooking();
+        }
         storage.enabled = true;
         storage
             .stores
@@ -184,6 +192,9 @@ impl<'js> AsyncLocalStorage<'js> {
     pub(crate) fn disable(this: This<Class<'js, Self>>) -> Class<'js, Self> {
         let storage = this.borrow().storage.clone();
         let mut storage = storage.borrow_mut();
+        if storage.enabled {
+            release_hooking();
+        }
         storage.enabled = false;
         storage.stores.clear();
         storage.last_store = None;
@@ -240,6 +251,9 @@ pub(crate) fn cleanup_async_local_storage<'js>(storages: &[AsyncLocalStorageWeak
     for storage in storages {
         if let Some(storage) = storage.upgrade() {
             let mut storage = storage.borrow_mut();
+            if storage.enabled {
+                release_hooking();
+            }
             storage.stores.clear();
             storage.last_store = None;
             storage.default_value = None;

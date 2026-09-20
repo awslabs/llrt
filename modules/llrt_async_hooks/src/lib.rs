@@ -3,7 +3,10 @@
 use std::{cell::RefCell, rc::Rc};
 
 use llrt_async_runtime::cleanup as cleanup_async_runtime;
-use llrt_hooking::{register_finalization_registry, AsyncHookBridge, AsyncTokenKind};
+use llrt_hooking::{
+    acquire_hooking, is_hooking_enabled, register_finalization_registry, release_hooking,
+    AsyncHookBridge, AsyncTokenKind,
+};
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     result::ResultExt,
@@ -110,16 +113,22 @@ fn enable_hook<'js>(
     let mut state = state.borrow_mut();
     state.hooks.push(Hook { callbacks });
     state.tracking |= hook_mask;
+    drop(state);
+    acquire_hooking();
     Ok(())
 }
 
 fn disable_hook<'js>(ctx: &Ctx<'js>, callbacks: &Rc<HookCallbacks<'js>>) -> Result<()> {
     let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
     let mut state = state.borrow_mut();
+    let hook_count = state.hooks.len();
     state
         .hooks
         .retain(|hook| !Rc::ptr_eq(&hook.callbacks, callbacks));
     state.recompute_tracking();
+    if state.hooks.len() != hook_count {
+        release_hooking();
+    }
     Ok(())
 }
 
@@ -284,6 +293,9 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 pub fn promise_hook_tracker() -> PromiseHook {
     Box::new(
         |ctx: Ctx<'_>, type_: PromiseHookType, promise: Value<'_>, parent: Value<'_>| {
+            if !is_hooking_enabled() {
+                return;
+            }
             let tracking = tracking_mask(&ctx);
             if !event_requires_tracking(tracking, type_) {
                 return;
@@ -322,6 +334,9 @@ pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
     cleanup_async_resource(ctx);
     if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
         let mut state = state.borrow_mut();
+        for _ in &state.hooks {
+            release_hooking();
+        }
         cleanup_async_local_storage(&state.async_local_storages);
         state.hooks.clear();
         state.async_local_storages.clear();

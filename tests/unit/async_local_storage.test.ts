@@ -86,6 +86,20 @@ test("supports enterWith and disable", async () => {
   expect(storage.getStore()).toBe("active-again");
 });
 
+test("keeps other storage tracking active after disable", async () => {
+  const firstStorage = new AsyncLocalStorage();
+  const secondStorage = new AsyncLocalStorage();
+
+  firstStorage.enterWith("first");
+  secondStorage.enterWith("second");
+  firstStorage.disable();
+
+  await Promise.resolve();
+  expect(firstStorage.getStore()).toBeUndefined();
+  expect(secondStorage.getStore()).toBe("second");
+  secondStorage.disable();
+});
+
 test("temporarily exits and restores the current store", () => {
   const storage = new AsyncLocalStorage();
   storage.enterWith("outer");

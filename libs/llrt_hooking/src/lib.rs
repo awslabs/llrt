@@ -1,13 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{borrow::Cow, env};
+use std::{
+    borrow::Cow,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
-use once_cell::sync::Lazy;
 use rquickjs::{
     function::This, BigInt, Ctx, Exception, Function, JsLifetime, Object, Persistent, Result, Value,
 };
 
-static HOOKING_MODE: Lazy<bool> = Lazy::new(|| env::var("LLRT_ASYNC_HOOKS").as_deref() == Ok("1"));
+static HOOKING_USERS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(PartialEq)]
 pub enum ProviderType {
@@ -32,7 +34,17 @@ pub enum ProviderType {
 
 #[inline]
 pub fn is_hooking_enabled() -> bool {
-    *HOOKING_MODE
+    HOOKING_USERS.load(Ordering::Relaxed) != 0
+}
+
+pub fn acquire_hooking() {
+    HOOKING_USERS.fetch_add(1, Ordering::Relaxed);
+}
+
+pub fn release_hooking() {
+    let _ = HOOKING_USERS.try_update(Ordering::Relaxed, Ordering::Relaxed, |users| {
+        users.checked_sub(1)
+    });
 }
 
 #[derive(PartialEq)]
@@ -146,4 +158,28 @@ pub fn register_finalization_registry<'js>(
         register_resource.call::<_, ()>((token, target))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{acquire_hooking, is_hooking_enabled, release_hooking, HOOKING_USERS};
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn tracks_users_without_underflowing() {
+        HOOKING_USERS.store(0, Ordering::Relaxed);
+        assert!(!is_hooking_enabled());
+
+        acquire_hooking();
+        acquire_hooking();
+        assert!(is_hooking_enabled());
+
+        release_hooking();
+        assert!(is_hooking_enabled());
+        release_hooking();
+        assert!(!is_hooking_enabled());
+
+        release_hooking();
+        assert!(!is_hooking_enabled());
+    }
 }

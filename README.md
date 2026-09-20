@@ -612,9 +612,7 @@ Then run llrt:
 
 ### `LLRT_ASYNC_HOOKS=value`
 
-When using asynchronous hooks, the hooking function inside QuickJS is activated. This is disabled by default as there is concern that it may have a significant impact on performance.
-
-By setting this environment variable to `1`, the asynchronous hook function can be enabled, allowing you to track asynchronous processing using the `async_hooks` module.
+Obsolete. This environment variable is no longer used. Async hooks are activated internally when the `async_hooks` module has active hooks or `AsyncLocalStorage` instances.
 
 ### `LLRT_EXTRA_CA_CERTS=file`
 

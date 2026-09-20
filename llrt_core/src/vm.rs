@@ -9,7 +9,6 @@ use rquickjs::{
 
 use crate::libs::{
     context::set_spawn_error_handler,
-    hooking::is_hooking_enabled,
     json,
     logging::print_error_and_exit,
     numbers,
@@ -130,9 +129,7 @@ impl Vm {
         })
         .await?;
 
-        if is_hooking_enabled() {
-            runtime.set_promise_hook(Some(promise_hook_tracker())).await;
-        }
+        runtime.set_promise_hook(Some(promise_hook_tracker())).await;
 
         Ok(Vm { runtime, ctx })
     }
@@ -198,14 +195,12 @@ impl Vm {
 
     pub async fn shutdown(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
         self.runtime.idle().await;
-        if is_hooking_enabled() {
-            self.runtime.set_promise_hook(None).await;
-            self.ctx.with(|ctx| ctx.run_gc()).await;
-            self.runtime.idle().await;
-            self.ctx.with(|ctx| cleanup_async_hooks(&ctx)).await?;
-            self.ctx.with(|ctx| ctx.run_gc()).await;
-            self.runtime.idle().await;
-        }
+        self.runtime.set_promise_hook(None).await;
+        self.ctx.with(|ctx| ctx.run_gc()).await;
+        self.runtime.idle().await;
+        self.ctx.with(|ctx| cleanup_async_hooks(&ctx)).await?;
+        self.ctx.with(|ctx| ctx.run_gc()).await;
+        self.runtime.idle().await;
         Ok(())
     }
 }
