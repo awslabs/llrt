@@ -204,6 +204,21 @@ declare module "async_hooks" {
    * @return Instance used for disabling and enabling hooks
    */
   function createHook(callbacks: HookCallbacks): AsyncHook;
+
+  class AsyncLocalStorage<T = unknown> {
+    constructor(options?: { defaultValue?: T; name?: string });
+    readonly name: string | undefined;
+    static bind<T extends (...args: any[]) => any>(callback: T): T;
+    static snapshot(): <R>(
+      callback: (...args: any[]) => R,
+      ...args: any[]
+    ) => R;
+    disable(): this;
+    enterWith(store: T): void;
+    exit<R>(callback: (...args: any[]) => R, ...args: any[]): R;
+    getStore(): T | undefined;
+    run<R>(store: T, callback: (...args: any[]) => R, ...args: any[]): R;
+  }
 }
 declare module "async_hooks" {
   export * from "async_hooks";

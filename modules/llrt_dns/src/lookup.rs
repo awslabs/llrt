@@ -4,11 +4,16 @@ use std::net::SocketAddr;
 use std::result::Result as StdResult;
 
 use either::Either;
+use llrt_async_context::{
+    is_tracking_active,
+    lifecycle::{async_resource_notify, call_async_callback, AsyncLifecycle},
+    register_finalization_registry, AsyncResourceKind,
+};
 use llrt_context::CtxExtension;
-use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
-use llrt_utils::{provider::ProviderType, result::ResultExt};
+use llrt_utils::result::ResultExt;
 use rquickjs::{
-    prelude::Opt, qjs, Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Object, Result, Value,
+    prelude::Opt, Ctx, Error, Exception, FromJs, Function, IntoJs, Null, Object, Persistent,
+    Result, Value,
 };
 
 const ERROR_MSG_OPTIONS_FAMILY: &str = "The argument 'family' must be one of: 0, 4, 6";
@@ -31,37 +36,50 @@ pub fn lookup<'js>(
         },
     };
 
-    // SAFETY: Since it checks in advance whether it is an Function type, we can always get a pointer to the Function.
-    let uid = unsafe { qjs::JS_VALUE_GET_PTR(cb.as_raw()) } as usize;
-    register_finalization_registry(&ctx, cb.clone().into_value(), uid)?;
-    invoke_async_hook(&ctx, HookType::Init, ProviderType::GetAddrInfoReqWrap, uid)?;
+    let (resource, async_id, trigger_id) = if is_tracking_active(&ctx) {
+        let (async_id, trigger_id) = async_resource_notify(&ctx, AsyncLifecycle::Init, 0, 0)?;
+        if async_id == 0 {
+            (None, 0, 0)
+        } else {
+            let resource = Object::new(ctx.clone())?;
+            register_finalization_registry(
+                &ctx,
+                resource.clone().into_value(),
+                AsyncResourceKind::Native,
+                async_id,
+                trigger_id,
+            )?;
+            (Some(Persistent::save(&ctx, resource)), async_id, trigger_id)
+        }
+    } else {
+        (None, 0, 0)
+    };
 
     ctx.clone().spawn_exit(async move {
+        let _resource = resource;
+
         match lookup_host(&hostname, options.family, options.order).await {
             Ok(addrs) => {
-                invoke_async_hook(&ctx, HookType::Before, ProviderType::None, uid)?;
                 if options.all {
-                    () = cb.call((Null.into_js(&ctx), addrs))?;
+                    let args = (Null.into_js(&ctx), addrs);
+                    call_async_callback(&ctx, &cb, args, async_id, trigger_id)?;
+                } else if let Some(addr) = addrs.into_iter().next() {
+                    let args = (Null.into_js(&ctx), addr.address, addr.family);
+                    call_async_callback(&ctx, &cb, args, async_id, trigger_id)?;
                 } else {
-                    let addr = addrs.into_iter().next();
-                    if let Some(addr) = addr {
-                        () = cb.call((Null.into_js(&ctx), addr.address, addr.family))?;
-                    } else {
-                        () =
-                            cb.call((Exception::from_message(ctx.clone(), "No address found"),))?;
-                    }
+                    let args = (Exception::from_message(ctx.clone(), "No address found")?,);
+                    call_async_callback(&ctx, &cb, args, async_id, trigger_id)?;
                 }
-                invoke_async_hook(&ctx, HookType::After, ProviderType::None, uid)?;
                 Ok::<_, Error>(())
             },
             Err(err) => {
-                invoke_async_hook(&ctx, HookType::Before, ProviderType::None, uid)?;
-                () = cb.call((Exception::from_message(ctx.clone(), &err.to_string()),))?;
-                invoke_async_hook(&ctx, HookType::After, ProviderType::None, uid)?;
+                let args = (Exception::from_message(ctx.clone(), &err.to_string()),);
+                call_async_callback(&ctx, &cb, args, async_id, trigger_id)?;
                 Ok(())
             },
         }
     })?;
+
     Ok(())
 }
 

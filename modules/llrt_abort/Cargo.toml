@@ -13,18 +13,17 @@ path = "src/lib.rs"
 [features]
 default = ["sleep-timers"]
 
-sleep-timers = ["llrt_timers"]
+sleep-timers = ["dep:llrt_scheduler"]
 sleep-tokio = ["tokio"]
 
 [dependencies]
-llrt_async_hooks = { version = "0.9.0-beta", path = "../llrt_async_hooks" }
 llrt_exceptions = { version = "0.9.0-beta", path = "../llrt_exceptions" }
 llrt_events = { version = "0.9.0-beta", path = "../llrt_events" }
 llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", default-features = false }
 
 # Optional
-llrt_timers = { version = "0.9.0-beta", path = "../llrt_timers", optional = true }
+llrt_scheduler = { version = "0.9.0-beta", path = "../../libs/llrt_scheduler", optional = true }
 tokio = { version = "1", features = [
     "time",
 ], default-features = false, optional = true }
