@@ -91,7 +91,7 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookState<'js> {
     type Changed<'to> = AsyncHookState<'to>;
 }
 
-impl AsyncHookState<'_> {
+impl<'js> AsyncHookState<'js> {
     fn recompute_tracking(&mut self) {
         self.tracking = self.hooks.iter().fold(
             if async_local_storage::has_active_async_local_storage(&self.async_local_storages) {
@@ -102,6 +102,40 @@ impl AsyncHookState<'_> {
             |mask, hook| mask | callback_mask(&hook.callbacks),
         );
     }
+    fn add_hook(&mut self, callbacks: Rc<HookCallbacks<'js>>, hook_mask: u8) {
+        self.hooks.push(Hook { callbacks });
+        self.tracking |= hook_mask;
+    }
+
+    fn callbacks_for(&self, type_: PromiseHookType) -> SmallVec<[Function<'js>; 2]> {
+        self.hooks
+            .iter()
+            .filter_map(|hook| match type_ {
+                PromiseHookType::Init => hook.callbacks.init.clone(),
+                PromiseHookType::Before => hook.callbacks.before.clone(),
+                PromiseHookType::After => hook.callbacks.after.clone(),
+                PromiseHookType::Resolve => hook.callbacks.promise_resolve.clone(),
+            })
+            .collect()
+    }
+
+    fn remove_hook(&mut self, callbacks: &Rc<HookCallbacks<'js>>) -> bool {
+        let hook_count = self.hooks.len();
+        self.hooks
+            .retain(|hook| !Rc::ptr_eq(&hook.callbacks, callbacks));
+        self.recompute_tracking();
+        self.hooks.len() != hook_count
+    }
+
+    fn cleanup(&mut self) {
+        for _ in &self.hooks {
+            release_hooking();
+        }
+        cleanup_async_local_storage(&self.async_local_storages);
+        self.hooks.clear();
+        self.async_local_storages.clear();
+        self.tracking = 0;
+    }
 }
 
 fn enable_hook<'js>(
@@ -111,9 +145,7 @@ fn enable_hook<'js>(
 ) -> Result<()> {
     let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
     let mut state = state.borrow_mut();
-    state.hooks.push(Hook { callbacks });
-    state.tracking |= hook_mask;
-    drop(state);
+    state.add_hook(callbacks, hook_mask);
     acquire_hooking();
     Ok(())
 }
@@ -121,12 +153,7 @@ fn enable_hook<'js>(
 fn disable_hook<'js>(ctx: &Ctx<'js>, callbacks: &Rc<HookCallbacks<'js>>) -> Result<()> {
     let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
     let mut state = state.borrow_mut();
-    let hook_count = state.hooks.len();
-    state
-        .hooks
-        .retain(|hook| !Rc::ptr_eq(&hook.callbacks, callbacks));
-    state.recompute_tracking();
-    if state.hooks.len() != hook_count {
+    if state.remove_hook(callbacks) {
         release_hooking();
     }
     Ok(())
@@ -333,13 +360,7 @@ pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
     shutdown_state(ctx)?;
     cleanup_async_resource(ctx);
     if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
-        let mut state = state.borrow_mut();
-        for _ in &state.hooks {
-            release_hooking();
-        }
-        cleanup_async_local_storage(&state.async_local_storages);
-        state.hooks.clear();
-        state.async_local_storages.clear();
+        state.borrow_mut().cleanup();
     }
     let _ = ctx.remove_userdata::<RefCell<AsyncResourceState>>();
     let _ = ctx.remove_userdata::<RefCell<AsyncHookState>>();
@@ -380,14 +401,7 @@ fn invoke_async_hook<'js>(
             propagate_async_local_storage(ctx, current_id.0, current_id.1)?;
             trace!("Init(async_id, trigger_id): {:?}", current_id);
 
-            let callbacks = {
-                let state = bind_state.borrow();
-                state
-                    .hooks
-                    .iter()
-                    .filter_map(|hook| hook.callbacks.init.clone())
-                    .collect::<SmallVec<[_; 2]>>()
-            };
+            let callbacks = bind_state.borrow().callbacks_for(PromiseHookType::Init);
             for callback in callbacks {
                 if let Err(error) = callback.call::<_, ()>((current_id.0, async_type, current_id.1))
                 {
@@ -416,19 +430,7 @@ fn invoke_async_hook<'js>(
                 update_current_id(ctx, current_id)?;
             }
 
-            let callbacks = {
-                let state = bind_state.borrow();
-                state
-                    .hooks
-                    .iter()
-                    .filter_map(|hook| match type_ {
-                        PromiseHookType::Before => hook.callbacks.before.clone(),
-                        PromiseHookType::After => hook.callbacks.after.clone(),
-                        PromiseHookType::Resolve => hook.callbacks.promise_resolve.clone(),
-                        _ => unreachable!(),
-                    })
-                    .collect::<SmallVec<[_; 2]>>()
-            };
+            let callbacks = bind_state.borrow().callbacks_for(type_);
             for callback in callbacks {
                 if let Err(error) = callback.call::<_, ()>((current_id.0,)) {
                     trace!("async_hooks callback failed: {:?}", error);

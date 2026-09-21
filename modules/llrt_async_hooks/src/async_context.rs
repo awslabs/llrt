@@ -30,7 +30,7 @@ impl AsyncResourceState<'_> {
         }
     }
 
-    fn clear(&mut self) {
+    fn clear_runtime_state(&mut self) {
         self.async_resources.clear();
         self.context_stack.clear();
     }
@@ -41,6 +41,11 @@ impl AsyncResourceState<'_> {
             .checked_add(1)
             .ok_or_else(|| Exception::throw_internal(ctx, "Async resource ID overflow"))?;
         Ok(self.next_async_id)
+    }
+
+    fn next_native_id(&mut self, ctx: &Ctx<'_>) -> Result<(u64, u64)> {
+        let async_id = self.next_id(ctx)?;
+        Ok((async_id, self.current_id.0))
     }
 
     fn current_id(&self) -> (u64, u64) {
@@ -122,22 +127,20 @@ fn parse_promise_id(token: &Value<'_>) -> Result<(u64, u64)> {
     let Some(token) = token.as_object() else {
         return Ok((0, 0));
     };
-    let async_id = token
-        .get::<_, BigInt>("id")?
-        .to_i64()
-        .ok()
-        .filter(|id| *id >= 0)
-        .unwrap_or(0) as u64;
-    let trigger_id = token
-        .get::<_, BigInt>("triggerId")?
-        .to_i64()
-        .ok()
-        .filter(|id| *id >= 0)
-        .unwrap_or(0) as u64;
+    let async_id = parse_non_negative_id(token.get::<_, BigInt>("id")?).unwrap_or(0);
+    let trigger_id = parse_non_negative_id(token.get::<_, BigInt>("triggerId")?).unwrap_or(0);
     if async_id == 0 || trigger_id == 0 {
         return Ok((0, 0));
     }
     Ok((async_id, trigger_id))
+}
+
+fn parse_non_negative_id(value: BigInt) -> Option<u64> {
+    value
+        .to_i64()
+        .ok()
+        .filter(|id| *id >= 0)
+        .map(|id| id as u64)
 }
 
 fn next_async_id(ctx: &Ctx<'_>) -> Result<u64> {
@@ -209,19 +212,13 @@ pub(crate) fn parse_async_token(ctx: &Ctx<'_>, token: &Value<'_>) -> Result<(Asy
         },
     };
     let id: BigInt = token.get("id")?;
-    let id = id
-        .to_i64()
-        .ok()
-        .filter(|id| *id >= 0)
-        .map(|id| id as u64)
+    let id = parse_non_negative_id(id)
         .ok_or_else(|| Exception::throw_type(ctx, "Invalid async resource token"))?;
     Ok((kind, id))
 }
 
 pub(crate) fn next_native_id(ctx: &Ctx<'_>) -> Result<(u64, u64)> {
-    let async_id = next_async_id(ctx)?;
-    let trigger_id = get_current_id(ctx)?.0;
-    Ok((async_id, trigger_id))
+    with_state_mut(ctx, |state| state.next_native_id(ctx))?
 }
 
 pub(crate) fn remove_native_resource(ctx: &Ctx<'_>, async_id: u64) -> Result<()> {
@@ -267,7 +264,7 @@ pub(crate) fn exit_async_scope(ctx: &Ctx<'_>, async_id: u64) -> Result<()> {
 
 pub(crate) fn cleanup(ctx: &Ctx<'_>) {
     if let Some(state) = ctx.userdata::<RefCell<AsyncResourceState>>() {
-        state.borrow_mut().clear();
+        state.borrow_mut().clear_runtime_state();
     }
 }
 
@@ -304,7 +301,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_removes_scope_stack_without_resetting_current_id() {
+    fn clear_runtime_state_removes_scope_stack_without_resetting_current_id() {
         let runtime = Runtime::new().unwrap();
         let context = Context::full(&runtime).unwrap();
 
@@ -313,7 +310,7 @@ mod tests {
             state.update_current_id((8, 4));
             state.enter_scope((9, 8));
 
-            state.clear();
+            state.clear_runtime_state();
             state.exit_scope(9);
 
             assert_eq!(state.current_id(), (9, 8));

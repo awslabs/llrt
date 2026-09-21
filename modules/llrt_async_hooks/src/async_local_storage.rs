@@ -14,7 +14,9 @@ use rquickjs::{
 use smallvec::SmallVec;
 
 use super::{get_current_id, next_native_id, AsyncHookState, TRACK_ALS};
-use crate::async_context::{enter_async_scope, get_promise_id, insert_promise_id};
+use crate::async_context::{
+    enter_async_scope, exit_async_scope, get_promise_id, insert_promise_id,
+};
 use llrt_hooking::{acquire_hooking, release_hooking};
 
 pub(crate) type AsyncLocalStorageHandle<'js> = Rc<RefCell<AsyncLocalStorageState<'js>>>;
@@ -43,6 +45,31 @@ impl<'js> AsyncLocalStorageState<'js> {
             enabled: true,
             _marker: std::marker::PhantomData,
         }
+    }
+
+    fn enable(&mut self) {
+        if !self.enabled {
+            acquire_hooking();
+            self.enabled = true;
+        }
+    }
+
+    fn clear_stores(&mut self) {
+        self.stores.clear();
+        self.last_store = None;
+    }
+
+    fn disable(&mut self) {
+        if self.enabled {
+            release_hooking();
+            self.enabled = false;
+        }
+        self.clear_stores();
+    }
+
+    fn cleanup(&mut self) {
+        self.disable();
+        self.default_value = None;
     }
 }
 
@@ -91,10 +118,7 @@ impl<'js> AsyncLocalStorage<'js> {
         propagate_async_local_storage(&ctx, async_id, parent_id)?;
         let previous = {
             let mut storage = self.storage.borrow_mut();
-            if !storage.enabled {
-                acquire_hooking();
-            }
-            storage.enabled = true;
+            storage.enable();
             storage
                 .stores
                 .insert(async_id, Persistent::save(&ctx, store.clone()))
@@ -112,7 +136,7 @@ impl<'js> AsyncLocalStorage<'js> {
             },
             _ => (0, 0),
         };
-        super::async_context::exit_async_scope(&ctx, async_id)?;
+        exit_async_scope(&ctx, async_id)?;
         let mut storage = self.storage.borrow_mut();
         storage.stores.remove(&async_id);
         if result_async_id.0 != 0 {
@@ -130,10 +154,7 @@ impl<'js> AsyncLocalStorage<'js> {
     pub(crate) fn enter_with(&self, ctx: Ctx<'js>, store: Value<'js>) -> Result<()> {
         let (async_id, trigger_id) = get_current_id(&ctx)?;
         let mut storage = self.storage.borrow_mut();
-        if !storage.enabled {
-            acquire_hooking();
-        }
-        storage.enabled = true;
+        storage.enable();
         storage
             .stores
             .insert(async_id, Persistent::save(&ctx, store.clone()));
@@ -172,10 +193,8 @@ impl<'js> AsyncLocalStorage<'js> {
             if let Some(store) = storage.stores.get(&async_id) {
                 return store.clone().restore(&ctx);
             }
-            if storage.last_store.is_some() {
-                if let Some(store) = &storage.last_store {
-                    return store.clone().restore(&ctx);
-                }
+            if let Some(store) = &storage.last_store {
+                return store.clone().restore(&ctx);
             }
             if let Some(default_value) = &storage.default_value {
                 return default_value.clone().restore(&ctx);
@@ -191,13 +210,7 @@ impl<'js> AsyncLocalStorage<'js> {
 
     pub(crate) fn disable(this: This<Class<'js, Self>>) -> Class<'js, Self> {
         let storage = this.borrow().storage.clone();
-        let mut storage = storage.borrow_mut();
-        if storage.enabled {
-            release_hooking();
-        }
-        storage.enabled = false;
-        storage.stores.clear();
-        storage.last_store = None;
+        storage.borrow_mut().disable();
         this.0
     }
 }
@@ -218,16 +231,11 @@ pub(crate) fn propagate_async_local_storage<'js>(
     let state = ctx
         .userdata::<RefCell<AsyncHookState>>()
         .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookState is not initialized"))?;
-    if state.borrow().async_local_storages.is_empty() {
-        return Ok(());
-    }
     let storages = active_storages(&state);
     for storage in storages {
         let mut storage = storage.borrow_mut();
-        if storage.enabled {
-            if let Some(store) = storage.stores.get(&trigger_async_id).cloned() {
-                storage.stores.insert(child_async_id, store);
-            }
+        if let Some(store) = storage.stores.get(&trigger_async_id).cloned() {
+            storage.stores.insert(child_async_id, store);
         }
     }
     Ok(())
@@ -237,9 +245,6 @@ pub(crate) fn remove_async_local_storage<'js>(ctx: &Ctx<'js>, async_id: u64) -> 
     let state = ctx
         .userdata::<RefCell<AsyncHookState>>()
         .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookState is not initialized"))?;
-    if state.borrow().async_local_storages.is_empty() {
-        return Ok(());
-    }
     let storages = active_storages(&state);
     for storage in storages {
         storage.borrow_mut().stores.remove(&async_id);
@@ -250,13 +255,7 @@ pub(crate) fn remove_async_local_storage<'js>(ctx: &Ctx<'js>, async_id: u64) -> 
 pub(crate) fn cleanup_async_local_storage<'js>(storages: &[AsyncLocalStorageWeakHandle<'js>]) {
     for storage in storages {
         if let Some(storage) = storage.upgrade() {
-            let mut storage = storage.borrow_mut();
-            if storage.enabled {
-                release_hooking();
-            }
-            storage.stores.clear();
-            storage.last_store = None;
-            storage.default_value = None;
+            storage.borrow_mut().cleanup();
         }
     }
 }
@@ -265,11 +264,9 @@ pub(crate) fn has_active_async_local_storage<'js>(
     storages: &[AsyncLocalStorageWeakHandle<'js>],
 ) -> bool {
     storages.iter().any(|storage| {
-        let Some(storage) = storage.upgrade() else {
-            return false;
-        };
-        let enabled = storage.borrow().enabled;
-        enabled
+        storage
+            .upgrade()
+            .is_some_and(|storage| storage.borrow().enabled)
     })
 }
 
