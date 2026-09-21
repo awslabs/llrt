@@ -38,6 +38,7 @@ use crate::async_local_storage::{
 use crate::finalization_registry::create_finalization_registry;
 
 struct Hook<'js> {
+    id: usize,
     callbacks: Rc<HookCallbacks<'js>>,
 }
 
@@ -83,6 +84,7 @@ fn callback_mask(callbacks: &HookCallbacks<'_>) -> u8 {
 #[derive(Default)]
 struct AsyncHookState<'js> {
     hooks: Vec<Hook<'js>>,
+    registered_callbacks: Vec<Rc<HookCallbacks<'js>>>,
     async_local_storages: Vec<AsyncLocalStorageWeakHandle<'js>>,
     tracking: u8,
 }
@@ -102,8 +104,19 @@ impl<'js> AsyncHookState<'js> {
             |mask, hook| mask | callback_mask(&hook.callbacks),
         );
     }
-    fn add_hook(&mut self, callbacks: Rc<HookCallbacks<'js>>, hook_mask: u8) {
-        self.hooks.push(Hook { callbacks });
+    fn register_callbacks(&mut self, callbacks: Rc<HookCallbacks<'js>>) -> usize {
+        let id = self.registered_callbacks.len();
+        self.registered_callbacks.push(callbacks);
+        id
+    }
+
+    fn add_hook(&mut self, id: usize, hook_mask: u8) {
+        let callbacks = self
+            .registered_callbacks
+            .get(id)
+            .cloned()
+            .expect("async hook callbacks must be registered");
+        self.hooks.push(Hook { id, callbacks });
         self.tracking |= hook_mask;
     }
 
@@ -119,10 +132,9 @@ impl<'js> AsyncHookState<'js> {
             .collect()
     }
 
-    fn remove_hook(&mut self, callbacks: &Rc<HookCallbacks<'js>>) -> bool {
+    fn remove_hook(&mut self, id: usize) -> bool {
         let hook_count = self.hooks.len();
-        self.hooks
-            .retain(|hook| !Rc::ptr_eq(&hook.callbacks, callbacks));
+        self.hooks.retain(|hook| hook.id != id);
         self.recompute_tracking();
         self.hooks.len() != hook_count
     }
@@ -133,27 +145,24 @@ impl<'js> AsyncHookState<'js> {
         }
         cleanup_async_local_storage(&self.async_local_storages);
         self.hooks.clear();
+        self.registered_callbacks.clear();
         self.async_local_storages.clear();
         self.tracking = 0;
     }
 }
 
-fn enable_hook<'js>(
-    ctx: &Ctx<'js>,
-    callbacks: Rc<HookCallbacks<'js>>,
-    hook_mask: u8,
-) -> Result<()> {
+fn enable_hook<'js>(ctx: &Ctx<'js>, id: usize, hook_mask: u8) -> Result<()> {
     let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
     let mut state = state.borrow_mut();
-    state.add_hook(callbacks, hook_mask);
+    state.add_hook(id, hook_mask);
     acquire_hooking();
     Ok(())
 }
 
-fn disable_hook<'js>(ctx: &Ctx<'js>, callbacks: &Rc<HookCallbacks<'js>>) -> Result<()> {
+fn disable_hook<'js>(ctx: &Ctx<'js>, id: usize) -> Result<()> {
     let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
     let mut state = state.borrow_mut();
-    if state.remove_hook(callbacks) {
+    if state.remove_hook(id) {
         release_hooking();
     }
     Ok(())
@@ -168,19 +177,23 @@ fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>>
         destroy: hooks_obj.get("destroy").ok(),
     });
     let hook_mask = callback_mask(&callbacks);
+    let hook_id = {
+        let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(&ctx)?;
+        let hook_id = state.borrow_mut().register_callbacks(callbacks);
+        hook_id
+    };
     let enabled = Rc::new(RefCell::new(false));
     let obj = Object::new(ctx.clone())?;
 
-    let state_ctx = ctx.clone();
     let enabled_clone = enabled.clone();
-    let callbacks_clone = callbacks.clone();
     obj.set(
         "enable",
         Function::new(
             ctx.clone(),
             move |this: This<Object<'js>>| -> Result<Object<'js>> {
                 if !*enabled_clone.borrow() {
-                    enable_hook(&state_ctx, callbacks_clone.clone(), hook_mask)?;
+                    let state_ctx = this.0.ctx();
+                    enable_hook(state_ctx, hook_id, hook_mask)?;
                     *enabled_clone.borrow_mut() = true;
                 }
                 Ok(this.0)
@@ -188,7 +201,6 @@ fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>>
         ),
     )?;
 
-    let state_ctx = ctx.clone();
     let enabled_clone = enabled.clone();
     obj.set(
         "disable",
@@ -196,7 +208,8 @@ fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<Value<'js>>
             ctx.clone(),
             move |this: This<Object<'js>>| -> Result<Object<'js>> {
                 if *enabled_clone.borrow() {
-                    disable_hook(&state_ctx, &callbacks)?;
+                    let state_ctx = this.0.ctx();
+                    disable_hook(state_ctx, hook_id)?;
                     *enabled_clone.borrow_mut() = false;
                 }
                 Ok(this.0)

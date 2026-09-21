@@ -1,6 +1,7 @@
 import defaultImport from "node:async_hooks";
 import { executionAsyncResource } from "node:async_hooks";
 import legacyImport from "async_hooks";
+import { spawnCapture } from "./test-utils";
 
 it("node:async_hooks should be the same as async_hooks", () => {
   expect(defaultImport).toStrictEqual(legacyImport);
@@ -208,4 +209,13 @@ it("should enter the promise execution context before callbacks", async () => {
   await new Promise((resolve) => setTimeout(resolve, 1)).then(() => undefined);
   hook.disable();
   expect(observedExecutionId).toBeGreaterThan(1);
+});
+
+it("should shut down cleanly after disabling a hook with callbacks", async () => {
+  const { code } = await spawnCapture(process.argv0, [
+    "-e",
+    "import { createHook } from 'node:async_hooks'; const hook = createHook({ init() {}, before() {}, after() {}, promiseResolve() {}, destroy() {} }); hook.enable(); hook.disable()",
+  ]);
+
+  expect(code).toBe(0);
 });
