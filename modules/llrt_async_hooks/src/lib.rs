@@ -27,9 +27,9 @@ mod async_local_storage;
 mod finalization_registry;
 
 use crate::async_context::{
-    cleanup as cleanup_async_resource, get_current_id, get_current_resource, get_promise_id,
-    insert_promise_id, next_native_id, register_async_resource, update_current_id,
-    AsyncResourceState, AsyncTarget,
+    cleanup as cleanup_async_resource, enter_async_scope, exit_async_scope, get_current_id,
+    get_current_resource, get_promise_id, insert_promise_id, next_native_id,
+    register_async_resource, AsyncResourceState, AsyncTarget,
 };
 use crate::async_local_storage::{
     bind, cleanup_async_local_storage, propagate_async_local_storage, snapshot,
@@ -427,7 +427,7 @@ fn invoke_async_hook<'js>(
             };
             trace!("{}(async_id, trigger_id): {:?}", _type, current_id);
             if type_ == PromiseHookType::Before {
-                update_current_id(ctx, current_id)?;
+                enter_async_scope(ctx, current_id)?;
             }
 
             let callbacks = bind_state.borrow().callbacks_for(type_);
@@ -435,6 +435,10 @@ fn invoke_async_hook<'js>(
                 if let Err(error) = callback.call::<_, ()>((current_id.0,)) {
                     trace!("async_hooks callback failed: {:?}", error);
                 }
+            }
+
+            if type_ == PromiseHookType::After {
+                exit_async_scope(ctx, current_id.0)?;
             }
 
             Ok(current_id)

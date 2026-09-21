@@ -147,6 +147,7 @@ fn poll_timers(
                         async_resource.trigger_id,
                     )?;
                     let callback_result = callback.call::<_, ()>(());
+                    while ctx2.execute_pending_job() {}
                     let after_result = invoke_async_hook(
                         &ctx2,
                         HookType::After,

@@ -26,9 +26,41 @@ type AsyncLocalStorageSnapshot<'js> = Vec<(
     Option<Persistent<Value<'static>>>,
 )>;
 
+// QuickJS does not expose the promise executing a normal reaction job while
+// JS_ExecutePendingJob drains the microtask queue. As a result, the async ID
+// is not available when an await continuation calls getStore(), even though
+// the Promise Hook has already assigned an ID to that promise. Keep the latest
+// promise store as a compatibility fallback for that gap. This is only a
+// runtime workaround and should be removed when QuickJS can report the active
+// job context. Because it stores only the latest value, it cannot completely
+// isolate concurrent Promise continuations; correct concurrent propagation
+// requires the runtime to identify the executing job. See:
+// https://github.com/quickjs-ng/quickjs/issues/1047
+struct PromiseStoreFallback {
+    last_store: Option<Persistent<Value<'static>>>,
+}
+
+impl PromiseStoreFallback {
+    fn new() -> Self {
+        Self { last_store: None }
+    }
+
+    fn fallback(&self) -> Option<Persistent<Value<'static>>> {
+        self.last_store.clone()
+    }
+
+    fn remember(&mut self, stores: &HashMap<u64, Persistent<Value<'static>>>, async_id: u64) {
+        self.last_store = stores.get(&async_id).cloned();
+    }
+
+    fn clear(&mut self) {
+        self.last_store = None;
+    }
+}
+
 pub(crate) struct AsyncLocalStorageState<'js> {
     stores: HashMap<u64, Persistent<Value<'static>>>,
-    last_store: Option<Persistent<Value<'static>>>,
+    promise_fallback: PromiseStoreFallback,
     default_value: Option<Persistent<Value<'static>>>,
     name: Option<String>,
     enabled: bool,
@@ -39,7 +71,7 @@ impl<'js> AsyncLocalStorageState<'js> {
     fn new() -> Self {
         Self {
             stores: HashMap::new(),
-            last_store: None,
+            promise_fallback: PromiseStoreFallback::new(),
             default_value: None,
             name: None,
             enabled: true,
@@ -56,7 +88,7 @@ impl<'js> AsyncLocalStorageState<'js> {
 
     fn clear_stores(&mut self) {
         self.stores.clear();
-        self.last_store = None;
+        self.promise_fallback.clear();
     }
 
     fn disable(&mut self) {
@@ -70,6 +102,22 @@ impl<'js> AsyncLocalStorageState<'js> {
     fn cleanup(&mut self) {
         self.disable();
         self.default_value = None;
+    }
+
+    fn store_for_async_id(&self, async_id: u64) -> Option<Persistent<Value<'static>>> {
+        if let Some(store) = self.stores.get(&async_id) {
+            return Some(store.clone());
+        }
+        self.promise_fallback.fallback()
+    }
+
+    fn insert_promise_store(&mut self, async_id: u64, store: Persistent<Value<'static>>) {
+        self.stores.insert(async_id, store);
+        self.promise_fallback.remember(&self.stores, async_id);
+    }
+
+    fn clear_promise_fallback(&mut self) {
+        self.promise_fallback.clear();
     }
 }
 
@@ -140,10 +188,7 @@ impl<'js> AsyncLocalStorage<'js> {
         let mut storage = self.storage.borrow_mut();
         storage.stores.remove(&async_id);
         if result_async_id.0 != 0 {
-            storage
-                .stores
-                .insert(result_async_id.0, Persistent::save(&ctx, store));
-            storage.last_store = storage.stores.get(&result_async_id.0).cloned();
+            storage.insert_promise_store(result_async_id.0, Persistent::save(&ctx, store));
         }
         if let Some(previous) = previous {
             storage.stores.insert(parent_id, previous);
@@ -182,7 +227,7 @@ impl<'js> AsyncLocalStorage<'js> {
         if let Some(previous) = previous {
             storage.stores.insert(async_id, previous);
         }
-        storage.last_store = None;
+        storage.clear_promise_fallback();
         result
     }
 
@@ -190,10 +235,7 @@ impl<'js> AsyncLocalStorage<'js> {
         let async_id = get_current_id(&ctx)?.0;
         let storage = self.storage.borrow();
         if storage.enabled {
-            if let Some(store) = storage.stores.get(&async_id) {
-                return store.clone().restore(&ctx);
-            }
-            if let Some(store) = &storage.last_store {
+            if let Some(store) = storage.store_for_async_id(async_id) {
                 return store.clone().restore(&ctx);
             }
             if let Some(default_value) = &storage.default_value {
