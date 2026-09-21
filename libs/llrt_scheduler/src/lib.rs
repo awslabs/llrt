@@ -13,6 +13,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     Ok(())
 }
 
-pub use scheduler::run_pending_jobs;
+pub use scheduler::tick;
 pub use state::{init_state, shutdown_state};
 pub use timers::{cancel_timer, schedule_immediate, schedule_interval, schedule_timeout};

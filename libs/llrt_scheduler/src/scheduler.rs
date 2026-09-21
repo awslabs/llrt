@@ -18,7 +18,7 @@ use tokio::{
 
 use crate::state::{finish_shutdown, timer_state, AsyncResource};
 
-pub(crate) fn create_spawn_loop(
+pub(crate) fn spawn_timer_driver(
     rt: *mut qjs::JSRuntime,
     ctx: &Ctx<'_>,
     timer_abort: Rc<Notify>,
@@ -184,7 +184,7 @@ fn poll_timers(
     Ok(true)
 }
 
-pub fn run_pending_jobs(ctx: &Ctx<'_>) -> Result<()> {
+pub fn tick(ctx: &Ctx<'_>) -> Result<()> {
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
     let should_poll = timer_state()
         .get(&(rt as usize))

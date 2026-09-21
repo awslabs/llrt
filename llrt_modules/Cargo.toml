@@ -121,7 +121,7 @@ zlib = ["llrt_zlib"]
 
 [dependencies]
 home = { version = "0.5", default-features = false }
-llrt_async_runtime = { version = "0.9.0-beta", path = "../libs/llrt_async_runtime" }
+llrt_scheduler = { version = "0.9.0-beta", path = "../libs/llrt_scheduler" }
 llrt_hooking = { path = "../libs/llrt_hooking" }
 llrt_json = { path = "../libs/llrt_json" }
 llrt_utils = { version = "0.9.0-beta", path = "../libs/llrt_utils" }

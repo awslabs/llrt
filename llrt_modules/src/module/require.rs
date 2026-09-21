@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
-use llrt_async_runtime::run_pending_jobs;
 use llrt_hooking::{
     invoke_async_hook, register_finalization_registry, AsyncTokenKind, HookType, ProviderType,
 };
@@ -116,7 +115,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             break x?;
         }
 
-        run_pending_jobs(&ctx)?;
+        llrt_scheduler::tick(&ctx)?;
     };
 
     let binding = ctx.userdata::<RefCell<RequireState>>().unwrap();

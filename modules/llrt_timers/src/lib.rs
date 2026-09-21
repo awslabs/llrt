@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_async_runtime::{cancel_timer, schedule_immediate, schedule_interval, schedule_timeout};
+use llrt_scheduler::{cancel_timer, schedule_immediate, schedule_interval, schedule_timeout};
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
@@ -55,7 +55,7 @@ impl From<TimersModule> for ModuleInfo<TimersModule> {
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
-    llrt_async_runtime::init_state(ctx)?;
+    llrt_scheduler::init_state(ctx)?;
     let globals = ctx.globals();
     globals.set(
         "setTimeout",
@@ -261,7 +261,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "reinitialized");
-                llrt_async_runtime::shutdown_state(&ctx).unwrap();
+                llrt_scheduler::shutdown_state(&ctx).unwrap();
             })
         })
         .await;

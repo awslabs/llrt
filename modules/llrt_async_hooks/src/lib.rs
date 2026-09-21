@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, rc::Rc};
 
-use llrt_async_runtime::shutdown_state;
 use llrt_hooking::{
     acquire_hooking, is_hooking_enabled, register_finalization_registry, release_hooking,
     AsyncHookBridge, AsyncTokenKind,
 };
+use llrt_scheduler::shutdown_state;
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     result::ResultExt,

@@ -11,7 +11,7 @@ name = "llrt_timers"
 path = "src/lib.rs"
 
 [dependencies]
-llrt_async_runtime = { version = "0.9.0-beta", path = "../../libs/llrt_async_runtime" }
+llrt_scheduler = { version = "0.9.0-beta", path = "../../libs/llrt_scheduler" }
 llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", default-features = false }
 

@@ -46,7 +46,7 @@ impl Default for ModuleBuilder {
         let mut builder = Self::new();
 
         builder = builder
-            .with_global(llrt_async_runtime::init)
+            .with_global(llrt_scheduler::init)
             .with_global(crate::module::init)
             .with_module(crate::module::ModuleModule);
 

@@ -1,13 +1,13 @@
 [package]
-name = "llrt_async_runtime"
-description = "LLRT async runtime primitives"
+name = "llrt_scheduler"
+description = "LLRT async scheduler"
 version = "0.9.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
 
 [lib]
-name = "llrt_async_runtime"
+name = "llrt_scheduler"
 path = "src/lib.rs"
 
 [dependencies]

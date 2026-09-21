@@ -209,7 +209,7 @@ impl<'js> AbortSignal<'js> {
 
         #[cfg(feature = "sleep-timers")]
         {
-            llrt_async_runtime::schedule_timeout(&ctx, cb, milliseconds)?;
+            llrt_scheduler::schedule_timeout(&ctx, cb, milliseconds)?;
         }
         #[cfg(all(not(feature = "sleep-timers"), feature = "sleep-tokio"))]
         {
@@ -267,7 +267,7 @@ mod tests {
                 let reason = signal.borrow().reason().unwrap();
                 let reason = Class::<DOMException>::from_value(&reason).unwrap();
                 assert_eq!(reason.borrow().name(), "TimeoutError");
-                llrt_async_runtime::shutdown_state(&ctx).unwrap();
+                llrt_scheduler::shutdown_state(&ctx).unwrap();
             })
         })
         .await;

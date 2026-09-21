@@ -10,7 +10,7 @@ use rquickjs::{prelude::Opt, qjs, Ctx, Exception, Function, Object, Persistent, 
 use tokio::time::Instant;
 
 use crate::{
-    scheduler::create_spawn_loop,
+    scheduler::spawn_timer_driver,
     state::{timer_state, AsyncResource, Timeout},
 };
 
@@ -110,7 +110,7 @@ fn schedule_timer<'js>(
         state.running = true;
         let timer_abort = state.notify.clone();
         drop(rt_timer);
-        create_spawn_loop(rt_ptr, ctx, timer_abort, deadline)?;
+        spawn_timer_driver(rt_ptr, ctx, timer_abort, deadline)?;
     }
 
     Ok(id)
