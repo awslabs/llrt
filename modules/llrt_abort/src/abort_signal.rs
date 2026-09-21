@@ -209,7 +209,7 @@ impl<'js> AbortSignal<'js> {
 
         #[cfg(feature = "sleep-timers")]
         {
-            llrt_async_runtime::set_timeout(&ctx, cb, milliseconds)?;
+            llrt_async_runtime::schedule_timeout(&ctx, cb, milliseconds)?;
         }
         #[cfg(all(not(feature = "sleep-timers"), feature = "sleep-tokio"))]
         {
@@ -255,7 +255,6 @@ mod tests {
     #[tokio::test]
     async fn test_abort_signal() {
         test_async_with(|ctx| {
-            llrt_async_runtime::init(&ctx).unwrap();
             crate::init(&ctx).unwrap();
             Box::pin(async move {
                 let signal = AbortSignal::timeout(ctx.clone(), 5).unwrap();
@@ -268,7 +267,7 @@ mod tests {
                 let reason = signal.borrow().reason().unwrap();
                 let reason = Class::<DOMException>::from_value(&reason).unwrap();
                 assert_eq!(reason.borrow().name(), "TimeoutError");
-                llrt_async_runtime::cleanup(&ctx).unwrap();
+                llrt_async_runtime::shutdown_state(&ctx).unwrap();
             })
         })
         .await;

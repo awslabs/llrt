@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
-use llrt_async_runtime::poll_timers;
+use llrt_async_runtime::run_pending_jobs;
 use llrt_hooking::{
     invoke_async_hook, register_finalization_registry, AsyncTokenKind, HookType, ProviderType,
 };
 use llrt_json::parse::json_parse;
 use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT};
-use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, Function, Module, Object, Result, Value};
-use tokio::time::Instant;
+use rquickjs::{atom::PredefinedAtom, Ctx, Filter, Function, Module, Object, Result, Value};
 use tracing::trace;
 
 use crate::modules::path::resolve_path;
@@ -100,12 +99,6 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
 
     let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
 
-    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
-
-    let mut deadline = Instant::now();
-
-    let mut executing_timers = Vec::new();
-
     let (async_id, trigger_id) =
         invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, 0, 0)?;
     if async_id != 0 {
@@ -123,11 +116,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             break x?;
         }
 
-        if deadline < Instant::now() {
-            poll_timers(rt, &mut executing_timers, None, Some(&mut deadline))?;
-        }
-
-        ctx.execute_pending_job();
+        run_pending_jobs(&ctx)?;
     };
 
     let binding = ctx.userdata::<RefCell<RequireState>>().unwrap();

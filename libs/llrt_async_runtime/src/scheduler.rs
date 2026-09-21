@@ -16,7 +16,7 @@ use tokio::{
     time::{Instant, Sleep},
 };
 
-use crate::state::{remove_state, timer_state, AsyncResource};
+use crate::state::{finish_shutdown, timer_state, AsyncResource};
 
 pub(crate) fn create_spawn_loop(
     rt: *mut qjs::JSRuntime,
@@ -36,7 +36,7 @@ pub(crate) fn create_spawn_loop(
                 Ok(true) => {},
                 Ok(false) => break,
                 Err(error) => {
-                    remove_state(rt as usize);
+                    finish_shutdown(rt as usize);
                     return Err(error);
                 },
             }
@@ -46,7 +46,7 @@ pub(crate) fn create_spawn_loop(
     Ok(())
 }
 
-pub struct ExecutingTimer(
+struct ExecutingTimer(
     Instant,
     NonNull<qjs::JSContext>,
     Option<AsyncResource>,
@@ -55,7 +55,7 @@ pub struct ExecutingTimer(
 
 unsafe impl Send for ExecutingTimer {}
 
-pub fn poll_timers(
+fn poll_timers(
     rt: *mut qjs::JSRuntime,
     call_vec: &mut Vec<Option<ExecutingTimer>>,
     sleep: Option<&mut Pin<&mut Sleep>>,
@@ -71,7 +71,7 @@ pub fn poll_timers(
     if state.shutting_down {
         state.running = false;
         drop(rt_timers);
-        timer_state().remove(&(rt as usize));
+        finish_shutdown(rt as usize);
         return Ok(false);
     }
     let now = Instant::now();
@@ -173,7 +173,7 @@ pub fn poll_timers(
         if state.shutting_down {
             state.running = false;
             drop(rt_timers);
-            timer_state().remove(&(rt as usize));
+            finish_shutdown(rt as usize);
             return Ok(false);
         }
         let is_empty = state.timers.is_empty();
@@ -183,23 +183,15 @@ pub fn poll_timers(
     Ok(true)
 }
 
-/// Requests timer scheduler shutdown for the current QuickJS runtime.
-///
-/// Shutdown is cooperative: the scheduler removes its state on its next
-/// poll. Callers must not reinitialize the runtime until that shutdown has
-/// completed.
-pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
+pub fn run_pending_jobs(ctx: &Ctx<'_>) -> Result<()> {
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
-    let mut rt_timers = timer_state();
-    let Some(state) = rt_timers.get_mut(&(rt as usize)) else {
-        return Ok(());
-    };
-
-    state.shutting_down = true;
-    state.timers.clear();
-    state.notify.notify_one();
-    if !state.running {
-        rt_timers.remove(&(rt as usize));
+    let should_poll = timer_state()
+        .get(&(rt as usize))
+        .is_some_and(|state| Instant::now() >= state.deadline);
+    if should_poll {
+        let mut executing_timers = Vec::new();
+        poll_timers(rt, &mut executing_timers, None, None)?;
     }
+    ctx.execute_pending_job();
     Ok(())
 }

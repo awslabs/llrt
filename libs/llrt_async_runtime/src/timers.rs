@@ -14,7 +14,7 @@ use crate::{
     state::{timer_state, AsyncResource, Timeout},
 };
 
-pub fn set_timeout_interval<'js>(
+fn schedule_timer<'js>(
     ctx: &Ctx<'js>,
     cb: Function<'js>,
     delay: u64,
@@ -116,11 +116,19 @@ pub fn set_timeout_interval<'js>(
     Ok(id)
 }
 
-pub fn set_timeout<'js>(ctx: &Ctx<'js>, cb: Function<'js>, delay: u64) -> Result<usize> {
-    set_timeout_interval(ctx, cb, delay, ProviderType::Timeout)
+pub fn schedule_timeout<'js>(ctx: &Ctx<'js>, cb: Function<'js>, delay: u64) -> Result<usize> {
+    schedule_timer(ctx, cb, delay, ProviderType::Timeout)
 }
 
-pub fn clear_timeout_interval(ctx: Ctx<'_>, id: Opt<Value>) -> Result<()> {
+pub fn schedule_interval<'js>(ctx: &Ctx<'js>, cb: Function<'js>, delay: u64) -> Result<usize> {
+    schedule_timer(ctx, cb, delay, ProviderType::Interval)
+}
+
+pub fn schedule_immediate<'js>(ctx: &Ctx<'js>, cb: Function<'js>) -> Result<usize> {
+    schedule_timer(ctx, cb, 0, ProviderType::Immediate)
+}
+
+pub fn cancel_timer(ctx: Ctx<'_>, id: Opt<Value>) -> Result<()> {
     if let Some(id) = id.0.and_then(|v| v.as_number()) {
         if !id.is_finite() || id < 0. || id.fract() != 0. {
             return Ok(());

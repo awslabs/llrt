@@ -6,7 +6,7 @@ use llrt_hooking::{
 };
 use rquickjs::{prelude::OnceFn, Ctx, Function, Object, Persistent, Result};
 
-pub fn queue_microtask<'js>(ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
+pub(crate) fn queue_microtask<'js>(ctx: Ctx<'js>, cb: Function<'js>) -> Result<()> {
     if !is_hooking_enabled() {
         cb.defer::<()>(())?;
         return Ok(());

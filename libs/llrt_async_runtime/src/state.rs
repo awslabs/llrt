@@ -63,7 +63,7 @@ pub(crate) struct Timeout {
     pub(crate) interval: u64,
 }
 
-pub(crate) fn init_state(ctx: &Ctx<'_>) -> Result<Option<usize>> {
+pub fn init_state(ctx: &Ctx<'_>) -> Result<Option<usize>> {
     let rt_ptr = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
     let mut rt_timers = timer_state();
     match rt_timers.entry(rt_ptr as usize) {
@@ -82,6 +82,27 @@ pub(crate) fn init_state(ctx: &Ctx<'_>) -> Result<Option<usize>> {
     Ok(Some(rt_ptr as usize))
 }
 
-pub(crate) fn remove_state(rt: usize) {
+/// Requests timer scheduler shutdown for the current QuickJS runtime.
+///
+/// Shutdown is cooperative: the scheduler removes its state on its next
+/// poll. Callers must not reinitialize the runtime until that shutdown has
+/// completed.
+pub fn shutdown_state(ctx: &Ctx<'_>) -> Result<()> {
+    let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
+    let mut rt_timers = timer_state();
+    let Some(state) = rt_timers.get_mut(&(rt as usize)) else {
+        return Ok(());
+    };
+
+    state.shutting_down = true;
+    state.timers.clear();
+    state.notify.notify_one();
+    if !state.running {
+        rt_timers.remove(&(rt as usize));
+    }
+    Ok(())
+}
+
+pub(crate) fn finish_shutdown(rt: usize) {
     timer_state().remove(&rt);
 }

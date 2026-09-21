@@ -166,7 +166,9 @@ impl Default for ModuleBuilder {
         }
         #[cfg(feature = "timers")]
         {
-            builder = builder.with_module(crate::modules::timers::TimersModule);
+            builder = builder
+                .with_global(crate::modules::timers::init)
+                .with_module(crate::modules::timers::TimersModule);
         }
         #[cfg(feature = "tty")]
         {

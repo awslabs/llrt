@@ -1,8 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_async_runtime::{cancel_timer, schedule_immediate, schedule_interval, schedule_timeout};
 use llrt_utils::module::{export_default, ModuleInfo};
 use rquickjs::{
     module::{Declarations, Exports, ModuleDef},
+    prelude::{Func, Opt},
     Ctx, Function, Result,
 };
 
@@ -53,12 +55,33 @@ impl From<TimersModule> for ModuleInfo<TimersModule> {
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
-    llrt_async_runtime::init(ctx)
+    llrt_async_runtime::init_state(ctx)?;
+    let globals = ctx.globals();
+    globals.set(
+        "setTimeout",
+        Func::from(move |ctx, cb, delay: Opt<f64>| {
+            let delay = delay.unwrap_or(0.).max(0.) as u64;
+            schedule_timeout(&ctx, cb, delay)
+        }),
+    )?;
+    globals.set(
+        "setInterval",
+        Func::from(move |ctx, cb, delay: Opt<f64>| {
+            let delay = delay.unwrap_or(0.).max(0.) as u64;
+            schedule_interval(&ctx, cb, delay)
+        }),
+    )?;
+    globals.set("clearTimeout", Func::from(cancel_timer))?;
+    globals.set("clearInterval", Func::from(cancel_timer))?;
+    globals.set(
+        "setImmediate",
+        Func::from(move |ctx, cb| schedule_immediate(&ctx, cb)),
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use llrt_async_runtime::cleanup;
     use llrt_test::{call_test, test_async_with, ModuleEvaluator};
 
     use super::*;
@@ -89,9 +112,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "timeout");
-                cleanup(&ctx).unwrap();
 
-                init(&ctx).unwrap();
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_setImmediate",
@@ -108,9 +129,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "immediate");
-                cleanup(&ctx).unwrap();
 
-                init(&ctx).unwrap();
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_setInterval",
@@ -134,9 +153,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<i32, _>(&ctx, &module, ()).await;
                 assert_eq!(result, 3);
-                cleanup(&ctx).unwrap();
 
-                init(&ctx).unwrap();
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_nestedTimers",
@@ -159,9 +176,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "nested");
-                cleanup(&ctx).unwrap();
 
-                init(&ctx).unwrap();
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_cancelTimeout",
@@ -182,9 +197,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "canceled");
-                cleanup(&ctx).unwrap();
 
-                init(&ctx).unwrap();
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_invalidTimeoutId",
@@ -204,9 +217,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "fired");
-                cleanup(&ctx).unwrap();
 
-                init(&ctx).unwrap();
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_multipleIntervals",
@@ -234,9 +245,6 @@ mod tests {
                 .unwrap();
                 let result = call_test::<Vec<i32>, _>(&ctx, &module, ()).await;
                 assert_eq!(result, vec![2, 3]);
-                cleanup(&ctx).unwrap();
-
-                init(&ctx).unwrap();
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
@@ -253,7 +261,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "reinitialized");
-                cleanup(&ctx).unwrap();
+                llrt_async_runtime::shutdown_state(&ctx).unwrap();
             })
         })
         .await;

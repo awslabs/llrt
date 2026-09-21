@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, rc::Rc};
 
-use llrt_async_runtime::cleanup as cleanup_async_runtime;
+use llrt_async_runtime::shutdown_state;
 use llrt_hooking::{
     acquire_hooking, is_hooking_enabled, register_finalization_registry, release_hooking,
     AsyncHookBridge, AsyncTokenKind,
@@ -330,7 +330,7 @@ fn event_requires_tracking(tracking: u8, type_: PromiseHookType) -> bool {
 }
 
 pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
-    cleanup_async_runtime(ctx)?;
+    shutdown_state(ctx)?;
     cleanup_async_resource(ctx);
     if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
         let mut state = state.borrow_mut();
