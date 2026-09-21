@@ -1,14 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{rc::Rc, slice};
+use std::rc::Rc;
 
 use half::f16;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
     function::Constructor,
-    ArrayBuffer, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result,
-    TypedArray, U8Clamped, Value,
+    ArrayBuffer, Coerced, Ctx, Exception, FromJs, IntoJs, JsLifetime, Object, Result, TypedArray,
+    U8Clamped, Value,
 };
 
 /// Convert a JS string to a `String`, replacing lone UTF-16 surrogates
@@ -673,16 +673,12 @@ pub fn get_string_bytes(
 }
 
 pub fn get_wtf8_string_bytes(value: Value<'_>) -> Result<Vec<u8>> {
-    let string = value.into_string().ok_or_else(|| Error::FromJs {
-        from: "Value",
-        to: "JSString",
-        message: Some("Value is not a string".into()),
-    })?;
+    let ctx = value.ctx().clone();
+    let string = value
+        .into_string()
+        .ok_or_else(|| Exception::throw_type(&ctx, "value must be a string"))?;
     let cstr = string.to_cstring()?;
-    // SAFETY: `cstr` owns a valid NUL-terminated buffer, and its pointer
-    // remains valid for the duration of this block. `cstr.len()` excludes
-    // the terminating NUL, so the resulting slice covers only string bytes.
-    let bytes = unsafe { slice::from_raw_parts(cstr.as_ptr() as *const u8, cstr.len()) };
+    let bytes: &[u8] = cstr.as_ref();
     Ok(bytes.to_vec())
 }
 

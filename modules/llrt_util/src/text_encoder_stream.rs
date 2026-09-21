@@ -1,8 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicU16, Ordering},
+    Arc,
+};
 
-use llrt_utils::bytes::{encode_wtf8, flush_wtf8, get_wtf8_string_bytes};
+use llrt_utils::{
+    bytes::{encode_wtf8, flush_wtf8, get_wtf8_string_bytes},
+    primordials::{BasePrimordials, Primordial},
+};
 use rquickjs::{
     atom::PredefinedAtom, prelude::This, Ctx, Function, Object, Result, TypedArray, Value,
 };
@@ -18,7 +24,7 @@ pub struct TextEncoderStream<'js> {
 impl<'js> TextEncoderStream<'js> {
     #[qjs(constructor)]
     pub fn new(ctx: Ctx<'js>) -> Result<Self> {
-        let pending = Arc::new(Mutex::new(None));
+        let pending = Arc::new(AtomicU16::new(0));
         let transform_pending = pending.clone();
         let transform = Function::new(ctx.clone(), move |ctx, chunk, controller| {
             transform_chunk(ctx, &transform_pending, chunk, controller)
@@ -62,21 +68,24 @@ impl<'js> TextEncoderStream<'js> {
 
 fn transform_chunk<'js>(
     ctx: Ctx<'js>,
-    pending: &Mutex<Option<u16>>,
+    pending: &AtomicU16,
     chunk: Value<'js>,
     controller: Object<'js>,
 ) -> Result<()> {
     let string = if chunk.is_string() {
         chunk
     } else {
-        let string: Function = ctx.globals().get(PredefinedAtom::String)?;
+        let string = BasePrimordials::get(&ctx)?.constructor_string.clone();
         string.call((chunk,))?
     };
     let bytes = get_wtf8_string_bytes(string)?;
     let mut output = Vec::new();
-    let mut pending_value = pending.lock().unwrap();
+    let mut pending_value = match pending.load(Ordering::Relaxed) {
+        0 => None,
+        value => Some(value),
+    };
     encode_wtf8(&bytes, &mut pending_value, &mut output);
-    drop(pending_value);
+    pending.store(pending_value.unwrap_or(0), Ordering::Relaxed);
     if !output.is_empty() {
         let encoded = TypedArray::new(ctx.clone(), output)?;
         let enqueue: Function = controller.get("enqueue")?;
@@ -85,14 +94,14 @@ fn transform_chunk<'js>(
     Ok(())
 }
 
-fn flush_stream<'js>(
-    ctx: Ctx<'js>,
-    pending: &Mutex<Option<u16>>,
-    controller: Object<'js>,
-) -> Result<()> {
-    let mut pending = pending.lock().unwrap();
+fn flush_stream<'js>(ctx: Ctx<'js>, pending: &AtomicU16, controller: Object<'js>) -> Result<()> {
+    let mut pending_value = match pending.load(Ordering::Relaxed) {
+        0 => None,
+        value => Some(value),
+    };
     let mut output = Vec::new();
-    flush_wtf8(&mut pending, &mut output);
+    flush_wtf8(&mut pending_value, &mut output);
+    pending.store(pending_value.unwrap_or(0), Ordering::Relaxed);
     if !output.is_empty() {
         let encoded = TypedArray::new(ctx.clone(), output)?;
         let enqueue: Function = controller.get("enqueue")?;
