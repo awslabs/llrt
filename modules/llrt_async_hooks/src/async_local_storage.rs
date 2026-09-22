@@ -6,6 +6,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
+use llrt_hooking::{acquire_hooking, release_hooking};
 use rquickjs::{
     atom::PredefinedAtom,
     prelude::{Opt, Rest, This},
@@ -13,11 +14,11 @@ use rquickjs::{
 };
 use smallvec::SmallVec;
 
-use super::{get_current_id, next_native_id, AsyncHookState, TRACK_ALS};
+use super::{get_current_id, next_native_id};
 use crate::async_context::{
     enter_async_scope, exit_async_scope, get_promise_id, insert_promise_id,
 };
-use llrt_hooking::{acquire_hooking, release_hooking};
+use crate::async_hooks::{AsyncHookState, TRACK_ALS};
 
 pub(crate) type AsyncLocalStorageHandle<'js> = Rc<RefCell<AsyncLocalStorageState<'js>>>;
 pub(crate) type AsyncLocalStorageWeakHandle<'js> = Weak<RefCell<AsyncLocalStorageState<'js>>>;

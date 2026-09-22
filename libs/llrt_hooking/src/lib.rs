@@ -62,10 +62,10 @@ pub enum AsyncTokenKind {
 }
 
 pub struct AsyncHookBridge {
-    pub registry: Persistent<Object<'static>>,
-    pub register: Persistent<Function<'static>>,
-    pub register_async_resource: Persistent<Function<'static>>,
-    pub invoke_async_hook: Persistent<Function<'static>>,
+    pub finalization_registry: Persistent<Object<'static>>,
+    pub finalization_register: Persistent<Function<'static>>,
+    pub async_resource_register: Persistent<Function<'static>>,
+    pub async_hook_invoker: Persistent<Function<'static>>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for AsyncHookBridge {
@@ -120,9 +120,9 @@ pub fn invoke_async_hook(
     let Some(stored) = ctx.userdata::<AsyncHookBridge>() else {
         return Ok((0, 0));
     };
-    let invoke_async_hook = stored.invoke_async_hook.clone().restore(ctx)?;
+    let async_hook_invoker = stored.async_hook_invoker.clone().restore(ctx)?;
     let result: Object =
-        invoke_async_hook.call((hook_, provider_.as_ref(), async_id, trigger_id))?;
+        async_hook_invoker.call((hook_, provider_.as_ref(), async_id, trigger_id))?;
     let async_id = result.get::<_, BigInt>("asyncId")?.to_i64()? as u64;
     let trigger_id = result.get::<_, BigInt>("triggerId")?.to_i64()? as u64;
     Ok((async_id, trigger_id))
@@ -142,20 +142,19 @@ pub fn register_finalization_registry<'js>(
     let Some(stored) = ctx.userdata::<AsyncHookBridge>() else {
         return Ok(());
     };
-    let (registry, register, register_async_resource) = (
-        stored.registry.clone().restore(ctx)?,
-        stored.register.clone(),
-        stored.register_async_resource.clone(),
-    );
-    let register = register.restore(ctx)?;
+
     let token = Object::new(ctx.clone())?;
     token.set("kind", kind as u8)?;
     token.set("id", BigInt::from_u64(ctx.clone(), async_id)?)?;
     token.set("triggerId", BigInt::from_u64(ctx.clone(), trigger_id)?)?;
+
+    let registry = stored.finalization_registry.clone().restore(ctx)?;
+    let register = stored.finalization_register.clone().restore(ctx)?;
     register.call::<_, ()>((This(registry), target.clone(), token.clone()))?;
+
     if kind == AsyncTokenKind::Native {
-        let register_resource = register_async_resource.restore(ctx)?;
-        register_resource.call::<_, ()>((token, target))?;
+        let async_resource_register = stored.async_resource_register.clone().restore(ctx)?;
+        async_resource_register.call::<_, ()>((token, target))?;
     }
     Ok(())
 }

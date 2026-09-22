@@ -18,6 +18,10 @@ pub(crate) struct AsyncResourceState<'js> {
     _marker: PhantomData<&'js ()>,
 }
 
+unsafe impl<'js> JsLifetime<'js> for AsyncResourceState<'js> {
+    type Changed<'to> = AsyncResourceState<'to>;
+}
+
 impl AsyncResourceState<'_> {
     pub(crate) fn new(promise_map: Persistent<Object<'static>>) -> Self {
         Self {
@@ -78,21 +82,6 @@ impl AsyncResourceState<'_> {
     fn resource(&self, id: u64) -> Option<Persistent<Object<'static>>> {
         self.async_resources.get(&id).cloned()
     }
-}
-
-pub(crate) enum AsyncTarget<'js> {
-    Native {
-        id: u64,
-        trigger_id: u64,
-    },
-    Promise {
-        promise: Value<'js>,
-        parent: Value<'js>,
-    },
-}
-
-unsafe impl<'js> JsLifetime<'js> for AsyncResourceState<'js> {
-    type Changed<'to> = AsyncResourceState<'to>;
 }
 
 fn with_state<T>(ctx: &Ctx<'_>, f: impl FnOnce(&AsyncResourceState) -> T) -> Result<T> {

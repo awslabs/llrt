@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::cell::RefCell;
 
+use llrt_hooking::AsyncTokenKind;
 use llrt_utils::result::ResultExt;
-use rquickjs::{prelude::Func, Constructor, Ctx, Function, Object, Persistent, Result, Value};
+use rquickjs::{prelude::Func, Constructor, Ctx, Function, Object, Result, Value};
 use smallvec::SmallVec;
 use tracing::trace;
-
-use llrt_hooking::AsyncTokenKind;
 
 use super::async_context::{
     get_current_id, get_id_from_token, parse_async_token, remove_native_resource, update_current_id,
@@ -15,17 +14,14 @@ use super::async_context::{
 use super::async_local_storage::remove_async_local_storage;
 use super::AsyncHookState;
 
-pub(crate) fn create_finalization_registry<'js>(
-    ctx: &Ctx<'js>,
-) -> Result<(Persistent<Object<'static>>, Persistent<Function<'static>>)> {
+pub(crate) fn create_finalization_registry<'a>(
+    ctx: &Ctx<'a>,
+) -> Result<(Object<'a>, Function<'a>)> {
     let global = ctx.globals();
     let constructor: Constructor = global.get("FinalizationRegistry")?;
     let registry: Object = constructor.construct((Func::from(invoke_finalization_hook),))?;
     let register: Function = registry.get("register")?;
-    Ok((
-        Persistent::save(ctx, registry),
-        Persistent::save(ctx, register),
-    ))
+    Ok((registry, register))
 }
 
 fn invoke_finalization_hook<'js>(ctx: Ctx<'js>, uid: Value<'js>) -> Result<()> {
