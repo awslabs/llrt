@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use llrt_encoding::Encoder;
 use llrt_utils::{bytes::ObjectBytes, object::ObjectExt, result::ResultExt};
-use rquickjs::{atom::PredefinedAtom, function::Opt, Ctx, Object, Result, Value};
+use rquickjs::{atom::PredefinedAtom, convert::Coerced, function::Opt, Ctx, Object, Result, Value};
 use std::cell::{Cell, RefCell};
 
 #[rquickjs::class]
@@ -73,11 +73,11 @@ impl<'js> TextDecoder {
         let encoder = Encoder::from_optional_str(label.as_deref()).or_throw_range(&ctx, "")?;
 
         if let Some(opts) = options.0 {
-            if let Some(opt) = opts.get_optional("fatal")? {
-                fatal = opt;
+            if let Some(opt) = opts.get_optional::<_, Coerced<bool>>("fatal")? {
+                fatal = opt.0;
             }
-            if let Some(opt) = opts.get_optional("ignoreBOM")? {
-                ignore_bom = opt;
+            if let Some(opt) = opts.get_optional::<_, Coerced<bool>>("ignoreBOM")? {
+                ignore_bom = opt.0;
             }
         }
 
