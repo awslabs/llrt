@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{env, result::Result as StdResult};
 
+use llrt_scheduler::graceful_shutdown;
 use rquickjs::{
     context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
     CatchResultExt, Ctx, Error, Result, Value,
@@ -40,6 +41,7 @@ impl Default for VmOptions {
     fn default() -> Self {
         #[allow(unused_mut)]
         let mut module_builder = ModuleBuilder::default()
+            .with_global(llrt_scheduler::init)
             .with_global(crate::modules::embedded::init)
             .with_global(crate::builtins_inspect::init)
             .with_module(crate::modules::llrt::codec::LlrtCodecModule)
@@ -118,6 +120,7 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
+                llrt_scheduler::initialize(&ctx)?;
                 BasePrimordials::init(&ctx)?;
                 global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
@@ -198,6 +201,7 @@ impl Vm {
         self.runtime.set_promise_hook(None).await;
         self.ctx.with(|ctx| ctx.run_gc()).await;
         self.runtime.idle().await;
+        self.ctx.with(|ctx| graceful_shutdown(&ctx)).await?;
         self.ctx.with(|ctx| cleanup_async_hooks(&ctx)).await?;
         self.ctx.with(|ctx| ctx.run_gc()).await;
         self.runtime.idle().await;

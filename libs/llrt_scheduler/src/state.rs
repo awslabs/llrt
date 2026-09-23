@@ -63,7 +63,7 @@ pub(crate) struct Timeout {
     pub(crate) interval: u64,
 }
 
-pub fn init_state(ctx: &Ctx<'_>) -> Result<Option<usize>> {
+pub fn initialize(ctx: &Ctx<'_>) -> Result<Option<usize>> {
     let rt_ptr = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
     let mut rt_timers = timer_state();
     match rt_timers.entry(rt_ptr as usize) {
@@ -87,7 +87,7 @@ pub fn init_state(ctx: &Ctx<'_>) -> Result<Option<usize>> {
 /// Shutdown is cooperative: the scheduler removes its state on its next
 /// poll. Callers must not reinitialize the runtime until that shutdown has
 /// completed.
-pub fn shutdown_state(ctx: &Ctx<'_>) -> Result<()> {
+pub fn graceful_shutdown(ctx: &Ctx<'_>) -> Result<()> {
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
     let mut rt_timers = timer_state();
     let Some(state) = rt_timers.get_mut(&(rt as usize)) else {

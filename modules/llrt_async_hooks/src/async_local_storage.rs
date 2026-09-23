@@ -295,7 +295,7 @@ pub(crate) fn remove_async_local_storage<'js>(ctx: &Ctx<'js>, async_id: u64) -> 
     Ok(())
 }
 
-pub(crate) fn cleanup_async_local_storage<'js>(storages: &[AsyncLocalStorageWeakHandle<'js>]) {
+pub(crate) fn cleanup<'js>(storages: &[AsyncLocalStorageWeakHandle<'js>]) {
     for storage in storages {
         if let Some(storage) = storage.upgrade() {
             storage.borrow_mut().cleanup();

@@ -55,7 +55,8 @@ impl From<TimersModule> for ModuleInfo<TimersModule> {
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
-    llrt_scheduler::init_state(ctx)?;
+    llrt_scheduler::initialize(ctx)?;
+
     let globals = ctx.globals();
     globals.set(
         "setTimeout",
@@ -77,6 +78,12 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
         "setImmediate",
         Func::from(move |ctx, cb| schedule_immediate(&ctx, cb)),
     )?;
+    Ok(())
+}
+
+pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
+    llrt_scheduler::graceful_shutdown(ctx)?;
+
     Ok(())
 }
 
@@ -261,7 +268,7 @@ mod tests {
                 .unwrap();
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "reinitialized");
-                llrt_scheduler::shutdown_state(&ctx).unwrap();
+                llrt_scheduler::graceful_shutdown(&ctx).unwrap();
             })
         })
         .await;

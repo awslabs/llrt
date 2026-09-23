@@ -50,6 +50,7 @@ llrt_modules = { path = "../llrt_modules", default-features = false, features = 
   "console",
 ] }
 llrt_numbers = { path = "../libs/llrt_numbers" }
+llrt_scheduler = { version = "0.9.0-beta", path = "../libs/llrt_scheduler" }
 llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
 phf = { version = "0.14", default-features = false }

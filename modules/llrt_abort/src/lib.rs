@@ -12,7 +12,7 @@ mod abort_signal;
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     #[cfg(feature = "sleep-timers")]
-    llrt_scheduler::init_state(ctx)?;
+    llrt_scheduler::initialize(ctx)?;
 
     let globals = ctx.globals();
 
@@ -23,6 +23,13 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     AbortSignal::add_event_emitter_prototype(ctx)?;
     AbortSignal::add_event_target_prototype(ctx)?;
+
+    Ok(())
+}
+
+pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
+    #[cfg(feature = "sleep-timers")]
+    llrt_scheduler::graceful_shutdown(ctx)?;
 
     Ok(())
 }

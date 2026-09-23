@@ -35,11 +35,11 @@ fn invoke_finalization_hook<'js>(ctx: Ctx<'js>, uid: Value<'js>) -> Result<()> {
         return Ok(());
     }
 
-    cleanup_finalized_resource(&ctx, kind, token_id, current_id.0)?;
+    clear_finalized_resource(&ctx, kind, token_id, current_id.0)?;
     invoke_destroy_callbacks(&ctx, kind, token_id, current_id)
 }
 
-fn cleanup_finalized_resource(
+fn clear_finalized_resource(
     ctx: &Ctx<'_>,
     kind: AsyncTokenKind,
     token_id: u64,

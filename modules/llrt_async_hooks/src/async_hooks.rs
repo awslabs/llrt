@@ -10,7 +10,9 @@ use rquickjs::{
 use smallvec::SmallVec;
 
 use crate::async_context::{get_current_id, get_current_resource};
-use crate::async_local_storage::{cleanup_async_local_storage, AsyncLocalStorageWeakHandle};
+use crate::async_local_storage::{
+    cleanup as cleanup_async_local_storage, AsyncLocalStorageWeakHandle,
+};
 
 const TRACK_INIT: u8 = 1 << 0;
 const TRACK_BEFORE: u8 = 1 << 1;

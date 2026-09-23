@@ -14,5 +14,5 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 }
 
 pub use scheduler::tick;
-pub use state::{init_state, shutdown_state};
+pub use state::{graceful_shutdown, initialize};
 pub use timers::{cancel_timer, schedule_immediate, schedule_interval, schedule_timeout};

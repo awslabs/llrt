@@ -267,7 +267,7 @@ mod tests {
                 let reason = signal.borrow().reason().unwrap();
                 let reason = Class::<DOMException>::from_value(&reason).unwrap();
                 assert_eq!(reason.borrow().name(), "TimeoutError");
-                llrt_scheduler::shutdown_state(&ctx).unwrap();
+                llrt_scheduler::graceful_shutdown(&ctx).unwrap();
             })
         })
         .await;

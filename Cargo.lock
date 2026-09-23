@@ -1770,7 +1770,6 @@ name = "llrt_async_hooks"
 version = "0.9.0-beta"
 dependencies = [
  "llrt_hooking",
- "llrt_scheduler",
  "llrt_utils",
  "rquickjs",
  "smallvec",
@@ -1865,6 +1864,7 @@ dependencies = [
  "llrt_logging",
  "llrt_modules",
  "llrt_numbers",
+ "llrt_scheduler",
  "llrt_test",
  "llrt_utils",
  "md-5",

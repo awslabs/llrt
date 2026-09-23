@@ -5,7 +5,6 @@ use std::cell::RefCell;
 use llrt_hooking::{
     is_hooking_enabled, register_finalization_registry, AsyncHookBridge, AsyncTokenKind,
 };
-use llrt_scheduler::shutdown_state;
 use llrt_utils::{
     module::{export_default, ModuleInfo},
     result::ResultExt,
@@ -26,7 +25,7 @@ mod async_local_storage;
 mod finalization_registry;
 
 use crate::async_context::{
-    cleanup as cleanup_async_resource, enter_async_scope, exit_async_scope, get_current_id,
+    cleanup as cleanup_async_context, enter_async_scope, exit_async_scope, get_current_id,
     get_promise_id, insert_promise_id, next_native_id, register_async_resource, AsyncResourceState,
 };
 use crate::async_hooks::{
@@ -75,10 +74,10 @@ impl ModuleDef for AsyncHooksModule {
 }
 
 impl From<AsyncHooksModule> for ModuleInfo<AsyncHooksModule> {
-    fn from(module: AsyncHooksModule) -> Self {
+    fn from(val: AsyncHooksModule) -> Self {
         ModuleInfo {
             name: "async_hooks",
-            module,
+            module: val,
         }
     }
 }
@@ -106,6 +105,14 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     })
     .or_throw(ctx)?;
 
+    Ok(())
+}
+
+pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
+    cleanup_async_context(ctx);
+    if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
+        state.borrow_mut().cleanup();
+    }
     Ok(())
 }
 
@@ -168,18 +175,6 @@ pub fn promise_hook_tracker() -> PromiseHook {
             );
         },
     )
-}
-
-pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
-    shutdown_state(ctx)?;
-    cleanup_async_resource(ctx);
-    if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
-        state.borrow_mut().cleanup();
-    }
-    let _ = ctx.remove_userdata::<RefCell<AsyncResourceState>>();
-    let _ = ctx.remove_userdata::<RefCell<AsyncHookState>>();
-    let _ = ctx.remove_userdata::<AsyncHookBridge>();
-    Ok(())
 }
 
 fn invoke_async_hook<'js>(
