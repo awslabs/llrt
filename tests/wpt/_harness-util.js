@@ -62,11 +62,33 @@ export function createContext({ extras = {}, scripts = [] } = {}) {
   const context = {
     createBuffer: (type, length) => new self[type](length),
     setTimeout,
-    DOMException,
     QuotaExceededError,
     location: {},
     ...extras,
   };
+  Object.defineProperties(context, {
+    console: {
+      value: globalThis.console,
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    },
+    DOMException: {
+      value: DOMException,
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    },
+  });
+  const selfContext = new Proxy(context, {
+    get(target, property, receiver) {
+      if (property === "self") return selfContext;
+      if (Reflect.has(target, property))
+        return Reflect.get(target, property, receiver);
+      return Reflect.get(globalThis, property);
+    },
+  });
+  context.self = selfContext;
   loadWptScript("resources/idlharness.js", context);
   loadWptScript("resources/testharness.js", context);
   loadWptScript("common/gc.js", context);
@@ -80,7 +102,12 @@ export function createContext({ extras = {}, scripts = [] } = {}) {
   return context;
 }
 
-function attachCompletion(context, done, ctx = {}, { allowNoTests = false } = {}) {
+function attachCompletion(
+  context,
+  done,
+  ctx = {},
+  { allowNoTests = false } = {}
+) {
   context.add_completion_callback((tests) => {
     const real = tests.filter(
       ({ name, status }) => !(name === "Loading data..." && status === 0)
@@ -114,7 +141,7 @@ export function loadMetaScripts(source, testDir) {
       try {
         out += fs.readFileSync(path.resolve(base, trimmed), "utf8") + "\n";
         break;
-      } catch { }
+      } catch {}
     }
   }
   return out;
