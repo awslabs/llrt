@@ -260,9 +260,9 @@ pub(crate) fn cleanup(ctx: &Ctx<'_>) {
 #[cfg(test)]
 mod tests {
     use super::AsyncResourceState;
-    use rquickjs::{Context, Object, Persistent, Runtime};
+    use rquickjs::{Context, Ctx, Object, Persistent, Runtime};
 
-    fn new_state<'js>(ctx: &rquickjs::Ctx<'js>) -> AsyncResourceState<'js> {
+    fn new_state<'js>(ctx: &Ctx<'js>) -> AsyncResourceState<'js> {
         let promise_map = Persistent::save(ctx, Object::new(ctx.clone()).unwrap());
         AsyncResourceState::new(promise_map)
     }

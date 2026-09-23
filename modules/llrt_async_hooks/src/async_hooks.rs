@@ -2,24 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cell::RefCell, rc::Rc};
 
-use llrt_hooking::{acquire_hooking, release_hooking};
+use llrt_hooking::{acquire_hooking, release_hooking, AsyncTokenKind};
 use llrt_utils::result::ResultExt;
 use rquickjs::{
-    prelude::This, promise::PromiseHookType, Ctx, Function, JsLifetime, Object, Result, Value,
+    prelude::This, promise::PromiseHookType, Ctx, Exception, Function, JsLifetime, Object, Result,
+    Value,
 };
 use smallvec::SmallVec;
+use tracing::trace;
 
-use crate::async_context::{get_current_id, get_current_resource};
-use crate::async_local_storage::{
-    cleanup as cleanup_async_local_storage, AsyncLocalStorageWeakHandle,
-};
-
-const TRACK_INIT: u8 = 1 << 0;
-const TRACK_BEFORE: u8 = 1 << 1;
-const TRACK_AFTER: u8 = 1 << 2;
-const TRACK_RESOLVE: u8 = 1 << 3;
-pub(crate) const TRACK_DESTROY: u8 = 1 << 4;
-pub(crate) const TRACK_ALS: u8 = 1 << 5;
+use crate::async_context::{get_current_id, get_current_resource, update_current_id};
+use crate::tracking::{add, callback_mask, set_legacy_mask};
 
 pub(crate) struct Hook<'js> {
     pub(crate) id: usize,
@@ -34,70 +27,30 @@ pub(crate) struct HookCallbacks<'js> {
     pub(crate) destroy: Option<Function<'js>>,
 }
 
-fn callback_mask(callbacks: &HookCallbacks<'_>) -> u8 {
-    (if callbacks.init.is_some() {
-        TRACK_INIT
-    } else {
-        0
-    }) | (if callbacks.before.is_some() {
-        TRACK_BEFORE
-    } else {
-        0
-    }) | (if callbacks.after.is_some() {
-        TRACK_AFTER
-    } else {
-        0
-    }) | (if callbacks.promise_resolve.is_some() {
-        TRACK_RESOLVE
-    } else {
-        0
-    }) | (if callbacks.destroy.is_some() {
-        TRACK_DESTROY
-    } else {
-        0
-    })
-}
-
 #[derive(Default)]
-pub(crate) struct AsyncHookState<'js> {
+pub(crate) struct AsyncHookRegistry<'js> {
     pub(crate) hooks: Vec<Hook<'js>>,
-    registered_callbacks: Vec<Rc<HookCallbacks<'js>>>,
-    pub(crate) async_local_storages: Vec<AsyncLocalStorageWeakHandle<'js>>,
-    pub(crate) tracking: u8,
+    callbacks: Vec<Rc<HookCallbacks<'js>>>,
 }
 
-unsafe impl<'js> JsLifetime<'js> for AsyncHookState<'js> {
-    type Changed<'to> = AsyncHookState<'to>;
+unsafe impl<'js> JsLifetime<'js> for AsyncHookRegistry<'js> {
+    type Changed<'to> = AsyncHookRegistry<'to>;
 }
 
-impl<'js> AsyncHookState<'js> {
-    fn recompute_tracking(&mut self) {
-        self.tracking = self.hooks.iter().fold(
-            if crate::async_local_storage::has_active_async_local_storage(
-                &self.async_local_storages,
-            ) {
-                TRACK_ALS
-            } else {
-                0
-            },
-            |mask, hook| mask | callback_mask(&hook.callbacks),
-        );
-    }
-
+impl<'js> AsyncHookRegistry<'js> {
     fn register_callbacks(&mut self, callbacks: Rc<HookCallbacks<'js>>) -> usize {
-        let id = self.registered_callbacks.len();
-        self.registered_callbacks.push(callbacks);
+        let id = self.callbacks.len();
+        self.callbacks.push(callbacks);
         id
     }
 
-    fn add_hook(&mut self, id: usize, hook_mask: u8) {
+    fn add_hook(&mut self, id: usize) {
         let callbacks = self
-            .registered_callbacks
+            .callbacks
             .get(id)
             .cloned()
             .expect("async hook callbacks must be registered");
         self.hooks.push(Hook { id, callbacks });
-        self.tracking |= hook_mask;
     }
 
     pub(crate) fn callbacks_for(&self, type_: PromiseHookType) -> SmallVec<[Function<'js>; 2]> {
@@ -115,34 +68,39 @@ impl<'js> AsyncHookState<'js> {
     fn remove_hook(&mut self, id: usize) -> bool {
         let hook_count = self.hooks.len();
         self.hooks.retain(|hook| hook.id != id);
-        self.recompute_tracking();
         self.hooks.len() != hook_count
+    }
+
+    fn legacy_mask(&self) -> u8 {
+        self.hooks.iter().fold(0, |mut mask, hook| {
+            add(&mut mask, callback_mask_for(&hook.callbacks));
+            mask
+        })
     }
 
     pub(crate) fn cleanup(&mut self) {
         for _ in &self.hooks {
             release_hooking();
         }
-        cleanup_async_local_storage(&self.async_local_storages);
         self.hooks.clear();
-        self.registered_callbacks.clear();
-        self.async_local_storages.clear();
-        self.tracking = 0;
+        self.callbacks.clear();
     }
 }
 
-fn enable_hook<'js>(ctx: &Ctx<'js>, id: usize, hook_mask: u8) -> Result<()> {
-    let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
-    let mut state = state.borrow_mut();
-    state.add_hook(id, hook_mask);
+fn enable_hook<'js>(ctx: &Ctx<'js>, id: usize) -> Result<()> {
+    let registry = ctx.userdata::<RefCell<AsyncHookRegistry>>().or_throw(ctx)?;
+    let mut registry = registry.borrow_mut();
+    registry.add_hook(id);
+    set_legacy_mask(ctx, registry.legacy_mask())?;
     acquire_hooking();
     Ok(())
 }
 
 fn disable_hook<'js>(ctx: &Ctx<'js>, id: usize) -> Result<()> {
-    let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
-    let mut state = state.borrow_mut();
-    if state.remove_hook(id) {
+    let registry = ctx.userdata::<RefCell<AsyncHookRegistry>>().or_throw(ctx)?;
+    let mut registry = registry.borrow_mut();
+    if registry.remove_hook(id) {
+        set_legacy_mask(ctx, registry.legacy_mask())?;
         release_hooking();
     }
     Ok(())
@@ -156,10 +114,11 @@ pub(crate) fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<
         promise_resolve: hooks_obj.get("promiseResolve").ok(),
         destroy: hooks_obj.get("destroy").ok(),
     });
-    let hook_mask = callback_mask(&callbacks);
     let hook_id = {
-        let state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(&ctx)?;
-        let hook_id = state.borrow_mut().register_callbacks(callbacks);
+        let registry = ctx
+            .userdata::<RefCell<AsyncHookRegistry>>()
+            .or_throw(&ctx)?;
+        let hook_id = registry.borrow_mut().register_callbacks(callbacks);
         hook_id
     };
     let enabled = Rc::new(RefCell::new(false));
@@ -173,7 +132,7 @@ pub(crate) fn create_hook<'js>(ctx: Ctx<'js>, hooks_obj: Object<'js>) -> Result<
             move |this: This<Object<'js>>| -> Result<Object<'js>> {
                 if !*enabled_clone.borrow() {
                     let state_ctx = this.0.ctx();
-                    enable_hook(state_ctx, hook_id, hook_mask)?;
+                    enable_hook(state_ctx, hook_id)?;
                     *enabled_clone.borrow_mut() = true;
                 }
                 Ok(this.0)
@@ -216,20 +175,68 @@ pub(crate) fn trigger_async_id(ctx: Ctx<'_>) -> Result<u64> {
     Ok(get_current_id(&ctx)?.1)
 }
 
-pub(crate) fn tracking_mask(ctx: &Ctx<'_>) -> u8 {
-    let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() else {
-        return 0;
+pub(crate) fn dispatch_init(ctx: &Ctx<'_>, async_id: u64, async_type: &str, trigger_id: u64) {
+    let Some(registry) = ctx.userdata::<RefCell<AsyncHookRegistry>>() else {
+        return;
     };
-    let tracking = state.borrow().tracking;
-    tracking
+    let callbacks = registry.borrow().callbacks_for(PromiseHookType::Init);
+    for callback in callbacks {
+        if let Err(error) = callback.call::<_, ()>((async_id, async_type, trigger_id)) {
+            trace!("async_hooks init callback failed: {:?}", error);
+        }
+    }
 }
 
-pub(crate) fn event_requires_tracking(tracking: u8, type_: PromiseHookType) -> bool {
-    match type_ {
-        PromiseHookType::Init => tracking != 0,
-        PromiseHookType::Before | PromiseHookType::After => {
-            tracking & (TRACK_BEFORE | TRACK_AFTER | TRACK_ALS) != 0
-        },
-        PromiseHookType::Resolve => tracking & TRACK_RESOLVE != 0,
+pub(crate) fn dispatch_callback(ctx: &Ctx<'_>, type_: PromiseHookType, async_id: u64) {
+    let Some(registry) = ctx.userdata::<RefCell<AsyncHookRegistry>>() else {
+        return;
+    };
+    let callbacks = registry.borrow().callbacks_for(type_);
+    for callback in callbacks {
+        if let Err(error) = callback.call::<_, ()>((async_id,)) {
+            trace!("async_hooks callback failed: {:?}", error);
+        }
     }
+}
+
+pub(crate) fn dispatch_destroy(
+    ctx: &Ctx<'_>,
+    kind: AsyncTokenKind,
+    token_id: u64,
+    current_id: (u64, u64),
+) -> Result<()> {
+    let registry = ctx
+        .userdata::<RefCell<AsyncHookRegistry>>()
+        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookRegistry is not initialized"))?;
+    let previous_id = get_current_id(ctx)?;
+    update_current_id(ctx, current_id)?;
+    trace!(
+        "Destroy[{:?}:{}](async_id, trigger_id): {:?}",
+        kind,
+        token_id,
+        current_id
+    );
+
+    let callbacks = registry
+        .borrow()
+        .hooks
+        .iter()
+        .filter_map(|hook| hook.callbacks.destroy.clone())
+        .collect::<SmallVec<[_; 2]>>();
+    for callback in callbacks {
+        if let Err(error) = callback.call::<_, ()>((current_id.0,)) {
+            trace!("async_hooks destroy callback failed: {:?}", error);
+        }
+    }
+    update_current_id(ctx, previous_id)
+}
+
+fn callback_mask_for(callbacks: &HookCallbacks<'_>) -> u8 {
+    callback_mask(
+        callbacks.init.is_some(),
+        callbacks.before.is_some(),
+        callbacks.after.is_some(),
+        callbacks.promise_resolve.is_some(),
+        callbacks.destroy.is_some(),
+    )
 }

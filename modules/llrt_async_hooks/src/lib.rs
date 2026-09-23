@@ -23,19 +23,25 @@ mod async_context;
 mod async_hooks;
 mod async_local_storage;
 mod finalization_registry;
+mod tracking;
 
-use crate::async_context::{
-    cleanup as cleanup_async_context, enter_async_scope, exit_async_scope, get_current_id,
-    get_promise_id, insert_promise_id, next_native_id, register_async_resource, AsyncResourceState,
+use self::async_context::{
+    cleanup as cleanup_async_context, enter_async_scope, exit_async_scope, get_promise_id,
+    insert_promise_id, next_native_id, register_async_resource, AsyncResourceState,
 };
-use crate::async_hooks::{
-    create_hook, current_id, event_requires_tracking, execution_async_id, execution_async_resource,
-    tracking_mask, trigger_async_id, AsyncHookState, TRACK_ALS, TRACK_DESTROY,
+use self::async_hooks::{
+    create_hook, current_id, dispatch_callback, dispatch_init, execution_async_id,
+    execution_async_resource, trigger_async_id, AsyncHookRegistry,
 };
-use crate::async_local_storage::{
-    bind, propagate_async_local_storage, snapshot, AsyncLocalStorage,
+use self::async_local_storage::{
+    bind, cleanup as cleanup_async_local_storage, propagate_async_local_storage, snapshot,
+    AsyncLocalStorage, AsyncLocalStorageRegistry,
 };
-use crate::finalization_registry::create_finalization_registry;
+use self::finalization_registry::create_finalization_registry;
+use self::tracking::{
+    has, tracking_mask, AsyncTrackingState, BEFORE_OR_ALS_MASK, FINALIZATION_MASK, LEGACY_MASK,
+    TRACK_ALS, TRACK_RESOLVE,
+};
 
 pub struct AsyncHooksModule;
 
@@ -85,7 +91,11 @@ impl From<AsyncHooksModule> for ModuleInfo<AsyncHooksModule> {
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
     let global = ctx.globals();
 
-    ctx.store_userdata(RefCell::new(AsyncHookState::default()))
+    ctx.store_userdata(RefCell::new(AsyncTrackingState::default()))
+        .or_throw(ctx)?;
+    ctx.store_userdata(RefCell::new(AsyncHookRegistry::default()))
+        .or_throw(ctx)?;
+    ctx.store_userdata(RefCell::new(AsyncLocalStorageRegistry::default()))
         .or_throw(ctx)?;
 
     let weak_map: Constructor = global.get(PredefinedAtom::WeakMap)?;
@@ -110,8 +120,11 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
 pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
     cleanup_async_context(ctx);
-    if let Some(state) = ctx.userdata::<RefCell<AsyncHookState>>() {
-        state.borrow_mut().cleanup();
+    if let Some(registry) = ctx.userdata::<RefCell<AsyncLocalStorageRegistry>>() {
+        cleanup_async_local_storage(&registry.borrow().storages);
+    }
+    if let Some(registry) = ctx.userdata::<RefCell<AsyncHookRegistry>>() {
+        registry.borrow_mut().cleanup();
     }
     Ok(())
 }
@@ -162,10 +175,6 @@ pub fn promise_hook_tracker() -> PromiseHook {
             if !is_hooking_enabled() {
                 return;
             }
-            let tracking = tracking_mask(&ctx);
-            if !event_requires_tracking(tracking, type_) {
-                return;
-            }
 
             let _ = invoke_async_hook(
                 &ctx,
@@ -183,19 +192,17 @@ fn invoke_async_hook<'js>(
     async_type: &str,
     target: AsyncTarget<'js>,
 ) -> Result<(u64, u64)> {
-    let tracking = tracking_mask(ctx);
+    let tracking = tracking_mask(ctx)?;
     if !event_requires_tracking(tracking, type_) {
         return Ok((0, 0));
     }
-    let bind_state = ctx.userdata::<RefCell<AsyncHookState>>().or_throw(ctx)?;
-
     match type_ {
         PromiseHookType::Init => {
             let current_id = match &target {
                 AsyncTarget::Native { .. } => next_native_id(ctx)?,
                 AsyncTarget::Promise { promise, parent } => {
                     let current_id = insert_promise_id(ctx, promise, parent)?;
-                    if tracking & (TRACK_DESTROY | TRACK_ALS) != 0 {
+                    if has(tracking, FINALIZATION_MASK) {
                         let _ = register_finalization_registry(
                             ctx,
                             promise.clone(),
@@ -207,15 +214,13 @@ fn invoke_async_hook<'js>(
                     current_id
                 },
             };
-            propagate_async_local_storage(ctx, current_id.0, current_id.1)?;
+            if has(tracking, TRACK_ALS) {
+                propagate_async_local_storage(ctx, current_id.0, current_id.1)?;
+            }
             trace!("Init(async_id, trigger_id): {:?}", current_id);
 
-            let callbacks = bind_state.borrow().callbacks_for(PromiseHookType::Init);
-            for callback in callbacks {
-                if let Err(error) = callback.call::<_, ()>((current_id.0, async_type, current_id.1))
-                {
-                    trace!("async_hooks init callback failed: {:?}", error);
-                }
+            if has(tracking, LEGACY_MASK) {
+                dispatch_init(ctx, current_id.0, async_type, current_id.1);
             }
             Ok(current_id)
         },
@@ -239,12 +244,7 @@ fn invoke_async_hook<'js>(
                 enter_async_scope(ctx, current_id)?;
             }
 
-            let callbacks = bind_state.borrow().callbacks_for(type_);
-            for callback in callbacks {
-                if let Err(error) = callback.call::<_, ()>((current_id.0,)) {
-                    trace!("async_hooks callback failed: {:?}", error);
-                }
-            }
+            dispatch_callback(ctx, type_, current_id.0);
 
             if type_ == PromiseHookType::After {
                 exit_async_scope(ctx, current_id.0)?;
@@ -252,5 +252,13 @@ fn invoke_async_hook<'js>(
 
             Ok(current_id)
         },
+    }
+}
+
+pub(crate) fn event_requires_tracking(tracking: u8, type_: PromiseHookType) -> bool {
+    match type_ {
+        PromiseHookType::Init => tracking != 0,
+        PromiseHookType::Before | PromiseHookType::After => has(tracking, BEFORE_OR_ALS_MASK),
+        PromiseHookType::Resolve => has(tracking, TRACK_RESOLVE),
     }
 }

@@ -9,19 +9,31 @@ use std::{
 use llrt_hooking::{acquire_hooking, release_hooking};
 use rquickjs::{
     atom::PredefinedAtom,
+    class::Trace,
     prelude::{Opt, Rest, This},
     Class, Ctx, Exception, Function, JsLifetime, Object, Persistent, Result, Type, Value,
 };
 use smallvec::SmallVec;
 
-use super::{get_current_id, next_native_id};
 use crate::async_context::{
-    enter_async_scope, exit_async_scope, get_promise_id, insert_promise_id,
+    enter_async_scope, exit_async_scope, get_current_id, get_promise_id, insert_promise_id,
+    next_native_id,
 };
-use crate::async_hooks::{AsyncHookState, TRACK_ALS};
+use crate::tracking::{set_bit, TRACK_ALS};
 
 pub(crate) type AsyncLocalStorageHandle<'js> = Rc<RefCell<AsyncLocalStorageState<'js>>>;
 pub(crate) type AsyncLocalStorageWeakHandle<'js> = Weak<RefCell<AsyncLocalStorageState<'js>>>;
+
+#[derive(Default)]
+pub(crate) struct AsyncLocalStorageRegistry<'js> {
+    pub(crate) storages: Vec<AsyncLocalStorageWeakHandle<'js>>,
+    _marker: std::marker::PhantomData<&'js ()>,
+}
+
+unsafe impl<'js> JsLifetime<'js> for AsyncLocalStorageRegistry<'js> {
+    type Changed<'to> = AsyncLocalStorageRegistry<'to>;
+}
+
 type AsyncLocalStorageSnapshot<'js> = Vec<(
     AsyncLocalStorageHandle<'js>,
     Option<Persistent<Value<'static>>>,
@@ -122,7 +134,7 @@ impl<'js> AsyncLocalStorageState<'js> {
     }
 }
 
-#[derive(rquickjs::class::Trace)]
+#[derive(Trace)]
 #[rquickjs::class]
 pub(crate) struct AsyncLocalStorage<'js> {
     #[qjs(skip_trace)]
@@ -145,11 +157,12 @@ impl<'js> AsyncLocalStorage<'js> {
         }
         let storage = Rc::new(RefCell::new(state));
         let state = ctx
-            .userdata::<RefCell<AsyncHookState>>()
-            .ok_or_else(|| Exception::throw_internal(&ctx, "AsyncHookState is not initialized"))?;
-        let mut state = state.borrow_mut();
-        state.async_local_storages.push(Rc::downgrade(&storage));
-        state.tracking |= TRACK_ALS;
+            .userdata::<RefCell<AsyncLocalStorageRegistry>>()
+            .ok_or_else(|| {
+                Exception::throw_internal(&ctx, "AsyncLocalStorage is not initialized")
+            })?;
+        state.borrow_mut().storages.push(Rc::downgrade(&storage));
+        set_bit(&ctx, TRACK_ALS, true)?;
         acquire_hooking();
         Ok(Self { storage })
     }
@@ -172,7 +185,7 @@ impl<'js> AsyncLocalStorage<'js> {
                 .stores
                 .insert(async_id, Persistent::save(&ctx, store.clone()))
         };
-        enable_async_local_storage_tracking(&ctx)?;
+        set_bit(&ctx, TRACK_ALS, true)?;
         let result = callback.call::<_, Value>((args,));
         let result_async_id = match &result {
             Ok(value) if value.type_of() == Type::Promise => {
@@ -210,7 +223,7 @@ impl<'js> AsyncLocalStorage<'js> {
                 .insert(trigger_id, Persistent::save(&ctx, store));
         }
         drop(storage);
-        enable_async_local_storage_tracking(&ctx)?;
+        set_bit(&ctx, TRACK_ALS, true)?;
         Ok(())
     }
 
@@ -254,16 +267,22 @@ impl<'js> AsyncLocalStorage<'js> {
     pub(crate) fn disable(this: This<Class<'js, Self>>) -> Class<'js, Self> {
         let storage = this.borrow().storage.clone();
         storage.borrow_mut().disable();
+        refresh_tracking(this.0.ctx());
         this.0
     }
 }
 
-fn enable_async_local_storage_tracking(ctx: &Ctx<'_>) -> Result<()> {
-    let state = ctx
-        .userdata::<RefCell<AsyncHookState>>()
-        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookState is not initialized"))?;
-    state.borrow_mut().tracking |= TRACK_ALS;
-    Ok(())
+fn refresh_tracking(ctx: &Ctx<'_>) {
+    let Some(registry) = ctx.userdata::<RefCell<AsyncLocalStorageRegistry>>() else {
+        return;
+    };
+    let enabled = registry.borrow().storages.iter().any(|storage| {
+        storage
+            .upgrade()
+            .is_some_and(|storage| storage.borrow().enabled)
+    });
+    drop(registry);
+    let _ = set_bit(ctx, TRACK_ALS, enabled);
 }
 
 pub(crate) fn propagate_async_local_storage<'js>(
@@ -271,10 +290,7 @@ pub(crate) fn propagate_async_local_storage<'js>(
     child_async_id: u64,
     trigger_async_id: u64,
 ) -> Result<()> {
-    let state = ctx
-        .userdata::<RefCell<AsyncHookState>>()
-        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookState is not initialized"))?;
-    let storages = active_storages(&state);
+    let storages = active_storages(ctx)?;
     for storage in storages {
         let mut storage = storage.borrow_mut();
         if let Some(store) = storage.stores.get(&trigger_async_id).cloned() {
@@ -285,10 +301,7 @@ pub(crate) fn propagate_async_local_storage<'js>(
 }
 
 pub(crate) fn remove_async_local_storage<'js>(ctx: &Ctx<'js>, async_id: u64) -> Result<()> {
-    let state = ctx
-        .userdata::<RefCell<AsyncHookState>>()
-        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookState is not initialized"))?;
-    let storages = active_storages(&state);
+    let storages = active_storages(ctx)?;
     for storage in storages {
         storage.borrow_mut().stores.remove(&async_id);
     }
@@ -303,25 +316,14 @@ pub(crate) fn cleanup<'js>(storages: &[AsyncLocalStorageWeakHandle<'js>]) {
     }
 }
 
-pub(crate) fn has_active_async_local_storage<'js>(
-    storages: &[AsyncLocalStorageWeakHandle<'js>],
-) -> bool {
-    storages.iter().any(|storage| {
-        storage
-            .upgrade()
-            .is_some_and(|storage| storage.borrow().enabled)
-    })
-}
-
-fn active_storages<'js>(
-    state: &RefCell<AsyncHookState<'js>>,
-) -> SmallVec<[AsyncLocalStorageHandle<'js>; 2]> {
+fn active_storages<'js>(ctx: &Ctx<'js>) -> Result<SmallVec<[AsyncLocalStorageHandle<'js>; 2]>> {
+    let state = ctx
+        .userdata::<RefCell<AsyncLocalStorageRegistry>>()
+        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncLocalStorage is not initialized"))?;
     let mut state = state.borrow_mut();
-    state
-        .async_local_storages
-        .retain(|storage| storage.strong_count() > 0);
+    state.storages.retain(|storage| storage.strong_count() > 0);
     let active: SmallVec<[AsyncLocalStorageHandle<'js>; 2]> = state
-        .async_local_storages
+        .storages
         .iter()
         .filter_map(|storage| {
             let storage = Weak::upgrade(storage)?;
@@ -329,21 +331,21 @@ fn active_storages<'js>(
             enabled.then_some(storage)
         })
         .collect();
-    if active.is_empty() {
-        state.tracking &= !TRACK_ALS;
-    }
-    active
+    let enabled = !active.is_empty();
+    drop(state);
+    set_bit(ctx, TRACK_ALS, enabled)?;
+    Ok(active)
 }
 
 fn capture_snapshot<'js>(ctx: &Ctx<'js>) -> Result<AsyncLocalStorageSnapshot<'js>> {
     let async_id = get_current_id(ctx)?.0;
     let state = ctx
-        .userdata::<RefCell<AsyncHookState>>()
-        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncHookState is not initialized"))?;
-    if state.borrow().async_local_storages.is_empty() {
+        .userdata::<RefCell<AsyncLocalStorageRegistry>>()
+        .ok_or_else(|| Exception::throw_internal(ctx, "AsyncLocalStorage is not initialized"))?;
+    if state.borrow().storages.is_empty() {
         return Ok(Vec::new());
     }
-    let storages = active_storages(&state);
+    let storages = active_storages(ctx)?;
     Ok(storages
         .into_iter()
         .map(|storage| {
