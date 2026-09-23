@@ -41,7 +41,6 @@ impl Default for VmOptions {
     fn default() -> Self {
         #[allow(unused_mut)]
         let mut module_builder = ModuleBuilder::default()
-            .with_global(llrt_scheduler::init)
             .with_global(crate::modules::embedded::init)
             .with_global(crate::builtins_inspect::init)
             .with_module(crate::modules::llrt::codec::LlrtCodecModule)
