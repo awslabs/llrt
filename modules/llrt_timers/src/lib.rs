@@ -99,10 +99,12 @@ mod tests {
             Box::pin(async move {
                 init(&ctx).unwrap();
 
+                // Assume we have a TimersModule that provides setTimeout, setImmediate, and setInterval
                 ModuleEvaluator::eval_rust::<TimersModule>(ctx.clone(), "timers")
                     .await
                     .unwrap();
 
+                // Test setTimeout
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_setTimeout",
@@ -120,6 +122,7 @@ mod tests {
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "timeout");
 
+                // Test setImmediate
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_setImmediate",
@@ -137,6 +140,7 @@ mod tests {
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "immediate");
 
+                // Test setInterval
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_setInterval",
@@ -161,6 +165,7 @@ mod tests {
                 let result = call_test::<i32, _>(&ctx, &module, ()).await;
                 assert_eq!(result, 3);
 
+                // Test nested timers
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_nestedTimers",
@@ -184,6 +189,7 @@ mod tests {
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "nested");
 
+                // Test canceling timeout
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_cancelTimeout",
@@ -205,26 +211,7 @@ mod tests {
                 let result = call_test::<String, _>(&ctx, &module, ()).await;
                 assert_eq!(result, "canceled");
 
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test_invalidTimeoutId",
-                    r#"
-                        import { setTimeout, clearTimeout } from 'timers';
-                        export async function test() {
-                            return new Promise((resolve) => {
-                                setTimeout(() => resolve('fired'), 10);
-                                clearTimeout(NaN);
-                                clearTimeout(-1);
-                                clearTimeout(0.5);
-                            });
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-                let result = call_test::<String, _>(&ctx, &module, ()).await;
-                assert_eq!(result, "fired");
-
+                // Test multiple intervals
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
                     "test_multipleIntervals",
@@ -252,6 +239,26 @@ mod tests {
                 .unwrap();
                 let result = call_test::<Vec<i32>, _>(&ctx, &module, ()).await;
                 assert_eq!(result, vec![2, 3]);
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test_invalidTimeoutId",
+                    r#"
+                        import { setTimeout, clearTimeout } from 'timers';
+                        export async function test() {
+                            return new Promise((resolve) => {
+                                setTimeout(() => resolve('fired'), 10);
+                                clearTimeout(NaN);
+                                clearTimeout(-1);
+                                clearTimeout(0.5);
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, "fired");
 
                 let module = ModuleEvaluator::eval_js(
                     ctx.clone(),
