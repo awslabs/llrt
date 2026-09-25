@@ -56,10 +56,6 @@ impl AsyncResourceState<'_> {
         self.current_id
     }
 
-    fn update_current_id(&mut self, id: (u64, u64)) {
-        self.current_id = id;
-    }
-
     fn enter_scope(&mut self, id: (u64, u64)) {
         self.context_stack.insert(id.0, self.current_id);
         self.current_id = id;
@@ -116,7 +112,7 @@ fn parse_promise_id(token: &Value<'_>) -> Result<(u64, u64)> {
     let Some(token) = token.as_object() else {
         return Ok((0, 0));
     };
-    let async_id = parse_non_negative_id(token.get::<_, BigInt>("id")?).unwrap_or(0);
+    let async_id = parse_non_negative_id(token.get::<_, BigInt>("asyncId")?).unwrap_or(0);
     let trigger_id = parse_non_negative_id(token.get::<_, BigInt>("triggerId")?).unwrap_or(0);
     if async_id == 0 || trigger_id == 0 {
         return Ok((0, 0));
@@ -158,7 +154,7 @@ pub(crate) fn insert_promise_id<'js>(
     let promise_map = get_promise_map(ctx)?;
     let set: Function = promise_map.get(PredefinedAtom::Setter)?;
     let token = Object::new(ctx.clone())?;
-    token.set("id", BigInt::from_u64(ctx.clone(), current_id.0)?)?;
+    token.set("asyncId", BigInt::from_u64(ctx.clone(), current_id.0)?)?;
     token.set("triggerId", BigInt::from_u64(ctx.clone(), current_id.1)?)?;
     set.call::<_, Value>((This(promise_map), promise.clone(), token))?;
     Ok(current_id)
@@ -200,7 +196,7 @@ pub(crate) fn parse_async_token(ctx: &Ctx<'_>, token: &Value<'_>) -> Result<(Asy
             ))
         },
     };
-    let id: BigInt = token.get("id")?;
+    let id: BigInt = token.get("asyncId")?;
     let id = parse_non_negative_id(id)
         .ok_or_else(|| Exception::throw_type(ctx, "Invalid async resource token"))?;
     Ok((kind, id))
@@ -214,11 +210,6 @@ pub(crate) fn remove_native_resource(ctx: &Ctx<'_>, async_id: u64) -> Result<()>
     with_state_mut(ctx, |state| {
         state.remove_resource(async_id);
     })?;
-    Ok(())
-}
-
-pub(crate) fn update_current_id(ctx: &Ctx<'_>, id: (u64, u64)) -> Result<()> {
-    with_state_mut(ctx, |state| state.update_current_id(id))?;
     Ok(())
 }
 
@@ -296,26 +287,12 @@ mod tests {
 
         context.with(|ctx| {
             let mut state = new_state(&ctx);
-            state.update_current_id((8, 4));
             state.enter_scope((9, 8));
 
             state.clear_runtime_state();
             state.exit_scope(9);
 
             assert_eq!(state.current_id(), (9, 8));
-        });
-    }
-
-    #[test]
-    fn update_current_id_changes_the_active_context() {
-        let runtime = Runtime::new().unwrap();
-        let context = Context::full(&runtime).unwrap();
-
-        context.with(|ctx| {
-            let mut state = new_state(&ctx);
-            state.update_current_id((12, 7));
-
-            assert_eq!(state.current_id(), (12, 7));
         });
     }
 

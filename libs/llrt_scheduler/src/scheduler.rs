@@ -8,7 +8,7 @@ use std::{
 };
 
 use llrt_context::CtxExtension;
-use llrt_hooking::{invoke_async_hook, HookType, ProviderType};
+use llrt_hooking::{invoke_async_hook, HookType};
 use rquickjs::{qjs, Ctx, Function, Persistent, Result};
 use tokio::{
     select,
@@ -137,24 +137,13 @@ fn poll_timers(
                 is_first_time = false;
             }
             if let Ok(callback) = timeout.restore(&ctx2) {
-                if let Some(async_resource) = async_resource {
-                    let _resource = async_resource.resource;
-                    invoke_async_hook(
-                        &ctx2,
-                        HookType::Before,
-                        ProviderType::None,
-                        async_resource.async_id,
-                        async_resource.trigger_id,
-                    )?;
+                if let Some(ar) = async_resource {
+                    let _resource = ar.resource;
+                    invoke_async_hook(&ctx2, HookType::Before, ar.async_id, ar.trigger_id)?;
                     let callback_result = callback.call::<_, ()>(());
                     while ctx2.execute_pending_job() {}
-                    let after_result = invoke_async_hook(
-                        &ctx2,
-                        HookType::After,
-                        ProviderType::None,
-                        async_resource.async_id,
-                        async_resource.trigger_id,
-                    );
+                    let after_result =
+                        invoke_async_hook(&ctx2, HookType::After, ar.async_id, ar.trigger_id);
                     callback_result?;
                     after_result?;
                 } else {

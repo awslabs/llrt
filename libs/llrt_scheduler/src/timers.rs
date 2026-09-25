@@ -3,8 +3,7 @@
 use std::time::Duration;
 
 use llrt_hooking::{
-    invoke_async_hook, is_hooking_enabled, register_finalization_registry, AsyncTokenKind,
-    HookType, ProviderType,
+    invoke_async_hook, is_hooking_enabled, register_finalization_registry, AsyncTokenKind, HookType,
 };
 use rquickjs::{prelude::Opt, qjs, Ctx, Exception, Function, Object, Persistent, Result, Value};
 use tokio::time::Instant;
@@ -13,6 +12,13 @@ use crate::{
     scheduler::spawn_timer_driver,
     state::{timer_state, AsyncResource, Timeout},
 };
+
+#[derive(PartialEq)]
+pub enum ProviderType {
+    Immediate,
+    Interval,
+    Timeout,
+}
 
 fn schedule_timer<'js>(
     ctx: &Ctx<'js>,
@@ -42,16 +48,10 @@ fn schedule_timer<'js>(
         ProviderType::Immediate => (false, Instant::now() - Duration::from_secs(600)),
         ProviderType::Timeout => (false, Instant::now() + Duration::from_millis(delay)),
         ProviderType::Interval => (true, Instant::now() + Duration::from_millis(delay)),
-        _ => {
-            return Err(Exception::throw_type(
-                ctx,
-                "The specified provider type is not supported.",
-            ))
-        },
     };
 
     let async_resource = if hooks_enabled {
-        let (async_id, trigger_id) = invoke_async_hook(ctx, HookType::Init, provider_type, 0, 0)?;
+        let (async_id, trigger_id) = invoke_async_hook(ctx, HookType::Init, 0, 0)?;
         if async_id == 0 {
             None
         } else {

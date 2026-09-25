@@ -1,36 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    borrow::Cow,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rquickjs::{
-    function::This, BigInt, Ctx, Exception, Function, JsLifetime, Object, Persistent, Result, Value,
+    function::This, BigInt, Ctx, Function, JsLifetime, Object, Persistent, Result, Value,
 };
 
 static HOOKING_USERS: AtomicUsize = AtomicUsize::new(0);
-
-#[derive(PartialEq)]
-pub enum ProviderType {
-    None,
-    Resource(String),
-    Immediate,
-    Interval,
-    MessagePort,
-    Microtask,
-    TickObject,
-    Timeout,
-    FsReqCallback,
-    GetAddrInfoReqWrap,
-    GetNameInfoReqWrap,
-    PipeWrap,
-    StatWatcher,
-    TcpWrap,
-    TimerWrap,
-    TlsWrap,
-    UdpWrap,
-}
 
 #[inline]
 pub fn is_hooking_enabled() -> bool {
@@ -75,7 +51,6 @@ unsafe impl<'js> JsLifetime<'js> for AsyncHookBridge {
 pub fn invoke_async_hook(
     ctx: &Ctx<'_>,
     hook_type: HookType,
-    provider_type: ProviderType,
     async_id: u64,
     trigger_id: u64,
 ) -> Result<(u64, u64)> {
@@ -89,40 +64,11 @@ pub fn invoke_async_hook(
         HookType::After => "after",
     };
 
-    let provider_: Cow<'_, str> = match provider_type {
-        ProviderType::None if hook_type != HookType::Init => Cow::Borrowed(""),
-        ProviderType::None => {
-            return Err(Exception::throw_type(
-                ctx,
-                "Asynchronous types cannot be omitted in init hooks.",
-            ))
-        },
-        ProviderType::Resource(s) => Cow::Owned(format!("Resource({s})")),
-        // Userland provider types
-        ProviderType::Immediate => Cow::Borrowed("Immediate"),
-        ProviderType::Interval => Cow::Borrowed("Interval"),
-        ProviderType::MessagePort => Cow::Borrowed("MessagePort"),
-        ProviderType::Microtask => Cow::Borrowed("Microtask"),
-        ProviderType::TickObject => Cow::Borrowed("TickObject"),
-        ProviderType::Timeout => Cow::Borrowed("Timeout"),
-        // Internal provider types
-        ProviderType::FsReqCallback => Cow::Borrowed("FSREQCALLBACK"),
-        ProviderType::GetAddrInfoReqWrap => Cow::Borrowed("GETADDRINFOREQWRAP"),
-        ProviderType::GetNameInfoReqWrap => Cow::Borrowed("GETNAMEINFOREQWRAP"),
-        ProviderType::PipeWrap => Cow::Borrowed("PIPEWRAP"),
-        ProviderType::StatWatcher => Cow::Borrowed("STATWACHER"),
-        ProviderType::TcpWrap => Cow::Borrowed("TCPWRAP"),
-        ProviderType::TimerWrap => Cow::Borrowed("TIMERWRAP"),
-        ProviderType::TlsWrap => Cow::Borrowed("TLSWRAP"),
-        ProviderType::UdpWrap => Cow::Borrowed("UDPWRAP"),
-    };
-
     let Some(stored) = ctx.userdata::<AsyncHookBridge>() else {
         return Ok((0, 0));
     };
     let async_hook_invoker = stored.async_hook_invoker.clone().restore(ctx)?;
-    let result: Object =
-        async_hook_invoker.call((hook_, provider_.as_ref(), async_id, trigger_id))?;
+    let result: Object = async_hook_invoker.call((hook_, async_id, trigger_id))?;
     let async_id = result.get::<_, BigInt>("asyncId")?.to_i64()? as u64;
     let trigger_id = result.get::<_, BigInt>("triggerId")?.to_i64()? as u64;
     Ok((async_id, trigger_id))
@@ -145,7 +91,7 @@ pub fn register_finalization_registry<'js>(
 
     let token = Object::new(ctx.clone())?;
     token.set("kind", kind as u8)?;
-    token.set("id", BigInt::from_u64(ctx.clone(), async_id)?)?;
+    token.set("asyncId", BigInt::from_u64(ctx.clone(), async_id)?)?;
     token.set("triggerId", BigInt::from_u64(ctx.clone(), trigger_id)?)?;
 
     let registry = stored.finalization_registry.clone().restore(ctx)?;

@@ -6,8 +6,7 @@ use std::result::Result as StdResult;
 use either::Either;
 use llrt_context::CtxExtension;
 use llrt_hooking::{
-    invoke_async_hook, is_hooking_enabled, register_finalization_registry, AsyncTokenKind,
-    HookType, ProviderType,
+    invoke_async_hook, is_hooking_enabled, register_finalization_registry, AsyncTokenKind, HookType,
 };
 use llrt_utils::result::ResultExt;
 use rquickjs::{
@@ -37,8 +36,7 @@ pub fn lookup<'js>(
 
     let hooks_enabled = is_hooking_enabled();
     let (resource, async_id, trigger_id) = if hooks_enabled {
-        let (async_id, trigger_id) =
-            invoke_async_hook(&ctx, HookType::Init, ProviderType::GetAddrInfoReqWrap, 0, 0)?;
+        let (async_id, trigger_id) = invoke_async_hook(&ctx, HookType::Init, 0, 0)?;
         if async_id == 0 {
             (None, 0, 0)
         } else {
@@ -59,13 +57,7 @@ pub fn lookup<'js>(
         let _resource = resource;
         match lookup_host(&hostname, options.family, options.order).await {
             Ok(addrs) => {
-                invoke_async_hook(
-                    &ctx,
-                    HookType::Before,
-                    ProviderType::None,
-                    async_id,
-                    trigger_id,
-                )?;
+                invoke_async_hook(&ctx, HookType::Before, async_id, trigger_id)?;
                 let callback_result = if options.all {
                     cb.call::<_, ()>((Null.into_js(&ctx), addrs))
                 } else {
@@ -78,34 +70,16 @@ pub fn lookup<'js>(
                         )
                     }
                 };
-                let after_result = invoke_async_hook(
-                    &ctx,
-                    HookType::After,
-                    ProviderType::None,
-                    async_id,
-                    trigger_id,
-                );
+                let after_result = invoke_async_hook(&ctx, HookType::After, async_id, trigger_id);
                 callback_result?;
                 after_result?;
                 Ok::<_, Error>(())
             },
             Err(err) => {
-                invoke_async_hook(
-                    &ctx,
-                    HookType::Before,
-                    ProviderType::None,
-                    async_id,
-                    trigger_id,
-                )?;
+                invoke_async_hook(&ctx, HookType::Before, async_id, trigger_id)?;
                 let callback_result =
                     cb.call::<_, ()>((Exception::from_message(ctx.clone(), &err.to_string()),));
-                let after_result = invoke_async_hook(
-                    &ctx,
-                    HookType::After,
-                    ProviderType::None,
-                    async_id,
-                    trigger_id,
-                );
+                let after_result = invoke_async_hook(&ctx, HookType::After, async_id, trigger_id);
                 callback_result?;
                 after_result?;
                 Ok(())

@@ -20,28 +20,47 @@ use rquickjs::{
 use tracing::trace;
 
 mod async_context;
-mod async_hooks;
 mod async_local_storage;
 mod finalization_registry;
 mod tracking;
 
 use self::async_context::{
-    cleanup as cleanup_async_context, enter_async_scope, exit_async_scope, get_promise_id,
-    insert_promise_id, next_native_id, register_async_resource, AsyncResourceState,
-};
-use self::async_hooks::{
-    create_hook, current_id, dispatch_callback, dispatch_init, execution_async_id,
-    execution_async_resource, trigger_async_id, AsyncHookRegistry,
+    cleanup as cleanup_async_context, enter_async_scope, exit_async_scope, get_current_id,
+    get_current_resource, get_promise_id, insert_promise_id, next_native_id,
+    register_async_resource, AsyncResourceState,
 };
 use self::async_local_storage::{
     bind, cleanup as cleanup_async_local_storage, propagate_async_local_storage, snapshot,
     AsyncLocalStorage, AsyncLocalStorageRegistry,
 };
 use self::finalization_registry::create_finalization_registry;
-use self::tracking::{
-    has, tracking_mask, AsyncTrackingState, BEFORE_OR_ALS_MASK, FINALIZATION_MASK, LEGACY_MASK,
-    TRACK_ALS, TRACK_RESOLVE,
-};
+use self::tracking::{has, tracking_mask, AsyncTrackingState, TRACK_ALS};
+
+pub(crate) fn create_hook<'js>(ctx: Ctx<'js>, _hooks_obj: Object<'js>) -> Result<Value<'js>> {
+    let obj = Object::new(ctx.clone())?;
+    obj.set("enable", Function::new(ctx.clone(), || {}))?;
+    obj.set("disable", Function::new(ctx.clone(), || {}))?;
+
+    Ok(obj.into())
+}
+
+pub(crate) fn current_id() -> u64 {
+    // NOTE: This method is now obsolete. Therefore, it does not return a valid value.
+    // But we will define it because it is used by cls-hooked.
+    0
+}
+
+pub(crate) fn execution_async_id(ctx: Ctx<'_>) -> Result<u64> {
+    Ok(get_current_id(&ctx)?.0)
+}
+
+pub(crate) fn trigger_async_id(ctx: Ctx<'_>) -> Result<u64> {
+    Ok(get_current_id(&ctx)?.1)
+}
+
+pub(crate) fn execution_async_resource(ctx: Ctx<'_>) -> Result<Object<'_>> {
+    get_current_resource(ctx)
+}
 
 pub struct AsyncHooksModule;
 
@@ -93,8 +112,6 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     ctx.store_userdata(RefCell::new(AsyncTrackingState::default()))
         .or_throw(ctx)?;
-    ctx.store_userdata(RefCell::new(AsyncHookRegistry::default()))
-        .or_throw(ctx)?;
     ctx.store_userdata(RefCell::new(AsyncLocalStorageRegistry::default()))
         .or_throw(ctx)?;
 
@@ -123,9 +140,6 @@ pub fn cleanup(ctx: &Ctx<'_>) -> Result<()> {
     if let Some(registry) = ctx.userdata::<RefCell<AsyncLocalStorageRegistry>>() {
         cleanup_async_local_storage(&registry.borrow().storages);
     }
-    if let Some(registry) = ctx.userdata::<RefCell<AsyncHookRegistry>>() {
-        registry.borrow_mut().cleanup();
-    }
     Ok(())
 }
 
@@ -143,7 +157,6 @@ pub(crate) enum AsyncTarget<'js> {
 fn invoke_native_async_hook(
     ctx: Ctx<'_>,
     type_: String,
-    async_type: String,
     async_id: u64,
     trigger_id: u64,
 ) -> Result<Object<'_>> {
@@ -157,7 +170,6 @@ fn invoke_native_async_hook(
     let (async_id, trigger_id) = invoke_async_hook(
         &ctx,
         type_,
-        async_type.as_ref(),
         AsyncTarget::Native {
             id: async_id,
             trigger_id,
@@ -175,13 +187,7 @@ pub fn promise_hook_tracker() -> PromiseHook {
             if !is_hooking_enabled() {
                 return;
             }
-
-            let _ = invoke_async_hook(
-                &ctx,
-                type_,
-                "PROMISE",
-                AsyncTarget::Promise { promise, parent },
-            );
+            let _ = invoke_async_hook(&ctx, type_, AsyncTarget::Promise { promise, parent });
         },
     )
 }
@@ -189,20 +195,16 @@ pub fn promise_hook_tracker() -> PromiseHook {
 fn invoke_async_hook<'js>(
     ctx: &Ctx<'js>,
     type_: PromiseHookType,
-    async_type: &str,
     target: AsyncTarget<'js>,
 ) -> Result<(u64, u64)> {
     let tracking = tracking_mask(ctx)?;
-    if !event_requires_tracking(tracking, type_) {
-        return Ok((0, 0));
-    }
     match type_ {
         PromiseHookType::Init => {
             let current_id = match &target {
                 AsyncTarget::Native { .. } => next_native_id(ctx)?,
                 AsyncTarget::Promise { promise, parent } => {
                     let current_id = insert_promise_id(ctx, promise, parent)?;
-                    if has(tracking, FINALIZATION_MASK) {
+                    if has(tracking, TRACK_ALS) {
                         let _ = register_finalization_registry(
                             ctx,
                             promise.clone(),
@@ -219,9 +221,6 @@ fn invoke_async_hook<'js>(
             }
             trace!("Init(async_id, trigger_id): {:?}", current_id);
 
-            if has(tracking, LEGACY_MASK) {
-                dispatch_init(ctx, current_id.0, async_type, current_id.1);
-            }
             Ok(current_id)
         },
         PromiseHookType::Before | PromiseHookType::After | PromiseHookType::Resolve => {
@@ -244,21 +243,11 @@ fn invoke_async_hook<'js>(
                 enter_async_scope(ctx, current_id)?;
             }
 
-            dispatch_callback(ctx, type_, current_id.0);
-
             if type_ == PromiseHookType::After {
                 exit_async_scope(ctx, current_id.0)?;
             }
 
             Ok(current_id)
         },
-    }
-}
-
-pub(crate) fn event_requires_tracking(tracking: u8, type_: PromiseHookType) -> bool {
-    match type_ {
-        PromiseHookType::Init => tracking != 0,
-        PromiseHookType::Before | PromiseHookType::After => has(tracking, BEFORE_OR_ALS_MASK),
-        PromiseHookType::Resolve => has(tracking, TRACK_RESOLVE),
     }
 }
