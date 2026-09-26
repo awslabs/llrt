@@ -1747,11 +1747,10 @@ dependencies = [
 name = "llrt_abort"
 version = "0.9.0-beta"
 dependencies = [
- "llrt_async_hooks",
  "llrt_events",
  "llrt_exceptions",
+ "llrt_scheduler",
  "llrt_test",
- "llrt_timers",
  "llrt_utils",
  "rquickjs",
  "tokio",
@@ -1773,6 +1772,7 @@ dependencies = [
  "llrt_hooking",
  "llrt_utils",
  "rquickjs",
+ "smallvec",
  "tracing",
 ]
 
@@ -1864,6 +1864,7 @@ dependencies = [
  "llrt_logging",
  "llrt_modules",
  "llrt_numbers",
+ "llrt_scheduler",
  "llrt_test",
  "llrt_utils",
  "md-5",
@@ -2064,7 +2065,6 @@ dependencies = [
 name = "llrt_hooking"
 version = "0.9.0-beta"
 dependencies = [
- "llrt_utils",
  "once_cell",
  "rquickjs",
 ]
@@ -2155,6 +2155,7 @@ dependencies = [
  "llrt_path",
  "llrt_perf_hooks",
  "llrt_process",
+ "llrt_scheduler",
  "llrt_stream_web",
  "llrt_string_decoder",
  "llrt_temporal",
@@ -2265,6 +2266,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_scheduler"
+version = "0.9.0-beta"
+dependencies = [
+ "llrt_context",
+ "llrt_hooking",
+ "once_cell",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
 name = "llrt_stream"
 version = "0.9.0-beta"
 dependencies = [
@@ -2338,11 +2350,9 @@ dependencies = [
 name = "llrt_timers"
 version = "0.9.0-beta"
 dependencies = [
- "llrt_context",
- "llrt_hooking",
+ "llrt_scheduler",
  "llrt_test",
  "llrt_utils",
- "once_cell",
  "rquickjs",
  "tokio",
 ]

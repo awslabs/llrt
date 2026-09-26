@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{env, result::Result as StdResult};
 
+use llrt_scheduler::graceful_shutdown;
 use rquickjs::{
     context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
     CatchResultExt, Ctx, Error, Result, Value,
@@ -9,7 +10,6 @@ use rquickjs::{
 
 use crate::libs::{
     context::set_spawn_error_handler,
-    hooking::HOOKING_MODE,
     json,
     logging::print_error_and_exit,
     numbers,
@@ -19,7 +19,7 @@ use crate::libs::{
     },
 };
 use crate::modules::{
-    async_hooks::promise_hook_tracker,
+    async_hooks::{cleanup as cleanup_async_hooks, promise_hook_tracker},
     embedded::{loader::EmbeddedLoader, resolver::EmbeddedResolver},
     module_builder::ModuleBuilder,
     package::{loader::PackageLoader, resolver::PackageResolver},
@@ -119,6 +119,7 @@ impl Vm {
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
             (|| {
+                llrt_scheduler::initialize(&ctx)?;
                 BasePrimordials::init(&ctx)?;
                 global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
@@ -130,9 +131,7 @@ impl Vm {
         })
         .await?;
 
-        if HOOKING_MODE.to_owned() {
-            runtime.set_promise_hook(Some(promise_hook_tracker())).await;
-        }
+        runtime.set_promise_hook(Some(promise_hook_tracker())).await;
 
         Ok(Vm { runtime, ctx })
     }
@@ -192,6 +191,18 @@ impl Vm {
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
+        self.runtime.idle().await;
+        Ok(())
+    }
+
+    pub async fn shutdown(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
+        self.runtime.idle().await;
+        self.runtime.set_promise_hook(None).await;
+        self.ctx.with(|ctx| ctx.run_gc()).await;
+        self.runtime.idle().await;
+        self.ctx.with(|ctx| graceful_shutdown(&ctx)).await?;
+        self.ctx.with(|ctx| cleanup_async_hooks(&ctx)).await?;
+        self.ctx.with(|ctx| ctx.run_gc()).await;
         self.runtime.idle().await;
         Ok(())
     }

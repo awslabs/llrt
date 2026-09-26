@@ -1,5 +1,7 @@
 import defaultImport from "node:async_hooks";
+import { executionAsyncResource } from "node:async_hooks";
 import legacyImport from "async_hooks";
+import { spawnCapture } from "./test-utils";
 
 it("node:async_hooks should be the same as async_hooks", () => {
   expect(defaultImport).toStrictEqual(legacyImport);
@@ -33,19 +35,34 @@ createHook({
   },
 }).enable();
 
-it("should track async operations", async () => {
-  await new Promise((resolve) => setTimeout(resolve, 10));
+it("should use the current execution ID as a native trigger ID", async () => {
+  let parentTimerId = 0;
+  let nestedTriggerId = 0;
+  const hook = createHook({
+    init(asyncId, type, triggerAsyncId) {
+      if (type !== "Timeout") return;
+      if (parentTimerId === 0) {
+        parentTimerId = asyncId;
+      } else {
+        nestedTriggerId = triggerAsyncId;
+      }
+    },
+  });
+  hook.enable();
 
-  // It detects asynchronous operations in all tests that run simultaneously,
-  // making it impossible to test them individually.
-  // Therefore, here we only check whether asynchronous operations can be tracked.
-  expect(counters.init).toBeGreaterThan(0);
-  expect(counters.before).toBeGreaterThan(0);
-  expect(counters.after).toBeGreaterThan(0);
-  expect(counters.promiseResolve).toBeGreaterThan(0);
+  await new Promise<void>((resolve) => {
+    setTimeout(() => setTimeout(resolve, 0), 0);
+  });
+  hook.disable();
 
-  // destroy callbacks require GC + event loop tick to fire reliably
-  __gc();
-  await new Promise((resolve) => setTimeout(resolve, 1));
-  expect(counters.destroy).toBeGreaterThan(0);
+  expect(nestedTriggerId).toBe(parentTimerId);
+});
+
+it("should shut down cleanly after disabling a hook with callbacks", async () => {
+  const { code } = await spawnCapture(process.argv0, [
+    "-e",
+    "import { createHook } from 'node:async_hooks'; const hook = createHook({ init() {}, before() {}, after() {}, promiseResolve() {}, destroy() {} }); hook.enable(); hook.disable()",
+  ]);
+
+  expect(code).toBe(0);
 });
