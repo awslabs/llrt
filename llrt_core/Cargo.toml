@@ -5,7 +5,7 @@ edition = "2021"
 license-file = "LICENSE"
 
 [features]
-default = ["macro", "tls-ring", "crypto-rust", "pqc"]
+default = ["macro", "tls-rust", "crypto-rust", "pqc"]
 lambda = []
 no-sdk = ["llrt_modules/no-sdk"]
 uncompressed = []
@@ -16,6 +16,7 @@ pqc = ["llrt_modules/pqc"]
 intl402 = ["llrt_modules/intl402"]
 
 # TLS crypto backend features
+tls-rust = ["llrt_modules/tls-rust"]
 tls-ring = ["rustls/ring", "llrt_modules/tls-ring"]
 tls-aws-lc = ["rustls/aws_lc_rs", "llrt_modules/tls-aws-lc"]
 tls-graviola = ["llrt_modules/tls-graviola"]
