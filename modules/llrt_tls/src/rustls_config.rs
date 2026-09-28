@@ -14,6 +14,11 @@ use webpki_roots::TLS_SERVER_ROOTS;
 use crate::no_verification::NoCertificateVerification;
 
 // Select the crypto provider based on feature flags
+#[cfg(feature = "tls-rust")]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls_rustcrypto::provider())
+}
+
 #[cfg(feature = "tls-ring")]
 fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
     Arc::new(rustls::crypto::ring::default_provider())
