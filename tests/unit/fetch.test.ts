@@ -8,6 +8,7 @@ let server: net.Server;
 let url: string;
 let streamingUrl: string;
 let echoUrl: string;
+let originCheckUrl: string;
 
 const { LLRT_LOG, ...TEST_ENV } = process.env;
 
@@ -80,6 +81,14 @@ beforeAll((done) => {
         socket.write("4\r\ntest\r\n");
         socket.write("0\r\n\r\n");
         socket.end();
+      } else if (requestData.includes("POST /check-origin")) {
+        const match = requestData.match(/^Origin:\s*(.+)$/im);
+        const origin = match?.[1] ?? "";
+
+        socket.write(
+          `HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${origin.length}\r\n\r\n${origin}`
+        );
+        socket.end();
       } else if (requestData.includes("\r\n\r\n")) {
         socket.write(
           "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html></html>"
@@ -95,6 +104,7 @@ beforeAll((done) => {
     url = `http://${host}:${port}`;
     streamingUrl = `http://${host}:${port}/streaming`;
     echoUrl = `http://${host}:${port}/echo`;
+    originCheckUrl = `http://${host}:${port}/check-origin`;
     done();
   });
 });
@@ -371,6 +381,14 @@ describe("fetch", () => {
 
     const text = await res.text();
     expect(text).toEqual("hello world");
+  });
+
+  it("should not synthesize Origin for server-side fetch", async () => {
+    const res = await fetch(originCheckUrl, {
+      method: "POST",
+    });
+
+    expect(await res.text()).toEqual("");
   });
 
   it("should send streaming request body using ReadableStream", async () => {
