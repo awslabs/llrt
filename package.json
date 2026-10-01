@@ -100,7 +100,7 @@
     "readable-stream": "4.7.0",
     "stream-browserify": "3.0.0",
     "ts-node": "10.9.2",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.11"
   },
   "packageManager": "yarn@1.22.22"
