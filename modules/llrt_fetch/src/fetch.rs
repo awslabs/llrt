@@ -6,7 +6,7 @@ use hyper::{
     header::{
         ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, AUTHORIZATION, CONTENT_ENCODING,
         CONTENT_LANGUAGE, CONTENT_LENGTH, CONTENT_LOCATION, CONTENT_TYPE, IF_MODIFIED_SINCE,
-        IF_NONE_MATCH, LOCATION, ORIGIN, TRANSFER_ENCODING, USER_AGENT,
+        IF_NONE_MATCH, LOCATION, TRANSFER_ENCODING, USER_AGENT,
     },
     HeaderMap, Method, Request, Uri, Version,
 };
@@ -576,7 +576,6 @@ fn build_request<'js>(
     } else {
         (method.clone(), body)
     };
-    let is_get_or_head = matches!(method_to_use, Method::GET | Method::HEAD);
 
     let mut req = Request::builder().method(method_to_use).uri(uri.clone());
 
@@ -596,15 +595,6 @@ fn build_request<'js>(
     }
 
     apply_default_headers(&mut req, &detected_headers);
-
-    // Per spec, the Origin header is included for non-CORS-safelisted methods
-    // (anything other than GET/HEAD). Browsers compute origin from the caller;
-    // here we approximate with the initial request URI's origin.
-    if !is_get_or_head && !detected_headers.contains(ORIGIN.as_str()) {
-        if let Some(origin) = uri_origin(initial_uri) {
-            req = req.header(ORIGIN, origin);
-        }
-    }
 
     // `Content-Length: 0` is sent for POST/PUT/PATCH requests with no body.
     if body.is_none()
@@ -656,23 +646,6 @@ fn is_same_origin(uri: &Uri, initial_uri: &Uri) -> bool {
     is_same_scheme(uri, initial_uri)
         && is_same_host(uri, initial_uri)
         && is_same_port(uri, initial_uri)
-}
-
-fn uri_origin(uri: &Uri) -> Option<String> {
-    let scheme = uri.scheme_str()?;
-    let authority = uri.authority()?;
-    let host = authority.host();
-    let default_port = matches!(
-        (scheme, authority.port_u16()),
-        (_, None) | ("http", Some(80)) | ("https", Some(443))
-    );
-    if default_port {
-        Some([scheme, "://", host].concat())
-    } else {
-        let mut buf = itoa::Buffer::new();
-        let port_str = buf.format(authority.port_u16().unwrap());
-        Some([scheme, "://", host, ":", port_str].concat())
-    }
 }
 
 fn is_same_scheme(uri: &Uri, initial_uri: &Uri) -> bool {
