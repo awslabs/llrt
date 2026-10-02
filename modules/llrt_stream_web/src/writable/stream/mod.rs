@@ -236,10 +236,11 @@ impl<'js> WritableStream<'js> {
                 controller: ts_controller.clone(),
             },
             super::WritableCloseAlgorithm::Transform {
-                stream: ts_stream,
+                stream: ts_stream.clone(),
                 controller: ts_controller.clone(),
             },
             super::WritableAbortAlgorithm::Transform {
+                stream: ts_stream,
                 controller: ts_controller,
             },
             high_water_mark,
@@ -770,6 +771,18 @@ impl<'js> WritableStream<'js> {
             .refresh_writer();
         Self::writable_stream_start_erroring(ctx, objects, reason)?;
         Ok(())
+    }
+
+    pub(crate) fn finish_in_flight_close_with_error(
+        ctx: Ctx<'js>,
+        stream_class: WritableStreamClass<'js>,
+        reason: Value<'js>,
+    ) -> Result<()> {
+        let objects = WritableStreamObjects::from_stream(OwnedBorrowMut::from_class(stream_class));
+        if objects.stream.in_flight_close_request.is_none() {
+            return Ok(());
+        }
+        Self::writable_stream_finish_in_flight_close_with_error(ctx, objects, reason)
     }
 }
 

@@ -1,17 +1,18 @@
-use llrt_utils::option::Undefined;
+use llrt_utils::{option::Undefined, primordials::Primordial};
 use rquickjs::{
     class::Trace,
     prelude::{Opt, This},
-    Class, Ctx, Exception, JsLifetime, Object, Promise, Result, Value,
+    Class, Ctx, Error, Exception, JsLifetime, Object, Promise, Result, Value,
 };
 
 use crate::{
     queuing_strategy::QueuingStrategy,
+    readable::stream::ReadableStreamState,
     readable::stream::{
         algorithms::{CancelAlgorithm, PullAlgorithm, StartAlgorithm},
         ReadableStream,
     },
-    utils::promise::ResolveablePromise,
+    utils::promise::{PromisePrimordials, ResolveablePromise},
     writable::WritableStream,
 };
 
@@ -31,6 +32,14 @@ pub(crate) struct TransformStream<'js> {
     pub(super) controller: Option<TransformStreamDefaultControllerClass<'js>>,
     pub(super) backpressure: bool,
     pub(super) backpressure_change_promise: Option<ResolveablePromise<'js>>,
+    pub(super) cancel_promise: Option<Promise<'js>>,
+    pub(super) cancel_error: Option<Value<'js>>,
+    pub(super) cancel_in_progress: bool,
+    pub(super) cancel_callback_in_progress: bool,
+    pub(super) cancel_started: bool,
+    pub(super) cancel_override_error: Option<Value<'js>>,
+    pub(super) flush_promise: Option<Promise<'js>>,
+    pub(super) flush_started: bool,
 }
 
 pub(crate) type TransformStreamClass<'js> = Class<'js, TransformStream<'js>>;
@@ -93,6 +102,14 @@ impl<'js> TransformStream<'js> {
                 controller: None,
                 backpressure: true,
                 backpressure_change_promise: None,
+                cancel_promise: None,
+                cancel_error: None,
+                cancel_in_progress: false,
+                cancel_callback_in_progress: false,
+                cancel_started: false,
+                cancel_override_error: None,
+                flush_promise: None,
+                flush_started: false,
             },
         )?;
 
@@ -174,6 +191,18 @@ impl<'js> TransformStream<'js> {
             stream.writable = Some(writable_class);
         }
 
+        let start_stream = stream_class.clone();
+        crate::utils::promise::upon_promise(
+            ctx.clone(),
+            start_promise.promise.clone(),
+            Box::new(move |ctx, result| {
+                if let Err(reason) = result {
+                    controller::transform_stream_error(ctx.clone(), &start_stream, reason)?;
+                }
+                Ok(Value::new_undefined(ctx))
+            }),
+        )?;
+
         // Invoke start() if present
         if let Some(start_fn) = transformer_dict.start {
             match start_fn.call::<_, Value>((This(transformer_obj), controller_class)) {
@@ -181,8 +210,7 @@ impl<'js> TransformStream<'js> {
                     start_promise.resolve(val)?;
                 },
                 Err(_) => {
-                    let err = ctx.catch();
-                    start_promise.reject(err)?;
+                    return Err(Error::Exception);
                 },
             }
         } else {
@@ -225,7 +253,22 @@ pub(crate) fn sink_write_algorithm<'js>(
             crate::utils::promise::upon_promise(
                 ctx.clone(),
                 bp_promise,
-                Box::new(move |ctx, _| {
+                Box::new(move |ctx, result| {
+                    if let Err(reason) = result {
+                        return Err(ctx.throw(reason));
+                    }
+                    if let Some(writable) = sc.borrow().writable.clone() {
+                        let reason = match &writable.borrow().state {
+                            crate::writable::WritableStreamState::Erroring(reason)
+                            | crate::writable::WritableStreamState::Errored(reason) => {
+                                Some(reason.clone())
+                            },
+                            _ => None,
+                        };
+                        if let Some(reason) = reason {
+                            return Err(ctx.throw(reason));
+                        }
+                    }
                     let p = controller::transform_stream_default_controller_perform_transform(
                         ctx.clone(),
                         &sc,
@@ -272,9 +315,18 @@ pub(crate) fn sink_close_algorithm<'js>(
     stream_class: &TransformStreamClass<'js>,
     controller_class: &TransformStreamDefaultControllerClass<'js>,
 ) -> Result<Promise<'js>> {
+    if let Some(cancel_promise) = stream_class.borrow().cancel_promise.clone() {
+        return Ok(cancel_promise);
+    }
+    if stream_class.borrow().cancel_started {
+        let primordials = PromisePrimordials::get(&ctx)?.clone();
+        return Ok(primordials.promise_resolved_with_undefined.clone());
+    }
+    stream_class.borrow_mut().flush_started = true;
     let flush_promise = controller::perform_flush(ctx.clone(), stream_class, controller_class)?;
 
     let sc = stream_class.clone();
+    sc.borrow_mut().flush_promise = Some(flush_promise.clone());
     let cc = controller_class.clone();
     crate::utils::promise::upon_promise(
         ctx.clone(),
@@ -283,6 +335,30 @@ pub(crate) fn sink_close_algorithm<'js>(
             cc.borrow_mut().clear_algorithms();
             match result {
                 Ok(_) => {
+                    let stored_error = {
+                        let stream = sc.borrow();
+                        let readable_errored = stream.readable.as_ref().is_some_and(|readable| {
+                            matches!(readable.borrow().state, ReadableStreamState::Errored(_))
+                        });
+                        if readable_errored {
+                            stream
+                                .writable
+                                .as_ref()
+                                .and_then(|writable| writable.borrow().stored_error())
+                        } else {
+                            None
+                        }
+                    };
+                    if let Some(reason) = stored_error {
+                        let writable = sc.borrow().writable.clone().unwrap();
+                        WritableStream::finish_in_flight_close_with_error(
+                            ctx.clone(),
+                            writable,
+                            reason,
+                        )?;
+                        return Ok(Value::new_undefined(ctx));
+                    }
+
                     let mut stream = sc.borrow_mut();
                     // Resolve any pending backpressure promise to break the cycle
                     if let Some(ref bp) = stream.backpressure_change_promise {
@@ -317,23 +393,53 @@ pub(crate) fn sink_close_algorithm<'js>(
 
 pub(crate) fn sink_abort_algorithm<'js>(
     ctx: Ctx<'js>,
+    stream_class: &TransformStreamClass<'js>,
     controller_class: &TransformStreamDefaultControllerClass<'js>,
     reason: Value<'js>,
 ) -> Result<Promise<'js>> {
-    let cancel_promise = controller::perform_cancel(ctx.clone(), controller_class, reason)?;
+    if let Some(cancel_promise) = stream_class.borrow().cancel_promise.clone() {
+        return Ok(cancel_promise);
+    }
+    if stream_class.borrow().cancel_started {
+        stream_class.borrow_mut().cancel_override_error = Some(reason.clone());
+        let primordials = PromisePrimordials::get(&ctx)?.clone();
+        return crate::utils::promise::promise_rejected_with(&primordials, reason);
+    }
 
+    stream_class.borrow_mut().cancel_started = true;
+    stream_class.borrow_mut().cancel_in_progress = true;
+    let cancel_promise = controller::perform_cancel(ctx.clone(), controller_class, reason.clone())?;
+
+    let sc = stream_class.clone();
+    let callback_stream = sc.clone();
     let cc = controller_class.clone();
-    crate::utils::promise::upon_promise(
+    let result = crate::utils::promise::upon_promise(
         ctx.clone(),
         cancel_promise,
         Box::new(move |ctx, result| {
-            cc.borrow_mut().clear_algorithms();
+            finish_cancel_callback(&callback_stream, &cc);
             match result {
-                Ok(_) => Ok(Value::new_undefined(ctx)),
-                Err(r) => Err(ctx.throw(r)),
+                Ok(_) => {
+                    let cancel_error = callback_stream.borrow_mut().cancel_error.take();
+                    if let Some(error) = cancel_error {
+                        return Err(ctx.throw(error));
+                    }
+                    controller::transform_stream_error(
+                        ctx.clone(),
+                        &callback_stream,
+                        reason.clone(),
+                    )?;
+                    Ok(Value::new_undefined(ctx))
+                },
+                Err(r) => {
+                    controller::transform_stream_error(ctx.clone(), &callback_stream, r.clone())?;
+                    Err(ctx.throw(r))
+                },
             }
         }),
-    )
+    )?;
+    sc.borrow_mut().cancel_promise = Some(result.clone());
+    Ok(result)
 }
 
 // --- Source algorithms ---
@@ -351,20 +457,65 @@ pub(crate) fn source_cancel_algorithm<'js>(
     controller_class: &TransformStreamDefaultControllerClass<'js>,
     reason: Value<'js>,
 ) -> Result<Promise<'js>> {
+    if let Some(flush_promise) = stream_class.borrow().flush_promise.clone() {
+        return Ok(flush_promise);
+    }
+    if stream_class.borrow().flush_started {
+        let primordials = PromisePrimordials::get(&ctx)?.clone();
+        return Ok(primordials.promise_resolved_with_undefined.clone());
+    }
+    if stream_class.borrow().cancel_started {
+        let primordials = PromisePrimordials::get(&ctx)?.clone();
+        return Ok(primordials.promise_resolved_with_undefined.clone());
+    }
+
+    stream_class.borrow_mut().cancel_started = true;
+    stream_class.borrow_mut().cancel_in_progress = true;
     let cancel_promise = controller::perform_cancel(ctx.clone(), controller_class, reason.clone())?;
 
     let sc = stream_class.clone();
+    let callback_stream = sc.clone();
     let cc = controller_class.clone();
-    crate::utils::promise::upon_promise(
+    let result = crate::utils::promise::upon_promise(
         ctx.clone(),
         cancel_promise,
         Box::new(move |ctx, result| {
-            cc.borrow_mut().clear_algorithms();
-            controller::transform_stream_error_writable_and_unblock_write(&sc, reason)?;
+            finish_cancel_callback(&callback_stream, &cc);
             match result {
-                Ok(_) => Ok(Value::new_undefined(ctx)),
-                Err(r) => Err(ctx.throw(r)),
+                Ok(_) => {
+                    let cancel_error = callback_stream.borrow_mut().cancel_error.take();
+                    if let Some(error) = cancel_error {
+                        return Err(ctx.throw(error));
+                    }
+                    if let Some(error) = callback_stream.borrow_mut().cancel_override_error.take() {
+                        return Err(ctx.throw(error));
+                    }
+                    controller::transform_stream_error_writable_and_unblock_write(
+                        &callback_stream,
+                        reason,
+                    )?;
+                    Ok(Value::new_undefined(ctx))
+                },
+                Err(r) => {
+                    controller::transform_stream_error_writable_and_unblock_write(
+                        &callback_stream,
+                        r.clone(),
+                    )?;
+                    Err(ctx.throw(r))
+                },
             }
         }),
-    )
+    )?;
+    sc.borrow_mut().cancel_promise = Some(result.clone());
+    Ok(result)
+}
+
+fn finish_cancel_callback<'js>(
+    stream_class: &TransformStreamClass<'js>,
+    controller_class: &TransformStreamDefaultControllerClass<'js>,
+) {
+    controller_class.borrow_mut().clear_algorithms();
+    let mut stream = stream_class.borrow_mut();
+    stream.cancel_in_progress = false;
+    stream.cancel_callback_in_progress = false;
 }
