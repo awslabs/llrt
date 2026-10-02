@@ -1,51 +1,34 @@
 import defaultImport from "node:async_hooks";
+import { executionAsyncId, triggerAsyncId } from "node:async_hooks";
 import legacyImport from "async_hooks";
+import { spawnCapture } from "./test-utils";
 
 it("node:async_hooks should be the same as async_hooks", () => {
   expect(defaultImport).toStrictEqual(legacyImport);
 });
 
-const { createHook } = defaultImport;
+it("should use the current execution ID as a native trigger ID", async () => {
+  const storage = new defaultImport.AsyncLocalStorage();
+  const [parentTimerId, nestedTriggerId] = await storage.run(
+    "test",
+    () =>
+      new Promise<[number, number]>((resolve) => {
+        setTimeout(() => {
+          const parentTimerId = executionAsyncId();
+          setTimeout(() => resolve([parentTimerId, triggerAsyncId()]), 0);
+        }, 0);
+      })
+  );
 
-let counters = {
-  init: 0,
-  before: 0,
-  after: 0,
-  promiseResolve: 0,
-  destroy: 0,
-};
+  expect(parentTimerId).toBeGreaterThan(1);
+  expect(nestedTriggerId).toBe(parentTimerId);
+});
 
-createHook({
-  init(asyncId, type, triggerAsyncId) {
-    counters.init++;
-  },
-  before(asyncId) {
-    counters.before++;
-  },
-  after(asyncId) {
-    counters.after++;
-  },
-  promiseResolve(asyncId) {
-    counters.promiseResolve++;
-  },
-  destroy(asyncId) {
-    counters.destroy++;
-  },
-}).enable();
+it("should shut down cleanly after calling legacy hook methods", async () => {
+  const { code } = await spawnCapture(process.argv0, [
+    "-e",
+    "import { createHook } from 'node:async_hooks'; const hook = createHook({}); hook.enable(); hook.disable()",
+  ]);
 
-it("should track async operations", async () => {
-  await new Promise((resolve) => setTimeout(resolve, 10));
-
-  // It detects asynchronous operations in all tests that run simultaneously,
-  // making it impossible to test them individually.
-  // Therefore, here we only check whether asynchronous operations can be tracked.
-  expect(counters.init).toBeGreaterThan(0);
-  expect(counters.before).toBeGreaterThan(0);
-  expect(counters.after).toBeGreaterThan(0);
-  expect(counters.promiseResolve).toBeGreaterThan(0);
-
-  // destroy callbacks require GC + event loop tick to fire reliably
-  __gc();
-  await new Promise((resolve) => setTimeout(resolve, 1));
-  expect(counters.destroy).toBeGreaterThan(0);
+  expect(code).toBe(0);
 });
