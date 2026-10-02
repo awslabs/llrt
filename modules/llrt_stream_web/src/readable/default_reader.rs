@@ -126,8 +126,6 @@ impl<'js> ReadableStreamDefaultReader<'js> {
     pub(super) fn readable_stream_default_reader_release<C: ReadableStreamController<'js>>(
         mut objects: ReadableStreamDefaultReaderObjects<'js, C>,
     ) -> Result<ReadableStreamDefaultReaderObjects<'js, C>> {
-        // Clear cached native_pull to release captured resources
-        objects.reader.read_requests.clear();
         // Perform ! ReadableStreamReaderGenericRelease(reader).
         objects
             .reader

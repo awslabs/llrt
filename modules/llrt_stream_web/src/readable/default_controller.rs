@@ -844,11 +844,28 @@ impl<'js> ReadableStreamController<'js> for ReadableStreamDefaultControllerOwned
     fn release_steps(&mut self) {}
 }
 
-/// Public API for enqueuing data into a default controller from Rust code
+/// Internal enqueue operation for data produced by Rust code.
 pub fn readable_stream_default_controller_enqueue_value<'js>(
     ctx: Ctx<'js>,
     controller: ReadableStreamDefaultControllerClass<'js>,
     chunk: Value<'js>,
+) -> Result<()> {
+    readable_stream_default_controller_enqueue_value_impl(ctx, controller, chunk, false)
+}
+
+pub(crate) fn readable_stream_default_controller_enqueue_value_strict<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableStreamDefaultControllerClass<'js>,
+    chunk: Value<'js>,
+) -> Result<()> {
+    readable_stream_default_controller_enqueue_value_impl(ctx, controller, chunk, true)
+}
+
+fn readable_stream_default_controller_enqueue_value_impl<'js>(
+    ctx: Ctx<'js>,
+    controller: ReadableStreamDefaultControllerClass<'js>,
+    chunk: Value<'js>,
+    throw_if_unavailable: bool,
 ) -> Result<()> {
     let objects =
         ReadableStreamObjects::from_default_controller(OwnedBorrowMut::from_class(controller));
@@ -857,7 +874,13 @@ pub fn readable_stream_default_controller_enqueue_value<'js>(
         .controller
         .readable_stream_default_controller_can_close_or_enqueue(&objects.stream)
     {
-        return Ok(()); // Silently ignore if can't enqueue
+        if throw_if_unavailable {
+            return Err(Exception::throw_type(
+                &ctx,
+                "The stream is not in a state that permits enqueue",
+            ));
+        }
+        return Ok(());
     }
 
     objects.with_reader(
