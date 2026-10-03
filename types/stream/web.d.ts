@@ -41,6 +41,16 @@ type _WritableStreamDefaultWriter<W = any> = typeof globalThis extends {
 }
   ? {}
   : import("stream/web").WritableStreamDefaultWriter<W>;
+type _TransformStream<I = any, O = any> = typeof globalThis extends {
+  onmessage: any;
+}
+  ? {}
+  : import("stream/web").TransformStream<I, O>;
+type _TransformStreamDefaultController = typeof globalThis extends {
+  onmessage: any;
+}
+  ? {}
+  : import("stream/web").TransformStreamDefaultController;
 
 declare module "stream/web" {
   // stub module, pending copy&paste from .d.ts or manual impl
@@ -221,8 +231,9 @@ declare module "stream/web" {
   type ReadableStreamReader<T> =
     | ReadableStreamDefaultReader<T>
     | ReadableStreamBYOBReader;
-  interface ReadableStreamDefaultReader<R = any>
-    extends ReadableStreamGenericReader {
+  interface ReadableStreamDefaultReader<
+    R = any,
+  > extends ReadableStreamGenericReader {
     read(): Promise<ReadableStreamReadResult<R>>;
     releaseLock(): void;
   }
@@ -230,10 +241,14 @@ declare module "stream/web" {
   interface ReadableStreamBYOBReader extends ReadableStreamGenericReader {
     /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/ReadableStreamBYOBReader/read) */
     read<T extends ArrayBufferView>(
-      view: T
+      view: T,
+      options?: ReadableStreamBYOBReaderReadOptions
     ): Promise<ReadableStreamReadResult<T>>;
     /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/ReadableStreamBYOBReader/releaseLock) */
     releaseLock(): void;
+  }
+  interface ReadableStreamBYOBReaderReadOptions {
+    min?: number;
   }
   const ReadableStreamDefaultReader: {
     prototype: ReadableStreamDefaultReader;
@@ -254,10 +269,9 @@ declare module "stream/web" {
   }
   const ReadableStreamBYOBRequest: {
     prototype: ReadableStreamBYOBRequest;
-    new (): ReadableStreamBYOBRequest;
   };
   interface ReadableByteStreamController {
-    readonly byobRequest: undefined;
+    readonly byobRequest: ReadableStreamBYOBRequest | null;
     readonly desiredSize: number | null;
     close(): void;
     enqueue(chunk: ArrayBufferView): void;
@@ -265,7 +279,6 @@ declare module "stream/web" {
   }
   const ReadableByteStreamController: {
     prototype: ReadableByteStreamController;
-    new (): ReadableByteStreamController;
   };
   interface ReadableStreamDefaultController<R = any> {
     readonly desiredSize: number | null;
@@ -275,7 +288,6 @@ declare module "stream/web" {
   }
   const ReadableStreamDefaultController: {
     prototype: ReadableStreamDefaultController;
-    new (): ReadableStreamDefaultController;
   };
   /**
    * This Streams API interface provides a standard abstraction for writing
@@ -321,11 +333,55 @@ declare module "stream/web" {
    * instance to manipulate.
    */
   interface WritableStreamDefaultController {
+    readonly signal: AbortSignal;
     error(e?: any): void;
   }
   const WritableStreamDefaultController: {
     prototype: WritableStreamDefaultController;
-    new (): WritableStreamDefaultController;
+  };
+  interface Transformer<I = any, O = any> {
+    start?: TransformerStartCallback<O>;
+    transform?: TransformerTransformCallback<I, O>;
+    flush?: TransformerFlushCallback<O>;
+    cancel?: TransformerCancelCallback;
+    readableType?: undefined;
+    writableType?: undefined;
+  }
+  interface TransformerStartCallback<O> {
+    (controller: TransformStreamDefaultController<O>): any;
+  }
+  interface TransformerTransformCallback<I, O> {
+    (
+      chunk: I,
+      controller: TransformStreamDefaultController<O>
+    ): void | PromiseLike<void>;
+  }
+  interface TransformerFlushCallback<O> {
+    (controller: TransformStreamDefaultController<O>): void | PromiseLike<void>;
+  }
+  interface TransformerCancelCallback {
+    (reason: any): void | PromiseLike<void>;
+  }
+  interface TransformStream<I = any, O = any> {
+    readonly readable: ReadableStream<O>;
+    readonly writable: WritableStream<I>;
+  }
+  const TransformStream: {
+    prototype: TransformStream;
+    new <I = any, O = any>(
+      transformer?: Transformer<I, O>,
+      writableStrategy?: QueuingStrategy<I>,
+      readableStrategy?: QueuingStrategy<O>
+    ): TransformStream<I, O>;
+  };
+  interface TransformStreamDefaultController<O = any> {
+    readonly desiredSize: number | null;
+    enqueue(chunk?: O): void;
+    error(reason?: any): void;
+    terminate(): void;
+  }
+  const TransformStreamDefaultController: {
+    prototype: TransformStreamDefaultController;
   };
   interface QueuingStrategy<T = any> {
     highWaterMark?: number;
@@ -398,8 +454,7 @@ declare module "stream/web" {
       ? T
       : typeof import("stream/web").CountQueuingStrategy;
 
-    interface ReadableByteStreamController
-      extends _ReadableByteStreamController {}
+    interface ReadableByteStreamController extends _ReadableByteStreamController {}
     /**
      * `ReadableByteStreamController` class is a global reference for `import { ReadableByteStreamController } from 'node:stream/web'`.
      * https://nodejs.org/api/globals.html#class-readablebytestreamcontroller
@@ -451,8 +506,9 @@ declare module "stream/web" {
       ? T
       : typeof import("stream/web").ReadableStreamBYOBRequest;
 
-    interface ReadableStreamDefaultController<R = any>
-      extends _ReadableStreamDefaultController<R> {}
+    interface ReadableStreamDefaultController<
+      R = any,
+    > extends _ReadableStreamDefaultController<R> {}
     /**
      * `ReadableStreamDefaultController` class is a global reference for `import { ReadableStreamDefaultController } from 'node:stream/web'`.
      * https://nodejs.org/api/globals.html#class-readablestreamdefaultcontroller
@@ -465,8 +521,9 @@ declare module "stream/web" {
       ? T
       : typeof import("stream/web").ReadableStreamDefaultController;
 
-    interface ReadableStreamDefaultReader<R = any>
-      extends _ReadableStreamDefaultReader<R> {}
+    interface ReadableStreamDefaultReader<
+      R = any,
+    > extends _ReadableStreamDefaultReader<R> {}
     /**
      * `ReadableStreamDefaultReader` class is a global reference for `import { ReadableStreamDefaultReader } from 'node:stream/web'`.
      * https://nodejs.org/api/globals.html#class-readablestreamdefaultreader
@@ -492,8 +549,7 @@ declare module "stream/web" {
       ? T
       : typeof import("stream/web").WritableStream;
 
-    interface WritableStreamDefaultController
-      extends _WritableStreamDefaultController {}
+    interface WritableStreamDefaultController extends _WritableStreamDefaultController {}
     /**
      * `WritableStreamDefaultController` class is a global reference for `import { WritableStreamDefaultController } from 'node:stream/web'`.
      * https://nodejs.org/api/globals.html#class-writablestreamdefaultcontroller
@@ -506,8 +562,28 @@ declare module "stream/web" {
       ? T
       : typeof import("stream/web").WritableStreamDefaultController;
 
-    interface WritableStreamDefaultWriter<W = any>
-      extends _WritableStreamDefaultWriter<W> {}
+    interface TransformStream<I = any, O = any> extends _TransformStream<
+      I,
+      O
+    > {}
+    var TransformStream: typeof globalThis extends {
+      onmessage: any;
+      TransformStream: infer T;
+    }
+      ? T
+      : typeof import("stream/web").TransformStream;
+
+    interface TransformStreamDefaultController extends _TransformStreamDefaultController {}
+    var TransformStreamDefaultController: typeof globalThis extends {
+      onmessage: any;
+      TransformStreamDefaultController: infer T;
+    }
+      ? T
+      : typeof import("stream/web").TransformStreamDefaultController;
+
+    interface WritableStreamDefaultWriter<
+      W = any,
+    > extends _WritableStreamDefaultWriter<W> {}
     /**
      * `WritableStreamDefaultWriter` class is a global reference for `import { WritableStreamDefaultWriter } from 'node:stream/web'`.
      * https://nodejs.org/api/globals.html#class-writablestreamdefaultwriter
