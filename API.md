@@ -898,6 +898,10 @@ export function print(value: any): void;
 
 [ReadableStreamDefaultReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader)
 
+[TransformStream](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream)
+
+[TransformStreamDefaultController](https://developer.mozilla.org/en-US/docs/Web/API/TransformStreamDefaultController)
+
 [WritableStream](https://developer.mozilla.org/en-US/docs/Web/API/WritableStream)
 
 [WritableStreamDefaultController](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultController)

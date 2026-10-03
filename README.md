@@ -169,7 +169,7 @@ The test runner also has support for filters. Using filters is as simple as addi
 | FILEAPI                                                           | ✔︎⚠️  |
 | HR-TIME                                                           | ✔︎    |
 | HTML                                                              | ✔︎⚠️  |
-| STREAMS                                                           | ✔︎⚠️  |
+| STREAMS                                                           | ✔︎    |
 | URL                                                               | ✔︎    |
 | URLPATTERN                                                        | ✘⏱   |
 | WASM-JS-API-2                                                     | ✘    |
