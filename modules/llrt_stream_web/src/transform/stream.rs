@@ -2,7 +2,7 @@ use llrt_utils::{option::Undefined, primordials::Primordial};
 use rquickjs::{
     class::Trace,
     prelude::{Opt, This},
-    Class, Ctx, Error, Exception, JsLifetime, Object, Promise, Result, Value,
+    Class, Ctx, Exception, JsLifetime, Object, Promise, Result, Value,
 };
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
         ReadableStream,
     },
     utils::promise::{PromisePrimordials, ResolveablePromise},
-    writable::WritableStream,
+    writable::{WritableStream, WritableStreamState},
 };
 
 use super::{
@@ -205,14 +205,8 @@ impl<'js> TransformStream<'js> {
 
         // Invoke start() if present
         if let Some(start_fn) = transformer_dict.start {
-            match start_fn.call::<_, Value>((This(transformer_obj), controller_class)) {
-                Ok(val) => {
-                    start_promise.resolve(val)?;
-                },
-                Err(_) => {
-                    return Err(Error::Exception);
-                },
-            }
+            let val = start_fn.call::<_, Value>((This(transformer_obj), controller_class))?;
+            start_promise.resolve(val)?;
         } else {
             start_promise.resolve_undefined()?;
         }
@@ -259,10 +253,8 @@ pub(crate) fn sink_write_algorithm<'js>(
                     }
                     if let Some(writable) = sc.borrow().writable.clone() {
                         let reason = match &writable.borrow().state {
-                            crate::writable::WritableStreamState::Erroring(reason)
-                            | crate::writable::WritableStreamState::Errored(reason) => {
-                                Some(reason.clone())
-                            },
+                            WritableStreamState::Erroring(reason)
+                            | WritableStreamState::Errored(reason) => Some(reason.clone()),
                             _ => None,
                         };
                         if let Some(reason) = reason {
