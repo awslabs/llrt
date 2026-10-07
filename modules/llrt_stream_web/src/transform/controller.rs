@@ -6,9 +6,10 @@ use rquickjs::{
 };
 
 use crate::{
+    readable::stream::ReadableStreamState,
     readable::{
         readable_stream_default_controller_close_stream,
-        readable_stream_default_controller_enqueue_value,
+        readable_stream_default_controller_enqueue_value_strict,
         readable_stream_default_controller_error_stream, ReadableStreamDefaultControllerClass,
     },
     utils::promise::{promise_resolved_with, ResolveablePromise},
@@ -141,14 +142,24 @@ pub(super) fn transform_stream_default_controller_enqueue<'js>(
 ) -> Result<()> {
     let controller_class = get_readable_default_controller(stream_class)
         .ok_or_else(|| Exception::throw_type(&ctx, "readable controller not available"))?;
+    let was_readable = transform_stream_readable_is_readable(stream_class);
 
-    if let Err(error) = readable_stream_default_controller_enqueue_value(
+    if let Err(error) = readable_stream_default_controller_enqueue_value_strict(
         ctx.clone(),
         controller_class.clone(),
         chunk,
     ) {
         if matches!(error, rquickjs::Error::Exception) {
-            let reason = ctx.catch();
+            let thrown = ctx.catch();
+            let reason = stream_class
+                .borrow()
+                .readable
+                .as_ref()
+                .and_then(|readable| match &readable.borrow().state {
+                    ReadableStreamState::Errored(reason) if was_readable => Some(reason.clone()),
+                    _ => None,
+                })
+                .unwrap_or(thrown);
             let writable = stream_class.borrow().writable.clone().unwrap();
             WritableStream::error_stream(ctx.clone(), writable, reason.clone())?;
             return Err(ctx.throw(reason));
@@ -157,6 +168,9 @@ pub(super) fn transform_stream_default_controller_enqueue<'js>(
     }
 
     // Update backpressure
+    if !transform_stream_readable_is_readable(stream_class) {
+        return Ok(());
+    }
     let has_backpressure = {
         let stream = stream_class.borrow();
         let readable_class = stream.readable.as_ref().unwrap();
@@ -168,7 +182,7 @@ pub(super) fn transform_stream_default_controller_enqueue<'js>(
 
     let current_bp = stream_class.borrow().backpressure;
     if has_backpressure != current_bp {
-        transform_stream_set_backpressure(&ctx, stream_class, true)?;
+        transform_stream_set_backpressure(&ctx, stream_class, has_backpressure)?;
     }
 
     Ok(())
@@ -193,6 +207,10 @@ pub(super) fn transform_stream_error<'js>(
     stream_class: &TransformStreamClass<'js>,
     e: Value<'js>,
 ) -> Result<()> {
+    if stream_class.borrow().cancel_callback_in_progress {
+        stream_class.borrow_mut().cancel_error = Some(e.clone());
+    }
+
     let controller_class = get_readable_default_controller(stream_class)
         .ok_or_else(|| Exception::throw_type(&ctx, "readable controller not available"))?;
 
@@ -213,9 +231,9 @@ pub(super) fn transform_stream_error_writable_and_unblock_write<'js>(
     if let Some(ref controller_class) = stream.controller {
         controller_class.borrow_mut().clear_algorithms();
     }
-    // Always resolve and clear backpressure promise to break reference cycles
+    // Reject and clear the backpressure promise to break reference cycles
     if let Some(ref bp) = stream.backpressure_change_promise {
-        bp.resolve_undefined()?;
+        bp.reject(e.clone())?;
     }
     stream.backpressure_change_promise = None;
     stream.backpressure = false;
@@ -320,8 +338,21 @@ pub(super) fn perform_cancel<'js>(
     match algorithm {
         CancelAlgorithm::Noop => Ok(promise_primordials.promise_resolved_with_undefined.clone()),
         CancelAlgorithm::Function { f, transformer } => {
+            controller_class
+                .borrow()
+                .stream
+                .borrow_mut()
+                .cancel_callback_in_progress = true;
             let result: Result<Value> = f.call((This(transformer), reason));
             promise_resolved_with(&ctx, &promise_primordials, result)
         },
     }
+}
+
+fn transform_stream_readable_is_readable<'js>(stream_class: &TransformStreamClass<'js>) -> bool {
+    stream_class
+        .borrow()
+        .readable
+        .as_ref()
+        .is_some_and(|readable| matches!(readable.borrow().state, ReadableStreamState::Readable))
 }

@@ -458,23 +458,32 @@ impl<'js> PipeTo<'js> {
                         // calling write can trigger user code; ensure we don't hold locks
                         let objects = objects.into_inner();
 
-                        let dest_objects =
-                            WritableStreamObjects::from_class(self.dest_objects.clone());
-                        let write_promise =
-                            WritableStreamDefaultWriter::writable_stream_default_writer_write(
-                                ctx.clone(),
-                                dest_objects,
-                                chunk,
-                            )?;
+                        let dest_objects = self.dest_objects.clone();
+                        let current_write = self.current_write.clone();
+                        let read_promise = self.read_promise.clone();
+                        let write_ctx = ctx.clone();
+                        Function::new(
+                            ctx.clone(),
+                            OnceFn::new(move || -> Result<()> {
+                                let dest_objects = WritableStreamObjects::from_class(dest_objects);
+                                let write_promise =
+                                    WritableStreamDefaultWriter::writable_stream_default_writer_write(
+                                        write_ctx.clone(),
+                                        dest_objects,
+                                        chunk,
+                                    )?;
 
-                        let write_promise: Promise<'js> = write_promise.catch()?.call((
-                            This(write_promise.clone()),
-                            Function::new(ctx.clone(), || {}),
-                        ))?;
+                                let write_promise: Promise<'js> = write_promise.catch()?.call((
+                                    This(write_promise.clone()),
+                                    Function::new(write_ctx.clone(), || {})?,
+                                ))?;
 
-                        self.current_write.replace(write_promise);
-                        self.read_promise
-                            .resolve(Value::new_bool(ctx.clone(), false))?;
+                                current_write.replace(write_promise);
+                                read_promise.resolve(Value::new_bool(write_ctx.clone(), false))?;
+                                Ok(())
+                            }),
+                        )?
+                        .defer(())?;
 
                         Ok(ReadableStreamObjects::from_class(objects))
                     }

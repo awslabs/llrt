@@ -831,6 +831,7 @@ pub(crate) enum WritableAbortAlgorithm<'js> {
         underlying_sink: Null<Undefined<Object<'js>>>,
     },
     Transform {
+        stream: TransformStreamClass<'js>,
         controller: TransformStreamDefaultControllerClass<'js>,
     },
 }
@@ -851,8 +852,13 @@ impl<'js> WritableAbortAlgorithm<'js> {
                 promise_primordials,
                 f.call::<_, Value>((This(underlying_sink.clone()), reason)),
             ),
-            WritableAbortAlgorithm::Transform { controller } => {
-                crate::transform::stream::sink_abort_algorithm(ctx.clone(), controller, reason)
+            WritableAbortAlgorithm::Transform { stream, controller } => {
+                crate::transform::stream::sink_abort_algorithm(
+                    ctx.clone(),
+                    stream,
+                    controller,
+                    reason,
+                )
             },
         }
     }
