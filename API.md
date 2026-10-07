@@ -11,33 +11,32 @@
 
 ## async_hooks
 
+> [!WARNING]
+> The following Legacy APIs are duplicated by `AsyncLocalStorage` and have no effect when called: `createHook`, `currentId`, `AsyncHook`, `enable`, `disable`, `init`, `before`, `after`, `destroy`, and `promiseResolve`.
+
 ### Static methods
-
-[createHook](https://nodejs.org/api/async_hooks.html#async_hookscreatehookcallbacks)
-
-[currentId](https://nodejs.org/api/async_hooks.html#async_hooksexecutionasyncid)
 
 [executionAsyncId](https://nodejs.org/api/async_hooks.html#async_hooksexecutionasyncid)
 
+[executionAsyncResource](https://nodejs.org/api/async_hooks.html#async_hooksexecutionasyncresource)
+
 [triggerAsyncId](https://nodejs.org/api/async_hooks.html#async_hookstriggerasyncid)
 
-### Class: AsyncHook
+### Class: AsyncLocalStorage
 
-[enable](https://nodejs.org/api/async_hooks.html#asynchookenable)
+[bind](https://nodejs.org/api/async_context.html#static-method-asynclocalstoragebindfn)
 
-[disable](https://nodejs.org/api/async_hooks.html#asynchookdisable)
+[snapshot](https://nodejs.org/api/async_context.html#static-method-asynclocalstoragesnapshot)
 
-#### Hook callbacks
+[disable](https://nodejs.org/api/async_context.html#asynclocalstoragedisable)
 
-[init](https://nodejs.org/api/async_hooks.html#initasyncid-type-triggerasyncid-resource)
+[enterWith](https://nodejs.org/api/async_context.html#asynclocalstorageenterwithstore)
 
-[before](https://nodejs.org/api/async_hooks.html#beforeasyncid)
+[exit](https://nodejs.org/api/async_context.html#asynclocalstorageexitcallback-args)
 
-[after](https://nodejs.org/api/async_hooks.html#afterasyncid)
+[getStore](https://nodejs.org/api/async_context.html#asynclocalstoragegetstore)
 
-[destroy](https://nodejs.org/api/async_hooks.html#destroyasyncid)
-
-[promiseResolve](https://nodejs.org/api/async_hooks.html#promiseresolveasyncid)
+[run](https://nodejs.org/api/async_context.html#asynclocalstoragerunstore-callback-args)
 
 ## buffer
 

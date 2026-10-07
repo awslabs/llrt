@@ -8,6 +8,8 @@ pub mod module;
 pub mod module_builder;
 pub mod package;
 
+mod microtask;
+
 pub use self::modules::*;
 
 mod modules {
