@@ -1,5 +1,7 @@
 [![LLRT CI](https://github.com/awslabs/llrt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/awslabs/llrt/actions/workflows/ci.yml) [![LLRT Release](https://github.com/awslabs/llrt/actions/workflows/release.yml/badge.svg)](https://github.com/awslabs/llrt/actions/workflows/release.yml)
 
+<a href="https://trendshift.io/repositories/7670?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-7670" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/7670" alt="awslabs%2Fllrt | Trendshift" width="250" height="55"/></a>
+
 LLRT (**L**ow **L**atency **R**un**t**ime) is a lightweight JavaScript runtime designed to address the growing demand for fast and efficient Serverless applications. LLRT offers up to over **10x** faster startup and up to **2x** overall lower cost compared to other JavaScript runtimes running on **AWS Lambda**
 
 It's built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient memory usage and swift startup.
