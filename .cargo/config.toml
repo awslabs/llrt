@@ -1,3 +1,4 @@
+# rustc passes -Wl,-O1 on optimized links; zig's lld warns on any numeric -O, which build.warnings=deny turns into a failure
 [target.aarch64-unknown-linux-musl]
 rustflags = [
     "-Ctarget-feature=+lse,+crt-static",
@@ -9,6 +10,7 @@ rustflags = [
     "-Cforce-unwind-tables=no",
     "-Zlocation-detail=none",
     "-Crelocation-model=static",
+    "-Alinker_messages",
 ]
 
 [target.x86_64-unknown-linux-musl]
@@ -22,6 +24,7 @@ rustflags = [
     "-Cforce-unwind-tables=no",
     "-Zlocation-detail=none",
     "-Crelocation-model=static",
+    "-Alinker_messages",
 ]
 
 [env]
