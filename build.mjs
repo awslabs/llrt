@@ -509,7 +509,7 @@ const AWS_SDK_PLUGIN = {
         const clientDir = path.resolve(filePath, "../../../").split("/").pop();
         const sdk = clientDir.substring("client-".length);
 
-        const serviceEndpoints = SERVICE_ENDPOINTS_BY_PACKAGE[sdk];
+        const serviceEndpoints = SERVICE_ENDPOINTS_BY_PACKAGE[clientDir];
         const serviceName = (serviceEndpoints && serviceEndpoints[0]) || sdk;
 
         let signingName = sdk;
