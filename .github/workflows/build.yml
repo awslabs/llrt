@@ -84,6 +84,8 @@ jobs:
         with:
           toolchain: ${{ inputs.toolchain }}
           cache-bin: false
+          # zig linker warning on nightly fails the build under build.warnings=deny; ci.yml clippy still denies code warnings
+          build-warnings: allow
       - name: Install cargo-zigbuild
         if: inputs.platform == 'linux'
         uses: taiki-e/install-action@v2
