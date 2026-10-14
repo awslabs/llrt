@@ -11,6 +11,7 @@ use llrt_stream_web::{
 };
 use llrt_utils::bytes::ObjectBytes;
 use llrt_utils::primordials::Primordial;
+use llrt_utils::promise::PromiseExt;
 use rquickjs::{
     prelude::This, Class, Ctx, Exception, Function, IntoJs, Object, Promise, Result, TypedArray,
     Value,
@@ -177,6 +178,7 @@ pub(crate) async fn collect_readable_stream<'js>(
 
     loop {
         let promise: Promise = read_fn.call((This(reader.clone()),))?;
+        promise.mark_handled()?;
         let read_result: Object = promise.into_future().await?;
 
         let done: bool = read_result.get("done").unwrap_or(true);

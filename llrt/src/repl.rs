@@ -19,7 +19,7 @@ use crossterm::{
 
 use crate::base::libs::{
     logging::format_values,
-    utils::{error::ErrorExtensions, result::ResultExt},
+    utils::{error::ErrorExtensions, promise::PromiseExt, result::ResultExt},
 };
 // rquickjs components
 use crate::base::{
@@ -36,6 +36,7 @@ async fn process_input(ctx: &Ctx<'_>, input: &str, tty: bool) -> String {
 
     match async {
         let promise = ctx.eval_with_options::<Promise, _>(input.as_bytes(), options)?;
+        promise.mark_handled()?;
         let future = promise.into_future::<Object>();
         let value = future.await?.get(PredefinedAtom::Value)?;
         format_values(ctx, Rest(vec![value]), tty, true)

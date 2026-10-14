@@ -29,7 +29,7 @@ use crate::libs::{
         stringify::{self, json_stringify},
     },
     logging::{format_values, replace_newline_with_carriage_return},
-    utils::{class::get_class_name, result::ResultExt},
+    utils::{class::get_class_name, promise::PromiseExt, result::ResultExt},
 };
 
 #[cfg(not(test))]
@@ -246,6 +246,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     let specifier: String = [task_root.as_str(), module_name].join("/");
 
     let import_promise = Module::import(ctx, specifier.as_bytes())?;
+    import_promise.mark_handled()?;
 
     let latch = {
         let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
@@ -467,10 +468,9 @@ async fn process_event<'js>(
 
     let result = match handler_result.as_object() {
         Some(obj) if obj.is_instance_of(promise_constructor) => {
-            handler_result
-                .get::<Promise>()?
-                .into_future::<Value>()
-                .await?
+            let promise = handler_result.get::<Promise>()?;
+            promise.mark_handled()?;
+            promise.into_future::<Value>().await?
         },
         _ => handler_result,
     };
