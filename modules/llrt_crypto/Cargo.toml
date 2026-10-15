@@ -134,7 +134,7 @@ ml-kem = { version = "0.3", features = [
   "alloc",
   "pkcs8",
 ], default-features = false, optional = true }
-rsa = { version = "0.10.0-rc.18", features = [
+rsa = { version = "0.10.0-rc.19", features = [
   "std",
   "sha2",
   "encoding",
