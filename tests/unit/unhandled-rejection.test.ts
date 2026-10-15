@@ -86,6 +86,71 @@ describe("unhandled promise rejections", () => {
     expect(stderr).toEqual("");
   });
 
+  it("should not report a caught require() of a module that throws at top level", async () => {
+    const modulePath = join(tmpDir, "throws.mjs");
+    await writeFile(modulePath, `throw new Error("top level");`, "utf8");
+    const { code, stdout, stderr } = await run(`
+      try {
+        require(${JSON.stringify(modulePath)});
+      } catch (e) {
+        console.log("caught:", e.message);
+      }
+    `);
+    expect(code).toEqual(0);
+    expect(stdout).toContain("caught: top level");
+    expect(stderr).toEqual("");
+  });
+
+  it("should not report a caught error from a Response body stream", async () => {
+    const { code, stdout, stderr } = await run(`
+      const body = new ReadableStream({
+        start(controller) {
+          controller.error(new Error("body stream"));
+        },
+      });
+      try {
+        await new Response(body).text();
+      } catch (e) {
+        console.log("caught:", e.message);
+      }
+    `);
+    expect(code).toEqual(0);
+    expect(stdout).toContain("caught: body stream");
+    expect(stderr).toEqual("");
+  });
+
+  it("should not report a caught error from a fetch request body stream", async () => {
+    const { code, stdout, stderr } = await run(`
+      import { createServer } from "node:net";
+      const server = createServer((socket) => {
+        socket.on("error", () => {});
+        socket.on("data", () =>
+          socket.end("HTTP/1.1 200 OK\\r\\nContent-Length: 0\\r\\n\\r\\n")
+        );
+      });
+      server.listen(0, async () => {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.error(new Error("request stream"));
+          },
+        });
+        try {
+          await fetch("http://127.0.0.1:" + server.address().port, {
+            method: "POST",
+            body,
+            duplex: "half",
+          });
+        } catch (e) {
+          console.log("caught:", e.message);
+        }
+        server.close();
+      });
+    `);
+    expect(code).toEqual(0);
+    expect(stdout).toContain("caught: request stream");
+    expect(stderr).toEqual("");
+  });
+
   it("should keep exiting with code 1 for a synchronous throw", async () => {
     const { code, stderr } = await run(`throw new Error("sync boom");`);
     expect(code).toEqual(1);
