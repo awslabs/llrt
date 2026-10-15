@@ -96,7 +96,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     drop(state);
 
     let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
-    import_promise.mark_handled()?;
+    import_promise.mark_handled();
 
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 

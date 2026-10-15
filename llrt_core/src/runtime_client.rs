@@ -245,8 +245,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
 
     let specifier: String = [task_root.as_str(), module_name].join("/");
 
-    let import_promise = Module::import(ctx, specifier.as_bytes())?;
-    import_promise.mark_handled()?;
+    let import_future = Module::import(ctx, specifier.as_bytes())?.into_future_handled::<Object>();
 
     let latch = {
         let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
@@ -254,7 +253,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     };
     latch.wait().await;
 
-    let js_handler_module = import_promise.into_future::<Object>().await?;
+    let js_handler_module = import_future.await?;
 
     let handler: Value = js_handler_module.get(handler_name)?;
 
@@ -468,9 +467,10 @@ async fn process_event<'js>(
 
     let result = match handler_result.as_object() {
         Some(obj) if obj.is_instance_of(promise_constructor) => {
-            let promise = handler_result.get::<Promise>()?;
-            promise.mark_handled()?;
-            promise.into_future::<Value>().await?
+            handler_result
+                .get::<Promise>()?
+                .into_future_handled::<Value>()
+                .await?
         },
         _ => handler_result,
     };

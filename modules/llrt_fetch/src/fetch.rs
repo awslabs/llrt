@@ -213,8 +213,7 @@ async fn send_stream<'js>(
 
             loop {
                 let promise: rquickjs::Promise = read_fn.call((This(reader.clone()),))?;
-                promise.mark_handled()?;
-                let read_result = match promise.into_future::<Object>().await.catch(&ctx2) {
+                let read_result = match promise.into_future_handled::<Object>().await.catch(&ctx2) {
                     Ok(r) => r,
                     Err(e) => {
                         let msg = match e {

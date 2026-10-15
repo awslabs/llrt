@@ -178,8 +178,7 @@ pub(crate) async fn collect_readable_stream<'js>(
 
     loop {
         let promise: Promise = read_fn.call((This(reader.clone()),))?;
-        promise.mark_handled()?;
-        let read_result: Object = promise.into_future().await?;
+        let read_result: Object = promise.into_future_handled().await?;
 
         let done: bool = read_result.get("done").unwrap_or(true);
         if done {

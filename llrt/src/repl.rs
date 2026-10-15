@@ -36,8 +36,7 @@ async fn process_input(ctx: &Ctx<'_>, input: &str, tty: bool) -> String {
 
     match async {
         let promise = ctx.eval_with_options::<Promise, _>(input.as_bytes(), options)?;
-        promise.mark_handled()?;
-        let future = promise.into_future::<Object>();
+        let future = promise.into_future_handled::<Object>();
         let value = future.await?.get(PredefinedAtom::Value)?;
         format_values(ctx, Rest(vec![value]), tty, true)
     }
