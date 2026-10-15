@@ -59,6 +59,19 @@ describe("unhandled promise rejections", () => {
     expect(stderr).toEqual("");
   });
 
+  it("should not report a rejection handled in a microtask queued from a native event", async () => {
+    const { code, stderr } = await run(`
+      import { spawn } from "node:child_process";
+      const child = spawn(process.argv0, ["-v"]);
+      child.on("exit", () => {
+        const p = Promise.reject(new Error("handled in microtask"));
+        queueMicrotask(() => p.catch(() => {}));
+      });
+    `);
+    expect(code).toEqual(0);
+    expect(stderr).toEqual("");
+  });
+
   it("should not report a rejected promise that is awaited in try/catch", async () => {
     const { code, stdout, stderr } = await run(`
       async function main() { throw new Error("caught"); }

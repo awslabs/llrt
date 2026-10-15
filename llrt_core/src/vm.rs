@@ -211,8 +211,6 @@ unsafe impl<'js> JsLifetime<'js> for PendingRejections<'js> {
     type Changed<'to> = PendingRejections<'to>;
 }
 
-// Spawned futures are only polled once the job queue is drained, so a handler attached
-// within the same drain removes the entry before the check runs.
 fn unhandled_rejection_tracker() -> RejectionTracker {
     Box::new(|ctx, promise, reason, is_handled| {
         let Some(pending) = ctx.userdata::<RefCell<PendingRejections>>() else {
@@ -232,6 +230,9 @@ fn unhandled_rejection_tracker() -> RejectionTracker {
 
         let task_ctx = ctx.clone();
         ctx.spawn(async move {
+            // The scheduler can poll this right after the task that rejected, before the
+            // microtasks it queued have had a chance to attach a handler.
+            while task_ctx.execute_pending_job() {}
             let unhandled = task_ctx
                 .userdata::<RefCell<PendingRejections>>()
                 .and_then(|pending| pending.borrow_mut().entries.drain(..).next());
