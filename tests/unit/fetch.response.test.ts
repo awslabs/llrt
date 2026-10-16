@@ -108,27 +108,23 @@ describe("Response class", () => {
     expect(response.headers.get("location")).toEqual(redirectUrl);
   });
 
-  it("should be returned specified values in json static function called single param", () => {
+  it("should be returned specified values in json static function called single param", async () => {
     const jsonBody = { some: "data", more: "information" };
-    const response = Response.json(JSON.stringify(jsonBody));
+    const response = Response.json(jsonBody);
     expect(response.status).toEqual(200);
-    response.json().then((parsedJson) => {
-      expect(parsedJson).toStrictEqual(jsonBody);
-    });
+    expect(await response.json()).toStrictEqual(jsonBody);
   });
 
-  it("should be returned specified values in json static function called double param", () => {
+  it("should be returned specified values in json static function called double param", async () => {
     const jsonBody = { some: "data", more: "information" };
-    const response = Response.json(JSON.stringify(jsonBody), {
+    const response = Response.json(jsonBody, {
       status: 200,
       statusText: "SuperSmashingGreat!",
       headers: { "Content-Type": "application/json" },
     });
     expect(response.status).toEqual(200);
     expect(response.statusText).toEqual("SuperSmashingGreat!");
-    response.json().then((parsedJson) => {
-      expect(parsedJson).toStrictEqual(jsonBody);
-    });
+    expect(await response.json()).toStrictEqual(jsonBody);
   });
 
   it("returns JSON with 200 by default", async () => {

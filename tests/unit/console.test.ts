@@ -82,6 +82,9 @@ it("should log complex object", () => {
   let ClassType = class Instance {};
   let instance = new ClassType();
 
+  const rejected = Promise.reject(1);
+  rejected.catch(() => {});
+
   const obj = {
     a: 1,
     b: "foo",
@@ -117,7 +120,7 @@ it("should log complex object", () => {
     3: {},
     [3.14]: 1,
     4: [1, 2, 3],
-    5: Promise.reject(1),
+    5: rejected,
     6: Promise.resolve(1),
     abc: 123,
   };
