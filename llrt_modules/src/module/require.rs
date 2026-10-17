@@ -129,6 +129,15 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
 
     if let Some(exports_obj) = exports_obj {
         if exports_obj.type_of() == rquickjs::Type::Object {
+            if state
+                .progress
+                .values()
+                .any(|progress| exports_obj == progress.clone().into_value())
+            {
+                state.cache.insert(import_name, exports_obj.clone());
+                return Ok(exports_obj);
+            }
+
             drop(state);
             let exports = unsafe { exports_obj.as_object().unwrap_unchecked() };
 

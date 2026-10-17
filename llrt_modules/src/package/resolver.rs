@@ -253,13 +253,36 @@ fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
 }
 
 fn to_abs_path(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    Ok(if !path::is_absolute(&path) {
+    let path = if !path::is_absolute(&path) {
         path::resolve_path_with_separator([path], true)?.into()
     } else if cfg!(windows) {
         path::replace_backslash(path).into()
     } else {
         path
+    };
+
+    #[cfg(not(windows))]
+    if is_normalized_absolute_path(path.as_ref()) {
+        return Ok(path);
+    }
+
+    let normalized = path::normalize(path.as_ref());
+    Ok(if normalized == path {
+        path
+    } else {
+        normalized.into()
     })
+}
+
+#[cfg(not(windows))]
+fn is_normalized_absolute_path(path: &str) -> bool {
+    if path == "/" {
+        return true;
+    }
+    let Some(path) = path.strip_prefix('/') else {
+        return false;
+    };
+    path.split('/').all(|part| !matches!(part, "" | "." | ".."))
 }
 
 // LOAD_AS_FILE(X)
