@@ -1,51 +1,127 @@
 import defaultImport from "node:async_hooks";
+import {
+  AsyncLocalStorage,
+  AsyncResource,
+  executionAsyncId,
+  executionAsyncResource,
+  triggerAsyncId,
+} from "node:async_hooks";
 import legacyImport from "async_hooks";
+import { spawnCapture } from "./test-utils";
 
 it("node:async_hooks should be the same as async_hooks", () => {
   expect(defaultImport).toStrictEqual(legacyImport);
 });
 
-const { createHook } = defaultImport;
+it("should use the current execution ID as a native trigger ID", async () => {
+  const storage = new defaultImport.AsyncLocalStorage();
+  const [parentTimerId, nestedTriggerId] = await storage.run(
+    "test",
+    () =>
+      new Promise<[number, number]>((resolve) => {
+        setTimeout(() => {
+          const parentTimerId = executionAsyncId();
+          setTimeout(() => resolve([parentTimerId, triggerAsyncId()]), 0);
+        }, 0);
+      })
+  );
 
-let counters = {
-  init: 0,
-  before: 0,
-  after: 0,
-  promiseResolve: 0,
-  destroy: 0,
-};
+  expect(parentTimerId).toBeGreaterThan(1);
+  expect(nestedTriggerId).toBe(parentTimerId);
+});
 
-createHook({
-  init(asyncId, type, triggerAsyncId) {
-    counters.init++;
-  },
-  before(asyncId) {
-    counters.before++;
-  },
-  after(asyncId) {
-    counters.after++;
-  },
-  promiseResolve(asyncId) {
-    counters.promiseResolve++;
-  },
-  destroy(asyncId) {
-    counters.destroy++;
-  },
-}).enable();
+it("supports AsyncResource IDs and runInAsyncScope", async () => {
+  const storage = new AsyncLocalStorage<string>();
+  const { resource, expectedTriggerId } = storage.run("resource-store", () => ({
+    resource: new AsyncResource("test"),
+    expectedTriggerId: executionAsyncId(),
+  }));
 
-it("should track async operations", async () => {
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(resource.asyncId()).toBeGreaterThan(1);
+  expect(resource.triggerAsyncId()).toBeGreaterThan(1);
+  expect(
+    resource.runInAsyncScope(() => [storage.getStore(), executionAsyncId()])
+  ).toEqual(["resource-store", resource.asyncId()]);
+  await expect(
+    resource.runInAsyncScope(async () => {
+      await Promise.resolve();
+      return storage.getStore();
+    })
+  ).resolves.toBe("resource-store");
+  expect(resource.triggerAsyncId()).toBe(expectedTriggerId);
+});
 
-  // It detects asynchronous operations in all tests that run simultaneously,
-  // making it impossible to test them individually.
-  // Therefore, here we only check whether asynchronous operations can be tracked.
-  expect(counters.init).toBeGreaterThan(0);
-  expect(counters.before).toBeGreaterThan(0);
-  expect(counters.after).toBeGreaterThan(0);
-  expect(counters.promiseResolve).toBeGreaterThan(0);
+it("supports an explicit AsyncResource trigger ID and thisArg", () => {
+  const parent = new AsyncResource("parent");
+  const resource = new AsyncResource("child", {
+    triggerAsyncId: parent.asyncId(),
+  });
 
-  // destroy callbacks require GC + event loop tick to fire reliably
-  __gc();
-  await new Promise((resolve) => setTimeout(resolve, 1));
-  expect(counters.destroy).toBeGreaterThan(0);
+  expect(resource.triggerAsyncId()).toBe(parent.asyncId());
+  expect(
+    resource.runInAsyncScope(
+      function (this: { value: string }, suffix: string) {
+        return [
+          `${this.value}-${suffix}`,
+          executionAsyncId(),
+          executionAsyncResource(),
+        ];
+      },
+      { value: "bound" },
+      "value"
+    )
+  ).toEqual(["bound-value", resource.asyncId(), resource]);
+});
+
+it("binds callbacks to instance and static AsyncResource scopes", () => {
+  const storage = new AsyncLocalStorage<string>();
+  const instanceBound = storage.run("instance-store", () => {
+    const resource = new AsyncResource("instance-bound");
+    return resource.bind(
+      function (this: { prefix: string }, value: string) {
+        return [this.prefix, value, storage.getStore(), executionAsyncId()];
+      },
+      { prefix: "instance" }
+    );
+  });
+  const staticBound = storage.run("static-store", () =>
+    AsyncResource.bind(
+      function (this: { prefix: string }, value: string) {
+        return [this.prefix, value, storage.getStore(), executionAsyncId()];
+      },
+      "static-bound",
+      { prefix: "static" }
+    )
+  );
+
+  expect(storage.run("outside", () => instanceBound("call"))).toEqual([
+    "instance",
+    "call",
+    "instance-store",
+    expect.any(Number),
+  ]);
+  expect(storage.run("outside", () => staticBound("call"))).toEqual([
+    "static",
+    "call",
+    "static-store",
+    expect.any(Number),
+  ]);
+});
+
+it("should shut down cleanly after calling legacy hook methods", async () => {
+  const { code } = await spawnCapture(process.argv0, [
+    "-e",
+    "import { createHook } from 'node:async_hooks'; const hook = createHook({}); hook.enable(); hook.disable()",
+  ]);
+
+  expect(code).toBe(0);
+});
+
+it("should shut down cleanly after using AsyncLocalStorage.run", async () => {
+  const { code } = await spawnCapture(process.argv0, [
+    "-e",
+    "import { AsyncLocalStorage } from 'node:async_hooks'; const storage = new AsyncLocalStorage(); storage.run('store', () => 1);",
+  ]);
+
+  expect(code).toBe(0);
 });

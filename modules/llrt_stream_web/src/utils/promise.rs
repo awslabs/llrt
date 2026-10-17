@@ -1,5 +1,6 @@
 use std::{cell::Cell, rc::Rc};
 
+use llrt_async_context::lifecycle::register_native_resource;
 use llrt_utils::primordials::Primordial;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -9,6 +10,18 @@ use rquickjs::{
     promise::PromiseState,
     Ctx, Error, Function, JsLifetime, Object, Promise, Result, Value,
 };
+
+pub fn defer_async_callback<'js, F>(ctx: &Ctx<'js>, callback: F) -> Result<()>
+where
+    F: FnOnce() -> Result<()> + 'js,
+{
+    let async_resource = register_native_resource(ctx)?;
+
+    let callback_ctx = ctx.clone();
+    let job = move || async_resource.run(&callback_ctx, callback);
+    let () = Function::new(ctx.clone(), OnceFn::new(job))?.defer(())?;
+    Ok(())
+}
 
 pub fn promise_rejected_with<'js>(
     primordials: &PromisePrimordials<'js>,

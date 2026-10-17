@@ -46,6 +46,7 @@ impl Default for ModuleBuilder {
         let mut builder = Self::new();
 
         builder = builder
+            .with_global(crate::microtask::init)
             .with_global(crate::module::init)
             .with_module(crate::module::ModuleModule);
 
