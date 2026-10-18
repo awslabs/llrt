@@ -8,6 +8,7 @@ use std::{
 
 use llrt_logging::{build_formatted_string, FormatOptions, NEWLINE};
 use llrt_utils::module::{export_default, ModuleInfo};
+use llrt_utils::primordials::{BasePrimordials, Primordial};
 use rquickjs::{
     atom::PredefinedAtom,
     module::{Declarations, Exports, ModuleDef},
@@ -145,6 +146,8 @@ impl From<ConsoleModule> for ModuleInfo<ConsoleModule> {
 }
 
 pub fn init(ctx: &Ctx<'_>) -> Result<()> {
+    BasePrimordials::init(ctx)?;
+
     let _ = ctx.store_userdata(ConsoleState::default());
 
     let globals = ctx.globals();
