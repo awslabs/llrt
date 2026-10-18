@@ -253,36 +253,34 @@ fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
 }
 
 fn to_abs_path(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    let path = if !path::is_absolute(&path) {
-        path::resolve_path_with_separator([path], true)?.into()
-    } else if cfg!(windows) {
-        path::replace_backslash(path).into()
-    } else {
+    let path = if path::is_absolute(&path) {
         path
+    } else {
+        path::resolve_path_with_separator([path], true)?.into()
     };
 
-    #[cfg(not(windows))]
-    if is_normalized_absolute_path(path.as_ref()) {
-        return Ok(path);
-    }
-
-    let normalized = path::normalize(path.as_ref());
-    Ok(if normalized == path {
-        path
-    } else {
-        normalized.into()
+    Ok(match normalize_absolute_path(path.as_ref()) {
+        Some(normalized) if normalized != path => normalized.into(),
+        _ => path,
     })
 }
 
 #[cfg(not(windows))]
-fn is_normalized_absolute_path(path: &str) -> bool {
-    if path == "/" {
-        return true;
+fn normalize_absolute_path(path: &str) -> Option<String> {
+    if path == "/"
+        || path
+            .strip_prefix('/')
+            .is_some_and(|path| path.split('/').all(|part| !matches!(part, "" | "." | "..")))
+    {
+        None
+    } else {
+        Some(path::normalize(path))
     }
-    let Some(path) = path.strip_prefix('/') else {
-        return false;
-    };
-    path.split('/').all(|part| !matches!(part, "" | "." | ".."))
+}
+
+#[cfg(windows)]
+fn normalize_absolute_path(path: &str) -> Option<String> {
+    Some(path::replace_backslash(path::normalize(path)))
 }
 
 // LOAD_AS_FILE(X)
@@ -992,4 +990,31 @@ fn correct_extensions<'a>(x: String) -> Cow<'a, str> {
         }
     }
     x.into()
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(windows)]
+    use super::{path, to_abs_path};
+
+    #[cfg(windows)]
+    #[test]
+    fn to_abs_path_normalizes_windows_paths_with_forward_slashes() {
+        let current_dir = std::env::current_dir().unwrap();
+        let path = current_dir
+            .join("fixtures")
+            .join("..")
+            .join("fixtures")
+            .join("cjs-handler.cjs");
+        let path = path::replace_backslash(path.to_string_lossy().to_string());
+
+        let normalized = to_abs_path(path.into()).unwrap();
+
+        let expected = current_dir
+            .join("fixtures")
+            .join("cjs-handler.cjs")
+            .to_string_lossy()
+            .replace('\\', "/");
+        assert_eq!(normalized, expected);
+    }
 }
