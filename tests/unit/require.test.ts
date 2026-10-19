@@ -190,3 +190,10 @@ it("should handle blocking requires", async () => {
     ["1", "2", "3", "4", "5", "hello world!", "6", ""].join("\n")
   );
 });
+
+it("should normalize paths before resolving cyclic requires", () => {
+  const request = _require(`${CWD}/fixtures/cjs-module-paths/request.js`);
+
+  expect(request.cycle).toBe(request);
+  expect(request.done).toBe(true);
+});
