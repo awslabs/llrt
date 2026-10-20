@@ -184,6 +184,23 @@ describe("join", () => {
       normalizeSeparator("/foo/bar/asdf/quux")
     );
   });
+
+  it("should keep leading parent segments of relative paths", () => {
+    expect(join("..", "foo")).toEqual(normalizeSeparator("../foo"));
+    expect(join("foo", "..", "..", "bar")).toEqual(
+      normalizeSeparator("../bar")
+    );
+  });
+
+  it("should treat a later segment starting with a separator as relative to the first", () => {
+    expect(join("foo", "/bar")).toEqual(normalizeSeparator("foo/bar"));
+    expect(join(".", "/bar")).toEqual("bar");
+  });
+
+  it("should return . when nothing is left", () => {
+    expect(join("foo", "..")).toEqual(".");
+    expect(join("")).toEqual(".");
+  });
 });
 
 describe("resolve", () => {
@@ -216,6 +233,10 @@ describe("normalize", () => {
     expect(normalize("foo/bar/../baz/asdf")).toEqual(
       normalizeSeparator("foo/baz/asdf")
     );
+    expect(normalize("../foo/../../bar")).toEqual(
+      normalizeSeparator("../../bar")
+    );
+    expect(normalize("")).toEqual(".");
   });
 });
 

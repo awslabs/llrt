@@ -475,6 +475,7 @@ where
 
     let mut resolve_cow: Cow<str>;
     let mut empty = true;
+    let mut first = true;
     let mut prefix_len = 0;
 
     let mut index_stack = Vec::with_capacity(16);
@@ -522,7 +523,7 @@ where
                     }
                 }
             }
-        } else if starts_with_sep(part_ref) && empty {
+        } else if starts_with_sep(part_ref) && empty && first {
             empty = false;
             result.push(sep);
             start = 1;
@@ -534,10 +535,13 @@ where
                 ".." => {
                     if let Some(last_index) = index_stack.pop() {
                         result.truncate(last_index);
-                    } else if empty {
+                    } else if empty && resolve {
                         if let Some(last_index) = find_last_sep(&result) {
                             result.truncate(last_index);
                         }
+                    } else if empty {
+                        result.push_str("..");
+                        result.push(sep);
                     }
                 },
                 "" | "." => {
@@ -555,6 +559,11 @@ where
             }
             start = end + 1;
         }
+        first &= part_ref.is_empty();
+    }
+
+    if !resolve && result.is_empty() {
+        result.push('.');
     }
 
     if result.len() > prefix_len + 1 && ends_with_sep(&result) {
@@ -777,6 +786,28 @@ mod tests {
             join_path(["/usr", "local", ".hidden"].iter()),
             "/usr/local/.hidden".replace('/', MAIN_SEPARATOR_STR)
         ); // Hidden file
+        assert_eq!(
+            join_path(["..", "a"].iter()),
+            "../a".replace('/', MAIN_SEPARATOR_STR)
+        ); // Leading parent dir
+        assert_eq!(
+            join_path(["a", "..", "..", "b"].iter()),
+            "../b".replace('/', MAIN_SEPARATOR_STR)
+        ); // Parent dir above a relative path
+        assert_eq!(
+            join_path(["/", "..", "a"].iter()),
+            "/a".replace('/', MAIN_SEPARATOR_STR)
+        ); // Parent of root
+        assert_eq!(
+            join_path(["a", "/b"].iter()),
+            "a/b".replace('/', MAIN_SEPARATOR_STR)
+        ); // Absolute-looking part after a relative one
+        assert_eq!(
+            join_path([".", "/b"].iter()),
+            "b".replace('/', MAIN_SEPARATOR_STR)
+        );
+        assert_eq!(join_path(["a", ".."].iter()), "."); // Nothing left
+        assert_eq!(join_path(Vec::<&str>::new()), ".");
     }
 
     #[test]
@@ -885,6 +916,11 @@ mod tests {
             "foo/bar".replace('/', MAIN_SEPARATOR_STR)
         );
         assert_eq!(normalize("./foo"), "foo");
+        assert_eq!(
+            normalize("../foo/../../bar"),
+            "../../bar".replace('/', MAIN_SEPARATOR_STR)
+        );
+        assert_eq!(normalize(""), ".");
     }
 
     #[test]
