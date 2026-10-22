@@ -1,0 +1,32 @@
+site_name: LLRT
+site_url: https://awslabs.github.io/llrt/
+repo_url: https://github.com/awslabs/llrt
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Install and deploy: install.md
+  - Compatibility: compatibility.md
+  - Dependencies: dependencies.md
+  - Benchmarks: benchmarks.md
