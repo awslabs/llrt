@@ -1,7 +1,13 @@
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(any(
+    feature = "tls-rust",
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola"
+))]
 use std::sync::Arc;
 
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -9,6 +15,7 @@ use std::sync::Arc;
 ))]
 use hyper::service::service_fn;
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -16,6 +23,7 @@ use hyper::service::service_fn;
 ))]
 use hyper_util::rt::{TokioExecutor, TokioIo};
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -23,6 +31,7 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 ))]
 use hyper_util::server::conn::auto::Builder;
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
@@ -31,12 +40,18 @@ use hyper_util::server::conn::auto::Builder;
 use tokio::net::TcpListener;
 
 #[cfg(any(
+    feature = "tls-rust",
     feature = "tls-ring",
     feature = "tls-aws-lc",
     feature = "tls-graviola",
     feature = "tls-openssl"
 ))]
 use crate::MockServerCerts;
+
+#[cfg(feature = "tls-rust")]
+fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
+    Arc::new(rustls_rustcrypto::provider())
+}
 
 #[cfg(feature = "tls-ring")]
 fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
@@ -53,7 +68,12 @@ fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
     Arc::new(rustls_graviola::default_provider())
 }
 
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(any(
+    feature = "tls-rust",
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola"
+))]
 pub(super) async fn run(
     listener: TcpListener,
     certs: MockServerCerts,
