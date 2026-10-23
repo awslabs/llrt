@@ -80,7 +80,10 @@ describe("fetch network policy", () => {
       it(`matches ${restriction} for ${hostname}`, async () => {
         const path = `/host-policy-${hostname}-${restriction}`;
         const policyOrigin = origin.replace("127.0.0.1", hostname);
-        const result = await policyFetch(policyOrigin + path, {
+        // Keep the connection address portable: Windows does not resolve all
+        // legacy IPv4 spellings, even when the policy correctly accepts them.
+        const requestOrigin = hostname === "LOCALHOST" ? policyOrigin : origin;
+        const result = await policyFetch(requestOrigin + path, {
           [restriction]: policyOrigin,
         });
         expect(result.code).toBe(0);
@@ -89,12 +92,27 @@ describe("fetch network policy", () => {
           expect(requests.includes(path)).toBe(true);
         } else {
           expect(result.stdout.trim()).toBe(
-            `URL denied: ${policyOrigin.slice(7)}`
+            `URL denied: ${requestOrigin.slice(7)}`
           );
           expect(requests.includes(path)).toBe(false);
         }
       });
     }
+  }
+
+  for (const hostname of ["127.1", "0x7f000001"]) {
+    it(`matches a noncanonical request host ${hostname} before connecting`, async () => {
+      const url = origin.replace("127.0.0.1", hostname) + "/legacy-ip-policy";
+      const result = await policyFetch(url, {
+        LLRT_NET_ALLOW: origin,
+        LLRT_NET_DENY: origin,
+      });
+      expect(result.code).toBe(0);
+      // Deny runs after allow, proving both matched without relying on DNS.
+      expect(result.stdout.trim()).toBe(
+        `URL denied: ${new URL(origin).host.replace("127.0.0.1", hostname)}`
+      );
+    });
   }
 
   for (const allowed of [false, true]) {
