@@ -838,6 +838,9 @@ export function print(value: any): void;
 
 [fetch](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
 
+Repeated response header values are combined with a comma and space when read through
+`Headers`. `getSetCookie()` preserves separate `Set-Cookie` values.
+
 > [!IMPORTANT]
 > There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
 >
