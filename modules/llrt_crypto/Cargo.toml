@@ -15,7 +15,7 @@ path = "src/lib.rs"
 default = ["crypto-rust"]
 
 # Post-quantum algorithms (ML-DSA/ML-KEM/hybrid KEM)
-pqc = ["ml-dsa", "ml-kem"]
+pqc = ["ml-dsa", "ml-kem", "p256", "p384", "x25519-dalek"]
 
 # Internal feature: enables DER parsing for SubtleCrypto key import/export
 _subtle-full = [
@@ -33,12 +33,9 @@ _modern-webcrypto = [
   "chacha20poly1305",
   "cshake",
   "keccak",
-  "p256",
-  "p384",
   "sha3",
   "shake",
   "sponge-cursor",
-  "x25519-dalek",
 ]
 
 # Internal feature: enables RustCrypto dependencies for key import/export
@@ -53,6 +50,7 @@ _rustcrypto = [
   "elliptic-curve",
   "hkdf",
   "hmac",
+  "md-5",
   "rsa",
   "p256",
   "p384",
@@ -62,7 +60,7 @@ _rustcrypto = [
 ]
 
 crypto-rust = ["_rustcrypto", "_modern-webcrypto"]
-crypto-ring = ["ring", "_modern-webcrypto"]
+crypto-ring = ["ring", "md-5", "_modern-webcrypto"]
 crypto-ring-rust = ["ring", "_rustcrypto", "_modern-webcrypto"]
 crypto-graviola = ["graviola", "_modern-webcrypto"]
 crypto-graviola-rust = ["graviola", "_rustcrypto", "_modern-webcrypto"]
@@ -77,7 +75,7 @@ llrt_context = { version = "0.9.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.9.0-beta", path = "../../libs/llrt_encoding" }
 llrt_exceptions = { version = "0.9.0-beta", path = "../llrt_exceptions" }
 llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-features = false }
-md-5 = { version = "0.11", default-features = false }
+md-5 = { version = "0.11", default-features = false, optional = true }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rand = { version = "0.10", features = [
   "std",
