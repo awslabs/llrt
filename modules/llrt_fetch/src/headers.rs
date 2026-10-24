@@ -365,14 +365,13 @@ impl Headers {
                     ));
                 }
             } else {
-                let mut values = values.iter();
-                // Every key has at least one value. Combine once at the boundary
-                // so get(), iteration, and cloned headers share the same values.
-                let first = values.next().expect("header key has a value");
-                let mut combined = String::from_utf8_lossy(first.as_bytes());
-                for value in values {
-                    let combined = combined.to_mut();
-                    combined.push_str(", ");
+                // Combine once at the boundary so get(), iteration, and cloned
+                // headers share the same values.
+                let mut combined = String::new();
+                for (index, value) in values.iter().enumerate() {
+                    if index > 0 {
+                        combined.push_str(", ");
+                    }
                     combined.push_str(&String::from_utf8_lossy(value.as_bytes()));
                 }
                 headers.push((name.as_str().into(), combined.into()));
