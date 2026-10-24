@@ -878,7 +878,7 @@ fn package_exports_resolve<'a>(
         // [ESM only] Check for module field
         if is_esm {
             if let Some(BorrowedValue::String(module)) = map.get("module") {
-                return Ok((module.as_ref(), None, is_cjs));
+                return Ok((module.as_ref(), None, false));
             }
         }
         // Check for main field
@@ -994,8 +994,21 @@ fn correct_extensions<'a>(x: String) -> Cow<'a, str> {
 
 #[cfg(test)]
 mod tests {
+    use super::package_exports_resolve;
     #[cfg(windows)]
     use super::{path, to_abs_path};
+
+    #[test]
+    fn module_field_resolves_as_esm() {
+        let mut package_json =
+            br#"{"module":"./dist/index.js","main":"./dist/index.cjs"}"#.to_vec();
+        let package_json = simd_json::to_borrowed_value(&mut package_json).unwrap();
+
+        let (entry, _, is_cjs) = package_exports_resolve(&package_json, ".", true).unwrap();
+
+        assert_eq!(entry, "./dist/index.js");
+        assert!(!is_cjs);
+    }
 
     #[cfg(windows)]
     #[test]
