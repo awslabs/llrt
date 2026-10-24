@@ -5,6 +5,7 @@ use std::sync::{
     Arc, RwLock,
 };
 
+use llrt_async_context::lifecycle::{register_native_resource, AsyncResourceHandle};
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
@@ -36,6 +37,7 @@ pub struct Socket<'js> {
     close_tx: broadcast::Sender<()>,
     send_tx: Option<mpsc::UnboundedSender<SendMessage>>,
     ready_latch: Arc<Latch>,
+    async_resource: AsyncResourceHandle,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
@@ -81,6 +83,7 @@ impl<'js> Socket<'js> {
 
         let emitter = EventEmitter::new();
         let (close_tx, _) = broadcast::channel(1);
+        let async_resource = register_native_resource(&ctx)?;
 
         let instance = Self {
             emitter,
@@ -98,6 +101,7 @@ impl<'js> Socket<'js> {
             close_tx,
             send_tx: None,
             ready_latch: Arc::new(Latch::default()),
+            async_resource,
         };
 
         Class::instance(ctx, instance)
@@ -132,6 +136,10 @@ impl<'js> Socket<'js> {
 
         let socket_class2 = socket_class.clone();
         let socket_class3 = socket_class.clone();
+        let async_resource = {
+            let borrow = socket_class.borrow();
+            borrow.async_resource.clone()
+        };
         ctx.clone().spawn_exit(async move {
             let bind_result = async {
                 let socket = match UdpSocket::bind(&bind_addr).await {
@@ -170,7 +178,9 @@ impl<'js> Socket<'js> {
                 trace!("UDP socket bound to {}", local_addr);
 
                 // Emit 'listening' event
-                Self::emit_str(socket_class.clone(), &ctx, "listening", vec![], false)?;
+                async_resource.run(&ctx, || {
+                    Self::emit_str(socket_class.clone(), &ctx, "listening", vec![], false)
+                })?;
 
                 // Start receiver loop
                 let recv_started = receiver_running
@@ -183,6 +193,7 @@ impl<'js> Socket<'js> {
                     let recv_closed = is_closed.clone();
                     let recv_running = receiver_running.clone();
                     let recv_ctx = ctx.clone();
+                    let recv_resource = async_resource.clone();
                     let mut close_rx = recv_close_rx;
 
                     ctx.clone().spawn_exit(async move {
@@ -207,13 +218,15 @@ impl<'js> Socket<'js> {
                                                 )?;
 
                                                 let info_val: Value = info.into();
-                                                Self::emit_str(
-                                                    recv_class.clone(),
-                                                    &recv_ctx,
-                                                    "message",
-                                                    vec![data, info_val],
-                                                    false,
-                                                )?;
+                                                recv_resource.run(&recv_ctx, || {
+                                                        Self::emit_str(
+                                                            recv_class.clone(),
+                                                            &recv_ctx,
+                                                            "message",
+                                                            vec![data, info_val],
+                                                            false,
+                                                        )
+                                                    })?;
                                             },
                                             Err(e) => {
                                                 if recv_closed.load(Ordering::SeqCst) {
@@ -234,7 +247,11 @@ impl<'js> Socket<'js> {
                         }
                         .await;
 
-                        recv_result.emit_error("recv", &recv_ctx, recv_class)?;
+                        recv_resource.run(&recv_ctx, || {
+                                recv_result
+                                    .emit_error("recv", &recv_ctx, recv_class)
+                                    .map(|_| ())
+                            })?;
                         Ok(())
                     })?;
                 }
@@ -243,6 +260,7 @@ impl<'js> Socket<'js> {
                 let send_socket = socket_arc.clone();
                 let mut close_rx = send_close_rx;
                 let send_ctx = ctx.clone();
+                let send_resource = async_resource.clone();
                 ctx.spawn_exit(async move {
                     let send_result = {
                         loop {
@@ -266,7 +284,11 @@ impl<'js> Socket<'js> {
                         };
                         Ok(())
                     };
-                    send_result.emit_error("receive", &send_ctx, socket_class3)?;
+                    send_resource.run(&send_ctx, || {
+                        send_result
+                            .emit_error("receive", &send_ctx, socket_class3)
+                            .map(|_| ())
+                    })?;
                     Ok(())
                 })?;
 
@@ -274,7 +296,11 @@ impl<'js> Socket<'js> {
             }
             .await;
 
-            bind_result.emit_error("bind", &ctx, socket_class2)?;
+            async_resource.run(&ctx, || {
+                bind_result
+                    .emit_error("bind", &ctx, socket_class2)
+                    .map(|_| ())
+            })?;
             Ok(())
         })?;
 
@@ -395,6 +421,16 @@ impl<'js> Socket<'js> {
         // Ensure listener is started and get latch to wait on
         let ready_latch = Self::ensure_listening(this.0.clone(), ctx.clone())?;
 
+        let socket_resource = {
+            let borrow = this.borrow();
+            borrow.async_resource.clone()
+        };
+        let resource = if callback.0.is_some() {
+            Some(register_native_resource(&ctx)?)
+        } else {
+            None
+        };
+
         let socket_class = this.0.clone();
         let socket_class2 = this.0.clone();
 
@@ -441,11 +477,17 @@ impl<'js> Socket<'js> {
                 // Callback handles both success and error
                 match result {
                     Ok(sent) => {
-                        cb.call::<_, ()>((Value::new_null(ctx.clone()), sent))?;
+                        resource
+                            .as_ref()
+                            .expect("send callback resource registered")
+                            .call(&ctx, &cb, (Value::new_null(ctx.clone()), sent))?;
                     },
                     Err(e) => {
                         let err = Exception::from_message(ctx.clone(), &e)?;
-                        cb.call::<_, ()>((err,))?;
+                        resource
+                            .as_ref()
+                            .expect("send callback resource registered")
+                            .call(&ctx, &cb, (err,))?;
                     },
                 }
 
@@ -453,7 +495,11 @@ impl<'js> Socket<'js> {
             }
             .await;
 
-            send_result.emit_error("send", &ctx, socket_class2)?;
+            socket_resource.run(&ctx, || {
+                send_result
+                    .emit_error("send", &ctx, socket_class2)
+                    .map(|_| ())
+            })?;
             Ok(())
         })?;
 
@@ -465,6 +511,10 @@ impl<'js> Socket<'js> {
         ctx: Ctx<'js>,
         callback: Opt<Function<'js>>,
     ) -> Result<Class<'js, Self>> {
+        let async_resource = {
+            let borrow = this.borrow();
+            borrow.async_resource.clone()
+        };
         let already_closed = {
             let borrow = this.borrow();
             let was_closed = borrow
@@ -499,7 +549,9 @@ impl<'js> Socket<'js> {
         // Emit close event directly (don't rely on sender loop which may not have started)
         let this_clone = this.0.clone();
         ctx.clone().spawn_exit(async move {
-            Self::emit_str(this_clone, &ctx, "close", vec![], false)?;
+            async_resource.run(&ctx, || {
+                Self::emit_str(this_clone, &ctx, "close", vec![], false)
+            })?;
             Ok(())
         })?;
 

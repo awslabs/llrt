@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
+use llrt_async_context::lifecycle::{register_native_resource, AsyncResourceHandle};
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
 use llrt_stream::{
@@ -46,6 +47,7 @@ pub struct Socket<'js> {
     remote_port: Option<u16>,
     ready_state: ReadyState,
     allow_half_open: bool,
+    pub(super) async_resource: Option<AsyncResourceHandle>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
@@ -251,6 +253,14 @@ impl<'js> Socket<'js> {
         }
 
         let this = this.0;
+        Self::register_async_resource(&this, &ctx)?;
+        let resource = {
+            let borrow = this.borrow();
+            borrow
+                .async_resource
+                .clone()
+                .expect("socket resource registered")
+        };
 
         let this2 = this.clone();
 
@@ -263,15 +273,25 @@ impl<'js> Socket<'js> {
             let ctx3 = ctx.clone();
             let this3 = this2.clone();
             if this3.borrow().destroyed {
-                Socket::emit_close(this3.clone(), &ctx3, false)?;
+                resource.run(&ctx3, || Socket::emit_close(this3.clone(), &ctx3, false))?;
                 return Ok(());
             }
+            let connect_resource = resource.clone();
             let connect = async move {
-                let (readable_done, writable_done) = if let Some(path) = path {
+                let mut processing = None;
+                if let Some(path) = path {
                     #[cfg(unix)]
                     {
                         let stream = UnixStream::connect(path).await.or_throw(&ctx3)?;
-                        Self::process_unix_stream(&this2, &ctx3, stream, allow_half_open)
+                        connect_resource.run(&ctx3, || {
+                            processing = Some(Self::process_unix_stream(
+                                &this2,
+                                &ctx3,
+                                stream,
+                                allow_half_open,
+                            )?);
+                            Ok(())
+                        })?;
                     }
                     #[cfg(not(unix))]
                     {
@@ -283,22 +303,39 @@ impl<'js> Socket<'js> {
                     }
                 } else if let Some(addr) = addr {
                     let stream = TcpStream::connect(addr).await.or_throw(&ctx3)?;
-                    Self::process_tcp_stream(&this2, &ctx3, stream, allow_half_open)
+                    connect_resource.run(&ctx3, || {
+                        processing = Some(Self::process_tcp_stream(
+                            &this2,
+                            &ctx3,
+                            stream,
+                            allow_half_open,
+                        )?);
+                        Ok(())
+                    })?;
                 } else {
                     unreachable!()
-                }?;
+                }
+                let (readable_done, writable_done) =
+                    processing.expect("stream tasks started after connect");
 
-                Socket::emit_str(this2.clone(), &ctx3, "connect", vec![], false)?;
+                connect_resource.run(&ctx3, || {
+                    Socket::emit_str(this2.clone(), &ctx3, "connect", vec![], false)
+                })?;
 
                 let had_error = rw_join(&ctx3, readable_done, writable_done).await?;
 
-                Socket::emit_close(this2, &ctx3, had_error)?;
+                connect_resource.run(&ctx3, || Socket::emit_close(this2, &ctx3, had_error))?;
 
                 Ok::<_, Error>(())
             }
             .await;
 
-            connect.emit_error("connect", &ctx2, this3)?;
+            let mut error_result = Ok(false);
+            resource.run(&ctx2, || {
+                error_result = connect.emit_error("connect", &ctx2, this3);
+                Ok(())
+            })?;
+            error_result?;
             Ok(())
         })?;
 
@@ -330,9 +367,17 @@ impl<'js> Socket<'js> {
                 readable_stream_inner,
                 writable_stream_inner,
                 allow_half_open,
+                async_resource: None,
             },
         )?;
         Ok(instance)
+    }
+
+    pub fn register_async_resource(this: &Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
+        let async_resource = register_native_resource(ctx)?;
+        let mut borrow = this.borrow_mut();
+        borrow.async_resource = Some(async_resource);
+        Ok(())
     }
 
     pub fn process_tcp_stream(
