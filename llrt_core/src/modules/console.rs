@@ -457,18 +457,22 @@ mod tests {
                 r#"{"time":"","level":"INFO","message":"{\n  a: 1,\n  b: 'Hello'\n} true"}"#
             );
 
-            //single error
-            let e1:Value = ctx.eval(r#"new ReferenceError("some reference error")"#)?;
+            // Use explicit stacks so formatting assertions do not depend on engine source offsets.
+            let e1:Value = ctx.eval(r#"Object.assign(new ReferenceError("some reference error"), {
+                stack: "    at fixture (reference.js:10:7)\n"
+            })"#)?;
             assert_eq!(
                 write_log([e1.clone()].into())?,
-                r#"{"time":"","level":"INFO","message":{"errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:4)",""]}}"#
+                r#"{"time":"","level":"INFO","message":{"errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at fixture (reference.js:10:7)",""]}}"#
             );
 
              //validate many args with additional errors
-            let e2:Value = ctx.eval(r#"new SyntaxError("some syntax error")"#)?;
+            let e2:Value = ctx.eval(r#"Object.assign(new SyntaxError("some syntax error"), {
+                stack: "    at fixture (syntax.js:20:7)\n"
+            })"#)?;
             assert_eq!(
                 write_log(["errors logged".into_js(&ctx)?, e1, e2].into())?,
-                r#"{"time":"","level":"INFO","message":"errors logged ReferenceError: some reference error\n  at <eval> (eval_script:1:4) SyntaxError: some syntax error\n  at <eval> (eval_script:1:4)","errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at <eval> (eval_script:1:4)",""]}"#
+                r#"{"time":"","level":"INFO","message":"errors logged ReferenceError: some reference error\n  at fixture (reference.js:10:7) SyntaxError: some syntax error\n  at fixture (syntax.js:20:7)","errorType":"ReferenceError","errorMessage":"some reference error","stackTrace":["    at fixture (reference.js:10:7)",""]}"#
             );
 
             Ok(())
@@ -537,18 +541,22 @@ mod tests {
                 "\tn/a\tINFO\t{\r  a: 1,\r  b: 'Hello'\r} true"
             );
 
-            //single error
-            let e1:Value = ctx.eval(r#"new ReferenceError("some reference error")"#)?;
+            // Use explicit stacks so formatting assertions do not depend on engine source offsets.
+            let e1:Value = ctx.eval(r#"Object.assign(new ReferenceError("some reference error"), {
+                stack: "    at fixture (reference.js:10:7)\n"
+            })"#)?;
             assert_eq!(
                 write_log([e1.clone()].into())?,
-                "\tn/a\tINFO\tReferenceError: some reference error\r  at <eval> (eval_script:1:4)"
+                "\tn/a\tINFO\tReferenceError: some reference error\r  at fixture (reference.js:10:7)"
             );
 
              //validate many args with additional errors
-            let e2:Value = ctx.eval(r#"new SyntaxError("some syntax error")"#)?;
+            let e2:Value = ctx.eval(r#"Object.assign(new SyntaxError("some syntax error"), {
+                stack: "    at fixture (syntax.js:20:7)\n"
+            })"#)?;
             assert_eq!(
                 write_log(["errors logged".into_js(&ctx)?, e1, e2].into())?,
-                "\tn/a\tINFO\terrors logged ReferenceError: some reference error\r  at <eval> (eval_script:1:4) SyntaxError: some syntax error\r  at <eval> (eval_script:1:4)"
+                "\tn/a\tINFO\terrors logged ReferenceError: some reference error\r  at fixture (reference.js:10:7) SyntaxError: some syntax error\r  at fixture (syntax.js:20:7)"
             );
 
             //newline replacement
