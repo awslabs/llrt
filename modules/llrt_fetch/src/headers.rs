@@ -355,11 +355,28 @@ impl Headers {
 
     pub fn from_http_headers(header_map: &HeaderMap, guard: HeadersGuard) -> Result<Self> {
         let mut headers = Vec::with_capacity(header_map.keys_len());
-        for (n, v) in header_map.iter() {
-            headers.push((
-                n.as_str().into(),
-                String::from_utf8_lossy(v.as_bytes()).into(),
-            ));
+        for name in header_map.keys() {
+            let values = header_map.get_all(name);
+            if name == SET_COOKIE {
+                for value in values {
+                    headers.push((
+                        name.as_str().into(),
+                        String::from_utf8_lossy(value.as_bytes()).into(),
+                    ));
+                }
+            } else {
+                let mut values = values.iter();
+                // Every key has at least one value. Combine once at the boundary
+                // so get(), iteration, and cloned headers share the same values.
+                let first = values.next().expect("header key has a value");
+                let mut combined = String::from_utf8_lossy(first.as_bytes());
+                for value in values {
+                    let combined = combined.to_mut();
+                    combined.push_str(", ");
+                    combined.push_str(&String::from_utf8_lossy(value.as_bytes()));
+                }
+                headers.push((name.as_str().into(), combined.into()));
+            }
         }
         Ok(Self { headers, guard })
     }
@@ -797,6 +814,42 @@ mod tests {
     use llrt_test::test_async_with;
 
     use super::*;
+
+    #[tokio::test]
+    async fn test_received_header_values() {
+        test_async_with(|ctx| {
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let mut map = HeaderMap::new();
+                for (name, value) in [
+                    ("foo-test", "1"), ("foo-test", "2"), ("foo-test", "3"),
+                    ("double-trouble", ""), ("double-trouble", ""),
+                    ("www-authenticate", "1, 2"), ("www-authenticate", "3, 4"),
+                    ("set-cookie", "a=1"), ("set-cookie", "b=2"),
+                ] {
+                    map.append(name, value.parse().unwrap());
+                }
+                let headers = Headers::from_http_headers(&map, HeadersGuard::Immutable).unwrap();
+                ctx.globals().set("received", Class::instance(ctx.clone(), headers).unwrap()).unwrap();
+                ctx.eval::<(), _>(r#"
+                    const assert = (ok, message) => { if (!ok) throw new Error(message); };
+                    assert(received.get('foo-test') === '1, 2, 3', 'get combines all values');
+                    assert(received.get('double-trouble') === ', ', 'get preserves empty values');
+                    assert(received.get('www-authenticate') === '1, 2, 3, 4', 'get combines comma values');
+                    assert(received.get('missing') === null, 'absent header');
+                    assert(received.getSetCookie().join('|') === 'a=1|b=2', 'cookies stay separate');
+                    assert([...received].filter(([k]) => k === 'foo-test')[0][1] === '1, 2, 3', 'iteration combines');
+                    assert([...received].filter(([k]) => k === 'set-cookie').length === 2, 'cookie iteration');
+                    let seen;
+                    received.forEach((v, k) => { if (k === 'foo-test') seen = v; });
+                    assert(seen === '1, 2, 3', 'forEach combines');
+                    let threw = false;
+                    try { received.append('foo-test', '4'); } catch (e) { threw = e instanceof TypeError; }
+                    assert(threw, 'guard preserved');
+                "#).unwrap();
+            })
+        }).await;
+    }
 
     #[tokio::test]
     async fn test_get_header() {

@@ -1,3 +1,5 @@
+import net from "node:net";
+
 describe("Headers class", () => {
   it("should construct a new Headers object with the provided headers", () => {
     const headers = { "content-type": "application/json" };
@@ -86,5 +88,74 @@ describe("Headers class", () => {
     h.append("accept-encoding", "zstd");
     h.append("accept-encoding", "br");
     expect(h.get("accept-encoding")).toStrictEqual("zstd, br");
+  });
+});
+
+describe("Received headers", () => {
+  it("combines repeated values while preserving cookies and cloned responses", async () => {
+    const server = net.createServer((socket) => {
+      let request = "";
+      socket.on("data", (data) => {
+        request += data.toString();
+        if (!request.includes("\r\n\r\n")) return;
+        socket.write(
+          [
+            "HTTP/1.1 200 OK",
+            "Connection: close",
+            "Content-Length: 2",
+            "X-Single: untouched",
+            "X-Values: first",
+            "x-values:",
+            "X-Values: last",
+            "X-Empty:",
+            "X-Empty:",
+            "WWW-Authenticate: one, two",
+            "WWW-Authenticate: three",
+            "Set-Cookie: a=1; Expires=Wed, 21 Oct 2037 07:28:00 GMT",
+            "Set-Cookie: b=2",
+            "",
+            "OK",
+          ].join("\r\n")
+        );
+        socket.end();
+      });
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve)
+    );
+    try {
+      const address = server.address() as net.AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${address.port}/`);
+      const clone = response.clone();
+      const cookies = ["a=1; Expires=Wed, 21 Oct 2037 07:28:00 GMT", "b=2"];
+      for (const current of [response, clone]) {
+        const headers = current.headers;
+        expect(headers.get("x-single")).toBe("untouched");
+        expect(headers.get("X-Values")).toBe("first, , last");
+        expect(headers.get("x-empty")).toBe(", ");
+        expect(headers.get("www-authenticate")).toBe("one, two, three");
+        expect(headers.getSetCookie()).toEqual(cookies);
+        expect(headers.get("set-cookie")).toBe(cookies.join(", "));
+        expect([...headers].filter(([name]) => name === "x-values")).toEqual([
+          ["x-values", "first, , last"],
+        ]);
+        expect([...headers].filter(([name]) => name === "set-cookie")).toEqual(
+          cookies.map((value) => ["set-cookie", value])
+        );
+        const values: string[] = [];
+        headers.forEach((value, name) => {
+          if (name === "x-values") values.push(value);
+        });
+        expect(values).toEqual(["first, , last"]);
+        expect(new Headers(headers).get("x-values")).toBe("first, , last");
+        expect(() => headers.append("x-values", "extra")).toThrow(TypeError);
+        expect(() => headers.set("x-values", "replacement")).toThrow(TypeError);
+        expect(() => headers.delete("x-values")).toThrow(TypeError);
+      }
+      expect(await response.text()).toBe("OK");
+      expect(await clone.text()).toBe("OK");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
