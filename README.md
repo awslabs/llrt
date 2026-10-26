@@ -397,6 +397,9 @@ The relationship between the supported packages for each bundle type is as follo
 | @aws-sdk/util-user-agent-browser |        | ✔︎       | ✔︎        |
 | @smithy                          |        | ✔︎       | ✔︎        |
 
+> [!NOTE]
+> Node-only credential providers such as `fromNodeProviderChain` are not supported; rely on the default SDK credentials from environment variables or the Lambda execution role.
+
 > [!TIP]
 > LLRT now supports streaming SDK responses (since version 0.9). You can consume response bodies as streams or use the convenience methods:
 >
