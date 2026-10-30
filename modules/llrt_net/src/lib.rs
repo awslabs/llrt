@@ -19,10 +19,6 @@ use tokio::{
     sync::oneshot::Receiver,
 };
 
-use self::security::ensure_access;
-pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
-
-mod security;
 mod server;
 mod socket;
 
@@ -101,10 +97,6 @@ impl Listener {
                 .or_throw(ctx),
         }
     }
-}
-
-fn get_hostname(host: &str, port: u16) -> String {
-    [host, itoa::Buffer::new().format(port)].join(":")
 }
 
 fn get_address_parts(
