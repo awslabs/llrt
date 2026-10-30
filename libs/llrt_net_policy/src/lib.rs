@@ -1,10 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-//! Matching for the `LLRT_NET_ALLOW` and `LLRT_NET_DENY` entries.
-//!
-//! The lists are parsed once at start-up and every network sink (`fetch`,
-//! `net`, `dgram`) matches against the same representation, so a documented
-//! entry form behaves identically for every kind of connection.
+//! Matching for the `LLRT_NET_ALLOW` and `LLRT_NET_DENY` entries, shared by
+//! every network sink so one entry form behaves identically everywhere.
 
 use std::{error::Error, fmt, net::IpAddr, net::Ipv6Addr, str::FromStr, sync::OnceLock};
 
@@ -14,8 +11,6 @@ static ALLOW_LIST: OnceLock<Vec<PolicyEntry>> = OnceLock::new();
 
 static DENY_LIST: OnceLock<Vec<PolicyEntry>> = OnceLock::new();
 
-/// The outcome of matching a connection against the configured lists.
-///
 /// Deny rules take precedence over allow rules.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Access {
@@ -24,12 +19,12 @@ pub enum Access {
     Denied,
 }
 
-/// Stores the allow list. Called once at start-up.
+// Set once at start-up; later calls are ignored.
 pub fn set_allow_list(entries: Vec<PolicyEntry>) {
     _ = ALLOW_LIST.set(entries);
 }
 
-/// Stores the deny list. Called once at start-up.
+// Set once at start-up; later calls are ignored.
 pub fn set_deny_list(entries: Vec<PolicyEntry>) {
     _ = DENY_LIST.set(entries);
 }
@@ -38,11 +33,8 @@ pub fn has_allow_list() -> bool {
     ALLOW_LIST.get().is_some()
 }
 
-/// Matches a host and port against both lists.
-///
-/// `default_ports` lists the ports an entry without an explicit port covers.
-/// An empty slice means such an entry covers every port, which is the case for
-/// sockets: they have no default port.
+/// `default_ports` are the ports an entry without an explicit port covers; an
+/// empty slice means every port.
 pub fn check_network(host: &Host, port: u16, default_ports: &[u16]) -> Access {
     if let Some(list) = ALLOW_LIST.get() {
         if !list
@@ -81,7 +73,6 @@ pub fn check_path(path: &str) -> Access {
     Access::Allowed
 }
 
-/// Checks a socket endpoint and returns the operator-facing denial message.
 pub fn check_endpoint(host: &str, port: u16) -> Result<(), String> {
     match check_network(&parse_host(host), port, &[]) {
         Access::Allowed => Ok(()),
@@ -92,7 +83,6 @@ pub fn check_endpoint(host: &str, port: u16) -> Result<(), String> {
     }
 }
 
-/// Checks a unix socket path and returns the operator-facing denial message.
 pub fn check_socket_path(path: &str) -> Result<(), String> {
     match check_path(path) {
         Access::Allowed => Ok(()),
@@ -113,8 +103,6 @@ fn endpoint(host: &str, port: u16) -> String {
     }
 }
 
-/// Parses a list of policy entries, reporting the offending entry and the
-/// environment variable it came from on failure.
 pub fn parse_list<'a>(
     variable: &str,
     entries: impl IntoIterator<Item = &'a str>,
@@ -125,7 +113,6 @@ pub fn parse_list<'a>(
         .collect()
 }
 
-/// One entry of the `LLRT_NET_ALLOW` or `LLRT_NET_DENY` list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PolicyEntry {
     value: String,
@@ -139,8 +126,8 @@ enum Kind {
 }
 
 impl PolicyEntry {
-    /// Parses `host`, `host:port`, `[ipv6]`, `[ipv6]:port`, a bare IPv6
-    /// address, or a socket path. A scheme prefix is ignored.
+    /// `host`, `host:port`, `[ipv6]`, `[ipv6]:port`, a bare IPv6 address or a
+    /// socket path. A scheme prefix is ignored.
     pub fn parse(entry: &str) -> Result<Self, PolicyError> {
         let value = strip_scheme(entry);
         if value.is_empty() {
@@ -170,8 +157,6 @@ impl PolicyEntry {
         })
     }
 
-    /// Matches a connection to `host` and `port`. See [`check_network`] for
-    /// the meaning of `default_ports`.
     pub fn matches_network(&self, host: &Host, port: u16, default_ports: &[u16]) -> bool {
         let Kind::Host {
             host: entry_host,
@@ -189,14 +174,13 @@ impl PolicyEntry {
         port_matches && host_matches(host, entry_host)
     }
 
-    /// Matches a unix socket path literally. Relative paths stay usable
-    /// because they are also accepted as plain strings.
+    /// Path entries and plain strings match literally.
     pub fn matches_path(&self, path: &str) -> bool {
         self.value == path
     }
 }
 
-/// Parses a host the way the policy lists do, canonicalizing IP aliases.
+/// Canonicalizes IP aliases the same way policy entries are parsed.
 pub fn parse_host(host: &str) -> Host {
     let host = host
         .strip_prefix('[')
