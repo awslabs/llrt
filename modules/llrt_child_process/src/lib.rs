@@ -19,6 +19,7 @@ use std::{
     sync::{Arc, Mutex, RwLock},
 };
 
+use llrt_async_context::lifecycle::register_native_resource;
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{
@@ -207,6 +208,8 @@ impl<'js> ChildProcess<'js> {
         let instance3 = instance.clone();
         let instance4 = instance.clone();
 
+        let async_resource = register_native_resource(&ctx)?;
+
         instance.set("stderr", stderr_instance.clone())?;
         instance.set("stdout", stdout_instance.clone())?;
         instance.set("stdin", stdin_instance.clone())?;
@@ -227,6 +230,7 @@ impl<'js> ChildProcess<'js> {
 
                 let ctx2 = ctx.clone();
                 let ctx3 = ctx.clone();
+                let spawn_resource = async_resource.clone();
 
                 ctx.spawn_exit(async move {
                     let spawn_proc = async move {
@@ -254,13 +258,15 @@ impl<'js> ChildProcess<'js> {
                             signal = "SIGKILL".into_js(&ctx3)?;
                         }
 
-                        ChildProcess::emit_str(
-                            instance2.clone(),
-                            &ctx3,
-                            "exit",
-                            vec![code.clone(), signal.clone()],
-                            false,
-                        )?;
+                        spawn_resource.run(&ctx3, || {
+                            ChildProcess::emit_str(
+                                instance2.clone(),
+                                &ctx3,
+                                "exit",
+                                vec![code.clone(), signal.clone()],
+                                false,
+                            )
+                        })?;
 
                         if let Some(stderr_join_receiver) = stderr_join_receiver {
                             //ok if sender drops
@@ -276,20 +282,25 @@ impl<'js> ChildProcess<'js> {
                         ReadableStream::drain(stdout_instance, &ctx3)?;
                         ReadableStream::drain(stderr_instance, &ctx3)?;
 
-                        ChildProcess::emit_str(
-                            instance2.clone(),
-                            &ctx3,
-                            "close",
-                            vec![code, signal],
-                            false,
-                        )?;
+                        spawn_resource.run(&ctx3, || {
+                            ChildProcess::emit_str(
+                                instance2.clone(),
+                                &ctx3,
+                                "close",
+                                vec![code, signal],
+                                false,
+                            )
+                        })?;
 
                         Ok::<_, Error>(())
                     };
 
-                    spawn_proc
-                        .await
-                        .emit_error("child_process", &ctx2, instance4)?;
+                    let result = spawn_proc.await;
+                    async_resource.run(&ctx2, || {
+                        result
+                            .emit_error("child_process", &ctx2, instance4)
+                            .map(|_| ())
+                    })?;
 
                     Ok(())
                 })?;
@@ -305,7 +316,9 @@ impl<'js> ChildProcess<'js> {
                     }
 
                     let ex = Exception::from_message(ctx3.clone(), &err_message)?;
-                    ChildProcess::emit_str(instance3, &ctx3, "error", vec![ex.into()], false)?;
+                    async_resource.run(&ctx3, || {
+                        ChildProcess::emit_str(instance3, &ctx3, "error", vec![ex.into()], false)
+                    })?;
                     Ok(())
                 })?;
             },
