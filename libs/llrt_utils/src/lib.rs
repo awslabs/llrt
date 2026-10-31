@@ -21,6 +21,7 @@ pub mod module;
 pub mod object;
 pub mod option;
 pub mod primordials;
+pub mod promise;
 pub mod provider;
 pub mod result;
 pub mod reuse_list;

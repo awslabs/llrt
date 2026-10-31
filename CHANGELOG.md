@@ -1,3 +1,10 @@
+## Unreleased
+
+### Breaking changes
+  - Unhandled promise rejections now print the error and exit with code 1, matching Node's default. A forgotten rejection can therefore terminate the process, including a Lambda sandbox (@richarddavison)
+
+## v0.9.0-beta
+
 ### Features
   - Added limited `Temporal` support, with improved compatibility for `Instant`, `Duration`, `ZonedDateTime` and `round()` (@nabetti1720)
   - Added `util.inspect` and `util.inspect.custom` (@richarddavison)

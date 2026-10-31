@@ -1,10 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{env, result::Result as StdResult};
+use std::{cell::RefCell, env, result::Result as StdResult};
 
 use rquickjs::{
-    context::EvalOptions, loader::FileResolver, prelude::Func, AsyncContext, AsyncRuntime,
-    CatchResultExt, Ctx, Error, Result, Value,
+    context::EvalOptions, loader::FileResolver, prelude::Func, runtime::RejectionTracker,
+    AsyncContext, AsyncRuntime, CatchResultExt, CaughtError, Ctx, Error, JsLifetime, Result, Value,
 };
 
 use crate::libs::{
@@ -115,6 +115,9 @@ impl Vm {
         runtime.set_max_stack_size(vm_options.max_stack_size).await;
         runtime.set_gc_threshold(vm_options.gc_threshold_mb).await;
         runtime.set_loader(resolver, loader).await;
+        runtime
+            .set_host_promise_rejection_tracker(Some(unhandled_rejection_tracker()))
+            .await;
 
         let ctx = AsyncContext::full(&runtime).await?;
         ctx.with(|ctx| {
@@ -122,6 +125,7 @@ impl Vm {
                 BasePrimordials::init(&ctx)?;
                 global_attachment.attach(&ctx)?;
                 self::init(&ctx)?;
+                let _ = ctx.store_userdata(RefCell::new(PendingRejections::default()));
                 Ok(())
             })()
             .catch(&ctx)
@@ -195,6 +199,48 @@ impl Vm {
         self.runtime.idle().await;
         Ok(())
     }
+}
+
+#[derive(Default)]
+struct PendingRejections<'js> {
+    entries: Vec<(Value<'js>, Value<'js>)>,
+}
+
+// SAFETY: the only JS-lifetime-bearing field is `Value<'js>`, which `Changed` re-lifetimes.
+unsafe impl<'js> JsLifetime<'js> for PendingRejections<'js> {
+    type Changed<'to> = PendingRejections<'to>;
+}
+
+fn unhandled_rejection_tracker() -> RejectionTracker {
+    Box::new(|ctx, promise, reason, is_handled| {
+        let Some(pending) = ctx.userdata::<RefCell<PendingRejections>>() else {
+            return;
+        };
+
+        if is_handled {
+            pending
+                .borrow_mut()
+                .entries
+                .retain(|(rejected, _)| *rejected != promise);
+            return;
+        }
+
+        pending.borrow_mut().entries.push((promise, reason));
+        drop(pending);
+
+        let task_ctx = ctx.clone();
+        ctx.spawn(async move {
+            // The scheduler can poll this right after the task that rejected, before the
+            // microtasks it queued have had a chance to attach a handler.
+            while task_ctx.execute_pending_job() {}
+            let unhandled = task_ctx
+                .userdata::<RefCell<PendingRejections>>()
+                .and_then(|pending| pending.borrow_mut().entries.drain(..).next());
+            if let Some((_, reason)) = unhandled {
+                print_error_and_exit(&task_ctx, CaughtError::Value(reason));
+            }
+        });
+    })
 }
 
 fn init(ctx: &Ctx<'_>) -> Result<()> {

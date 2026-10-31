@@ -29,7 +29,7 @@ use crate::libs::{
         stringify::{self, json_stringify},
     },
     logging::{format_values, replace_newline_with_carriage_return},
-    utils::{class::get_class_name, result::ResultExt},
+    utils::{class::get_class_name, promise::PromiseExt, result::ResultExt},
 };
 
 #[cfg(not(test))]
@@ -245,7 +245,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
 
     let specifier: String = [task_root.as_str(), module_name].join("/");
 
-    let import_promise = Module::import(ctx, specifier.as_bytes())?;
+    let import_future = Module::import(ctx, specifier.as_bytes())?.into_future_handled::<Object>();
 
     let latch = {
         let state_ref = SDK_CONNECTION_INIT_LATCH.read().unwrap();
@@ -253,7 +253,7 @@ async fn start_with_cfg(ctx: &Ctx<'_>, config: RuntimeConfig) -> Result<()> {
     };
     latch.wait().await;
 
-    let js_handler_module = import_promise.into_future::<Object>().await?;
+    let js_handler_module = import_future.await?;
 
     let handler: Value = js_handler_module.get(handler_name)?;
 
@@ -469,7 +469,7 @@ async fn process_event<'js>(
         Some(obj) if obj.is_instance_of(promise_constructor) => {
             handler_result
                 .get::<Promise>()?
-                .into_future::<Value>()
+                .into_future_handled::<Value>()
                 .await?
         },
         _ => handler_result,

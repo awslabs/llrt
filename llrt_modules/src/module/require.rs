@@ -4,7 +4,7 @@ use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
 use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use llrt_json::parse::json_parse;
-use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT, provider::ProviderType};
+use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT, promise::PromiseExt, provider::ProviderType};
 use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, Function, Module, Object, Result, Value};
 use tokio::time::Instant;
 use tracing::trace;
@@ -96,6 +96,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     drop(state);
 
     let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
+    import_promise.mark_handled();
 
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
