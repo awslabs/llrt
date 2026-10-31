@@ -665,6 +665,14 @@ subdomains at a dot boundary. Equivalent IP spellings match the same address.
 Names accepted by the HTTP URI parser but rejected by URL host parsing retain
 case-insensitive text matching, including domain-boundary checks.
 
+Socket connections (`node:net` and `dgram`) match the same entries with the same
+host rules. A host without a port covers every port, since a socket has no
+default port; an explicit port restricts the entry to that port. IPv6 entries can
+be written bare (`::1`, every port) or bracketed when they carry a port
+(`[::1]:443`). Entries starting with `/` match unix socket paths. An entry that
+cannot be parsed, such as a non-numeric port, stops the runtime at start-up with
+an error naming the variable and the entry.
+
 ### `LLRT_NET_POOL_IDLE_TIMEOUT=value`
 
 Set a timeout in seconds for idle sockets being kept-alive. Default timeout is 15 seconds

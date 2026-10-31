@@ -1864,6 +1864,7 @@ dependencies = [
  "llrt_json",
  "llrt_logging",
  "llrt_modules",
+ "llrt_net_policy",
  "llrt_numbers",
  "llrt_test",
  "llrt_utils",
@@ -1949,6 +1950,7 @@ dependencies = [
  "llrt_buffer",
  "llrt_context",
  "llrt_events",
+ "llrt_net_policy",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
@@ -2027,6 +2029,7 @@ dependencies = [
  "llrt_encoding",
  "llrt_http",
  "llrt_json",
+ "llrt_net_policy",
  "llrt_stream_web",
  "llrt_test",
  "llrt_test_tls",
@@ -2186,10 +2189,10 @@ dependencies = [
 name = "llrt_net"
 version = "0.9.0-beta"
 dependencies = [
- "itoa",
  "llrt_buffer",
  "llrt_context",
  "llrt_events",
+ "llrt_net_policy",
  "llrt_stream",
  "llrt_test",
  "llrt_utils",
@@ -2197,6 +2200,13 @@ dependencies = [
  "rquickjs",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "llrt_net_policy"
+version = "0.9.0-beta"
+dependencies = [
+ "url",
 ]
 
 [[package]]

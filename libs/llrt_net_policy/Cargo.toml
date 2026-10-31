@@ -1,0 +1,14 @@
+[package]
+name = "llrt_net_policy"
+description = "LLRT network egress policy"
+version = "0.9.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_net_policy"
+path = "src/lib.rs"
+
+[dependencies]
+url = { version = "2", features = ["std"], default-features = false }
