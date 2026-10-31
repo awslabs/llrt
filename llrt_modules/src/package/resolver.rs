@@ -627,7 +627,7 @@ fn load_package_exports<'a>(
 
     let mut sub_module = None;
 
-    let (scope, name) = if name != "." && !package_json_exists {
+    let (scope, name) = if !package_json_exists {
         package_json_path.truncate(base_path_length);
         package_json_path.push_str(x);
         package_json_path.push_str("/package.json");
@@ -648,24 +648,31 @@ fn load_package_exports<'a>(
         }
 
         path.push_str(trimmed_name);
-        let base_path_length = path.len();
-
-        let mut path = Some(path);
+        let requested_extension = JS_EXTENSIONS
+            .iter()
+            .copied()
+            .find(|ext| path.ends_with(ext));
 
         for ext in JS_EXTENSIONS {
-            if let Some(mut current_path) = path.take() {
-                current_path.truncate(base_path_length);
-                current_path.push_str(ext);
-
-                if Path::new(&current_path).exists() {
-                    if *ext == ".mjs" {
-                        //we know its an ESM module
-                        return Ok(current_path.into());
-                    }
-                    sub_module = Some(current_path);
-                    break;
+            if let Some(requested_extension) = requested_extension {
+                if *ext != requested_extension {
+                    continue;
                 }
-                path = Some(current_path);
+            }
+
+            let current_path = if requested_extension.is_some() {
+                path.clone()
+            } else {
+                [path.as_str(), ext].concat()
+            };
+
+            if Path::new(&current_path).is_file() {
+                if *ext == ".mjs" {
+                    //we know its an ESM module
+                    return Ok(current_path.into());
+                }
+                sub_module = Some(current_path);
+                break;
             }
         }
         (scope, name)
@@ -994,7 +1001,55 @@ fn correct_extensions<'a>(x: String) -> Cow<'a, str> {
 
 #[cfg(test)]
 mod tests {
-    use super::package_exports_resolve;
+    use super::{load_package_exports, package_exports_resolve, CJS_LOADER_PREFIX};
+
+    #[test]
+    fn package_subpath_with_extension_resolves_to_existing_file() {
+        let root = std::env::temp_dir().join(format!(
+            "llrt-package-resolver-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let node_modules = root.join("node_modules");
+        let nested_node_modules = node_modules
+            .join("@middy/http-content-negotiation")
+            .join("node_modules");
+        let package_dir = node_modules.join("negotiator");
+        let subpath = package_dir.join("lib/charset.js");
+        std::fs::create_dir_all(&nested_node_modules).unwrap();
+        std::fs::create_dir_all(subpath.parent().unwrap()).unwrap();
+        std::fs::write(package_dir.join("package.json"), r#"{"name":"negotiator"}"#).unwrap();
+        std::fs::write(&subpath, "").unwrap();
+
+        let runtime = rquickjs::Runtime::new().unwrap();
+        let context = rquickjs::Context::full(&runtime).unwrap();
+        context.with(|ctx| {
+            assert!(load_package_exports(
+                &ctx,
+                "negotiator/lib/charset.js",
+                nested_node_modules.to_str().unwrap(),
+                true,
+            )
+            .is_err());
+            assert!(!ctx.has_exception());
+
+            let resolved = load_package_exports(
+                &ctx,
+                "negotiator/lib/charset.js",
+                node_modules.to_str().unwrap(),
+                true,
+            )
+            .unwrap();
+            let expected_path = subpath.to_string_lossy().replace('\\', "/");
+            assert_eq!(resolved, format!("{CJS_LOADER_PREFIX}{expected_path}"));
+        });
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[cfg(windows)]
     use super::{path, to_abs_path};
 
