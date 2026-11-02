@@ -153,7 +153,7 @@ mod tests {
             let big_int_value = json_parse(&ctx, b"99999999999999999999999999999999999999999999999999999999999999999999999999999999999")?;
 
             let stringified = json_stringify(&ctx, big_int_value.clone())?.unwrap();
-            let stringified_2 = ctx.json_stringify(big_int_value)?.unwrap().to_string()?.replace("e+", "e");
+            let stringified_2 = ctx.json_stringify(big_int_value)?.unwrap().to_string()?;
             assert_eq!(stringified, stringified_2);
 
             let big_int_value: Value = ctx.eval("999999999999")?;

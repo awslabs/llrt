@@ -24,7 +24,7 @@ struct StringifyContext<'a, 'js> {
     replacer_fn: Option<&'a Function<'js>>,
     include_keys_replacer: Option<&'a HashSet<String>>,
     itoa_buffer: &'a mut itoa::Buffer,
-    ryu_buffer: &'a mut ryu::Buffer,
+    ryu_buffer: &'a mut ryu_js::Buffer,
 }
 
 #[allow(dead_code)]
@@ -54,7 +54,7 @@ pub fn json_stringify_replacer_space<'js>(
     let tmp_function;
 
     let mut itoa_buffer = itoa::Buffer::new();
-    let mut ryu_buffer = ryu::Buffer::new();
+    let mut ryu_buffer = ryu_js::Buffer::new();
 
     if let Some(replacer) = replacer {
         if let Some(function) = replacer.as_function() {
@@ -273,6 +273,10 @@ fn write_primitive2<'js>(
             let bits = float_value.to_bits();
             if bits & EXP_MASK == EXP_MASK {
                 context.result.push_str("null");
+            } else if float_value == 0.0 {
+                // ryu renders -0.0 as "-0.0", but the spec requires "0" for
+                // both signs of zero.
+                context.result.push('0');
             } else {
                 let str = context.ryu_buffer.format_finite(float_value);
 

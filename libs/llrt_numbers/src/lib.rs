@@ -126,11 +126,22 @@ fn next_up(num: f64) -> f64 {
 }
 
 #[inline(always)]
-fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: u8) -> usize {
-    let mut is_odd = number <= 0x1fffffffffffffi64 as f64 && (number as i64) & 1 != 0;
-    let mut digit;
+fn digit_value(byte: u8) -> usize {
+    match byte {
+        b'0'..=b'9' => (byte - b'0') as usize,
+        b'a'..=b'z' => (byte - b'a') as usize + 10,
+        _ => 0,
+    }
+}
 
-    //let mut needs_rounding_up = false;
+#[inline(always)]
+fn fractional_to_base(
+    buf: &mut [u8],
+    mut index: usize,
+    mut number: f64,
+    radix: u8,
+) -> (usize, bool) {
+    let mut is_odd = number <= 0x1fffffffffffffi64 as f64 && (number as i64) & 1 != 0;
 
     let next_number = next_up(number);
     let mut delta_next_double = next_number - number;
@@ -138,7 +149,7 @@ fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: 
     loop {
         let ntmp = number * radix as f64;
         let rtmp = delta_next_double * radix as f64;
-        digit = ntmp as usize;
+        let digit = (ntmp as usize).min(radix as usize - 1);
         let ritmp = rtmp as usize;
 
         if digit & 1 != 0 {
@@ -148,32 +159,38 @@ fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: 
         number = ntmp - digit as f64;
         delta_next_double = rtmp - ritmp as f64;
 
+        buf[index] = DIGITS[digit];
+        index += 1;
+
         if number > 0.5f64 || number == 0.5f64 && if radix & 1 > 0 { is_odd } else { digit & 1 > 0 }
         {
             if number + delta_next_double > 1.0 {
-                //TODO impl round up
-                break;
+                // The remaining fraction is effectively 1: round the emitted
+                // digits up. Positions visited by the carry become '0' and are
+                // dropped by shrinking the reported end index. Returns true
+                // when the carry runs past buf[0], meaning the fraction
+                // rounded up to a whole unit.
+                let mut i = index;
+                loop {
+                    if i == 0 {
+                        return (0, true);
+                    }
+                    i -= 1;
+                    let next_digit = digit_value(buf[i]) + 1;
+                    if next_digit < radix as usize {
+                        buf[i] = DIGITS[next_digit];
+                        return (i + 1, false);
+                    }
+                }
             }
-        } else if number < delta_next_double * 2.0 {
+        } else if number == 0.0 || number < delta_next_double * 2.0 {
             break;
         }
-        buf[index] = DIGITS[digit];
-
-        index += 1;
+        if index >= buf.len() {
+            break;
+        }
     }
-
-    // let last_index = index;
-    // while number > 0.0 {
-    //     let tmp = number * radix as f64;
-    //     let itmp = tmp as usize;
-    //     buf[index] = DIGITS[itmp];
-    //     number = tmp - itmp as f64;
-    //     index += 1;
-    //     if index - last_index > BUF_SIZE - last_index - 1 {
-    //         break;
-    //     }
-    // }
-    index
+    (index, false)
 }
 
 #[inline(always)]
@@ -185,7 +202,7 @@ fn f64_to_base_n(number: f64, radix: u8) -> String {
     }
 
     if radix == 10 {
-        let mut result = ryu::Buffer::new().format_finite(number).to_string();
+        let mut result = ryu_js::Buffer::new().format_finite(number).to_string();
         if result.ends_with(".0") {
             result.truncate(result.len() - 2);
         }
@@ -203,18 +220,27 @@ fn f64_to_base_n(number: f64, radix: u8) -> String {
 
     let integer_part = abs_num.trunc();
     let fractional_part = abs_num - integer_part;
-    let integer_part = abs_num as i64;
+    let mut int_val = integer_part as i64;
 
-    let index = internal_i64_to_base_n(&mut buf, integer_part, radix);
+    let mut frac_buf = [0u8; BUF_SIZE];
+    let mut frac_end = 0;
+    if fractional_part > 0.0 {
+        let (end, carry) = fractional_to_base(&mut frac_buf, 0, fractional_part, radix);
+        if carry {
+            // Fraction rounded up to a whole unit: fold it into the integer
+            // part and emit no fractional digits.
+            int_val = int_val.wrapping_add(1);
+        } else {
+            frac_end = end;
+        }
+    }
+
+    let index = internal_i64_to_base_n(&mut buf, int_val, radix);
     string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[index..BUF_SIZE]) });
 
-    if fractional_part > 0.0 {
-        buf.fill(0);
-        let frac_end = fractional_to_base(&mut buf, 0, fractional_part, radix);
-        if frac_end > 0 {
-            string.push('.');
-            string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[0..frac_end]) });
-        }
+    if frac_end > 0 {
+        string.push('.');
+        string.push_str(unsafe { std::str::from_utf8_unchecked(&frac_buf[..frac_end]) });
     }
     string
 }
@@ -288,7 +314,7 @@ mod test {
 
     use rand::RngExt;
 
-    use crate::{float_to_string, i64_to_base_n};
+    use crate::{f64_to_base_n, float_to_string, i64_to_base_n};
 
     #[test]
     fn test_base_conversions() {
@@ -334,5 +360,33 @@ mod test {
 
         let float = float_to_string(0.0);
         assert_eq!("0", float);
+
+        // The exponent sign is required even when positive.
+        assert_eq!("1e+21", float_to_string(1e21));
+        assert_eq!("-1e+21", float_to_string(-1e21));
+        assert_eq!("1e-7", float_to_string(1e-7));
+        assert_eq!("100000000000000000000", float_to_string(1e20));
+    }
+
+    #[test]
+    fn test_fractional_base_conversions() {
+        // The last fractional digit must be emitted even when the remaining
+        // fraction reaches zero within floating point error.
+        assert_eq!("3.i", f64_to_base_n(3.5, 36));
+        assert_eq!("ff.c", f64_to_base_n(255.75, 16));
+        assert_eq!("0.1", f64_to_base_n(0.5, 2));
+        assert_eq!("12.5", f64_to_base_n(10.625, 8));
+        assert_eq!("-3.i", f64_to_base_n(-3.5, 36));
+        // Non-terminating fractions emit a shortest round-trip style output.
+        assert_eq!("0.3lllllllllm", f64_to_base_n(0.1, 36));
+        assert_eq!(
+            "0.0001100110011001100110011001100110011001100110011001101",
+            f64_to_base_n(0.1, 2)
+        );
+        // Emitted digits follow the exact binary expansion; Node emits a
+        // different member of the same round-trip interval ("v.zzzzzzzzz")
+        // via bignum fallback, which the spec leaves implementation-defined.
+        assert_eq!("v.zzzzzzzzyx", f64_to_base_n(31.99999999999999, 36));
+        assert_eq!("0.7ffffffffffffc", f64_to_base_n(0.49999999999999994, 16));
     }
 }
