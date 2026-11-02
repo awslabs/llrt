@@ -329,18 +329,12 @@ impl<'js> URLSearchParams {
 
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(query: String) -> Self {
-        let query = if !query.starts_with('?') {
-            ["?", &query].concat()
-        } else {
-            query
-        };
-        let url = unsafe {
-            "http://example.com"
-                .parse::<Url>()
-                .unwrap_unchecked()
-                .join(&query)
-                .unwrap_unchecked()
-        };
+        // A single leading '?' is skipped per the URLSearchParams spec; the
+        // rest is parsed as application/x-www-form-urlencoded, so characters
+        // like '#' must stay literal rather than act as URL delimiters.
+        let query = query.strip_prefix('?').unwrap_or(&query);
+        let mut url = unsafe { "http://example.com".parse::<Url>().unwrap_unchecked() };
+        url.set_query(if query.is_empty() { None } else { Some(query) });
         Self {
             url: Rc::new(RefCell::new(url)),
         }

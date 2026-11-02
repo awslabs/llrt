@@ -482,7 +482,7 @@ impl Headers {
                     return Err(Exception::throw_type(ctx, "Header arrays are not paired"));
                 }
 
-                let mut raw_key = array_entry.get::<String>(0)?;
+                let mut raw_key = coerce_to_string(ctx, array_entry.get::<Value>(0)?)?;
                 raw_key.make_ascii_lowercase();
                 if !is_http_header_name(&raw_key) {
                     return Err(Exception::throw_type(ctx, "Invalid key"));
