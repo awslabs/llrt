@@ -209,6 +209,12 @@ describe("Buffer.concat", () => {
     }).toThrow(RangeError);
   });
 
+  it("should zero-pad the result when totalLength exceeds the combined length", () => {
+    const buffer = Buffer.concat([Buffer.from([1, 2, 3])], 10);
+    expect(buffer.length).toBe(10);
+    expect(Array.from(buffer)).toEqual([1, 2, 3, 0, 0, 0, 0, 0, 0, 0]);
+  });
+
   it("should concatenate buffers with specified totalLength", () => {
     const buffer1 = Buffer.from("123");
     const buffer2 = Buffer.from("4567");
@@ -416,6 +422,57 @@ describe("Buffer.isEncoding", () => {
     expect(Buffer.isEncoding(undefined as unknown as string)).toEqual(false);
     expect(Buffer.isEncoding(null as unknown as string)).toEqual(false);
     expect(Buffer.isEncoding("utf8/8")).toEqual(false);
+  });
+
+  it("should match Node's accepted encoding set", () => {
+    for (const enc of [
+      "utf8",
+      "utf-8",
+      "utf16le",
+      "utf-16le",
+      "ucs2",
+      "ucs-2",
+      "latin1",
+      "binary",
+      "ascii",
+      "hex",
+      "base64",
+      "base64url",
+      "UTF8",
+    ]) {
+      expect(Buffer.isEncoding(enc)).toEqual(true);
+    }
+    // WHATWG labels that Node does not accept as Buffer encodings.
+    for (const enc of ["iso-8859-1", "windows-1252", "utf-16be", "base-64"]) {
+      expect(Buffer.isEncoding(enc)).toEqual(false);
+    }
+  });
+
+  it("should encode and decode latin1/binary as one byte per code unit", () => {
+    // latin1 write: each UTF-16 code unit contributes its low byte.
+    expect(Array.from(Buffer.from("café", "latin1"))).toEqual([99, 97, 102, 233]);
+    expect(Array.from(Buffer.from("café", "binary"))).toEqual([99, 97, 102, 233]);
+    // code units above U+00FF are truncated to their low byte.
+    expect(Array.from(Buffer.from("Ē", "latin1"))).toEqual([0x12]);
+    // latin1 read: every byte maps to one code unit (no windows-1252 table).
+    expect(Buffer.from([0xe9, 0x93, 0x41]).toString("latin1")).toEqual(
+      "é\u0093A"
+    );
+  });
+
+  it("should decode ascii with the high bit unset", () => {
+    // Node's ascii decode masks bytes to 7 bits; encode behaves like latin1.
+    expect(Buffer.from([0xe9, 0x93, 0x41]).toString("ascii")).toEqual(
+      "i\u0013A"
+    );
+    expect(Array.from(Buffer.from("café", "ascii"))).toEqual([99, 97, 102, 233]);
+  });
+
+  it("should support base64url without padding", () => {
+    expect(Buffer.from([0xfa, 0xff]).toString("base64url")).toEqual("-v8");
+    expect(Array.from(Buffer.from("aGk", "base64url"))).toEqual([104, 105]);
+    // url-safe and standard alphabets both decode
+    expect(Array.from(Buffer.from("aGk+", "base64url"))).toEqual([104, 105, 62]);
   });
 
   it("should accept 'buffer' encoding in Buffer.from and stream writes", async () => {

@@ -436,7 +436,7 @@ fn parse_endings<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> Result<Option<Ending
 
 fn array_to_string(array: &Array) -> Result<String> {
     let mut itoa_buffer = itoa::Buffer::new();
-    let mut ryu_buffer = ryu::Buffer::new();
+    let mut ryu_buffer = ryu_js::Buffer::new();
 
     let parts = array
         .clone()
