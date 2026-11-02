@@ -5,6 +5,7 @@ members = [
   "libs/llrt_build",
   "libs/llrt_compression",
   "libs/llrt_context",
+  "libs/llrt_scheduler",
   "libs/llrt_encoding",
   "libs/llrt_json",
   "libs/llrt_net_policy",
@@ -45,6 +46,9 @@ members = [
   "llrt_core",
   "llrt",
 ]
+
+[patch.crates-io]
+rquickjs = { git = "https://github.com/nabetti1720/rquickjs.git", branch = "feat/promise-before-after-hook" }
 
 [profile.flame]
 inherits = "release"

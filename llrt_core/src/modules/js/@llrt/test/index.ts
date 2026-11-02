@@ -199,6 +199,10 @@ class TestServer {
           const stdErr = workerData.stdErrBuffer.getContent().toString();
           const stdOut = workerData.stdOutBuffer.getContent().toString();
           let errorOutput = Color.RED_BACKGROUND(Color.BOLD("Worker Error:\n"));
+          errorOutput += `${Color.BOLD(workerData.file)}\n`;
+          if (workerData.currentPath.length > 0) {
+            errorOutput += `${workerData.currentPath.join(" > ")}\n`;
+          }
 
           if (stdErr) {
             errorOutput += Color.RED(`\nStd Err:\n${stdErr}`);

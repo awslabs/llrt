@@ -7,7 +7,7 @@ use std::{
 use rquickjs::{
     class::{OwnedBorrowMut, Trace, Tracer},
     function::Constructor,
-    prelude::{List, OnceFn},
+    prelude::List,
     ArrayBuffer, Class, Ctx, Error, Function, IntoJs, JsLifetime, Promise, Result, Value,
 };
 
@@ -37,7 +37,7 @@ use crate::{
             ReadableStream, ReadableStreamClass,
         },
     },
-    utils::promise::{upon_promise, ResolveablePromise},
+    utils::promise::{defer_async_callback, upon_promise, ResolveablePromise},
 };
 
 /// State for tee() operation, stored in a Class for GC tracing
@@ -374,7 +374,7 @@ pub fn tee_pull_algorithm<'js>(
                     }
                 };
 
-                let () = Function::new(ctx, OnceFn::new(f))?.defer(())?;
+                defer_async_callback(&ctx, f)?;
                 Ok(ReadableStreamObjects::from_class(objects_class))
             })
         }
@@ -1025,7 +1025,7 @@ impl<'js> ReadableStream<'js> {
                         }
                     };
 
-                    let () = Function::new(ctx, OnceFn::new(f))?.defer(())?;
+                    defer_async_callback(&ctx, f)?;
 
                     let objects = ReadableStreamObjects::from_class(objects_class);
 
@@ -1401,7 +1401,7 @@ impl<'js> ReadableStream<'js> {
                     }
                 };
 
-                let () = Function::new(ctx, OnceFn::new(f))?.defer(())?;
+                defer_async_callback(&ctx, f)?;
 
                 let objects = ReadableStreamObjects::from_class(objects_class);
 

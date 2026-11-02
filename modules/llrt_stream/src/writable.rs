@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::sync::{Arc, RwLock};
 
+use llrt_async_context::lifecycle::{register_native_resource, AsyncResourceHandle};
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_utils::{bytes::ObjectBytes, error::ErrorExtensions, result::ResultExt};
@@ -58,11 +59,15 @@ impl<'js> WritableStreamInner<'js> {
     }
 }
 
-#[derive(Debug)]
 #[allow(dead_code)]
 pub enum WriteCommand<'js> {
     End,
-    Write(Value<'js>, Option<Function<'js>>, bool),
+    Write(
+        Value<'js>,
+        Option<Function<'js>>,
+        bool,
+        Option<AsyncResourceHandle>,
+    ),
     Flush,
 }
 
@@ -191,19 +196,30 @@ where
         flush: bool,
     ) -> Result<()> {
         let callback = cb.0;
+        let async_resource = if callback.is_some() {
+            Some(register_native_resource(&ctx)?)
+        } else {
+            None
+        };
+        let error_resource = async_resource.clone();
 
         if this
             .borrow()
             .inner()
             .command_tx
-            .send(WriteCommand::Write(value, callback.clone(), flush))
+            .send(WriteCommand::Write(
+                value,
+                callback.clone(),
+                flush,
+                async_resource,
+            ))
             .is_err()
         {
-            if let Some(cb) = callback {
+            if let (Some(cb), Some(resource)) = (callback, error_resource) {
                 let err = Exception::throw_message(&ctx, "This stream has been ended")
                     .into_value(&ctx)?;
 
-                () = cb.call((err,))?;
+                resource.call(&ctx, &cb, (err,))?;
             }
         }
 
@@ -215,6 +231,8 @@ where
         ctx: &Ctx<'js>,
         writable: T,
     ) -> Result<Receiver<bool>> {
+        let async_resource = register_native_resource(ctx)?;
+
         let mut borrow = this.borrow_mut();
         let inner = borrow.inner_mut();
         let is_ended = inner.is_finished;
@@ -233,6 +251,7 @@ where
         ctx.spawn_exit(async move {
             let ctx3 = ctx2.clone();
             let ctx4 = ctx2.clone();
+            let write_resource = async_resource.clone();
             let this2 = this.clone();
             let write_function = async move {
                 let mut writer = BufWriter::new(writable);
@@ -242,7 +261,12 @@ where
                         tokio::select! {
                             command = command_rx.recv() => {
                                  match command {
-                                    Some(WriteCommand::Write(value, cb, flush)) => {
+                                    Some(WriteCommand::Write(
+                                        value,
+                                        cb,
+                                        flush,
+                                        request_resource,
+                                    )) => {
                                         let bytes = ObjectBytes::from(&ctx3, &value)?;
                                         let data = bytes.as_bytes(&ctx4)?;
                                         let result = async {
@@ -255,15 +279,19 @@ where
 
                                         match result {
                                             Ok(_) => {
-                                                if let Some(cb) = cb {
-                                                    () = cb.call(())?;
+                                                if let (Some(cb), Some(resource)) =
+                                                    (cb, request_resource.as_ref())
+                                                {
+                                                    resource.call(&ctx3, &cb, ())?;
                                                 }
                                             },
                                             Err(err) => {
                                                 let err2 = Exception::throw_message(&ctx3, &err.to_string());
-                                                if let Some(cb) = cb {
+                                                if let (Some(cb), Some(resource)) =
+                                                    (cb, request_resource.as_ref())
+                                                {
                                                     let err = err.into_value(&ctx3)?;
-                                                    () = cb.call((err,))?;
+                                                    resource.call(&ctx3, &cb, (err,))?;
                                                 }
                                                 return Err(err2);
                                             }
@@ -288,7 +316,9 @@ where
                 drop(writer);
 
                 if !is_destroyed {
-                    Self::emit_str(this2, &ctx3, "finish", vec![], false)?;
+                    write_resource.run(&ctx3, || {
+                        Self::emit_str(this2, &ctx3, "finish", vec![], false)
+                    })?;
                 }
 
                 if let Some(error_value) = error_value{
@@ -299,10 +329,17 @@ where
             }
             .await;
 
-            let had_error = write_function.emit_error("writable", &ctx2, this.clone())?;
+            let mut write_result = Ok(false);
+            async_resource.run(&ctx2, || {
+                write_result = write_function.emit_error("writable", &ctx2, this.clone());
+                Ok(())
+            })?;
+            let had_error = write_result?;
 
             if emit_close {
-                Self::emit_close(this,&ctx2,had_error)?;
+                async_resource.run(&ctx2, || {
+                    Self::emit_close(this, &ctx2, had_error)
+                })?;
             }
 
             Ok::<_, Error>(had_error)
