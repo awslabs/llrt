@@ -2565,10 +2565,10 @@ esbuild-css-modules-plugin@3.1.5:
     lightningcss "^1.28.2"
     lodash-es "^4.17.21"
 
-esbuild-plugins-node-modules-polyfill@1.8.2:
-  version "1.8.2"
-  resolved "https://registry.yarnpkg.com/esbuild-plugins-node-modules-polyfill/-/esbuild-plugins-node-modules-polyfill-1.8.2.tgz#8d46cf056351ab274f0d62c6f9677ea0eb6658f8"
-  integrity sha512-qUia44jWQLoi8U9WSrUvuyTJWs99VHOTy/L8Iw/ZiyLyyGj7Pa27iCc0P8kIIvb+XWnhQvYc/qn/OM8YwhPZ3g==
+esbuild-plugins-node-modules-polyfill@1.8.3:
+  version "1.8.3"
+  resolved "https://registry.yarnpkg.com/esbuild-plugins-node-modules-polyfill/-/esbuild-plugins-node-modules-polyfill-1.8.3.tgz#5e32297cffa9709bc2d8f57b73b9177f8003e32a"
+  integrity sha512-DSWWgkQUkavjuyvuaTSd7FpOOZgMpsgmzANoNCCDtOt6NeK5k5bxrn/kSGxnEyiRfSvfIlwgYfOL7s6RRLaxKw==
   dependencies:
     "@jspm/core" "^2.1.0"
     local-pkg "^1.2.1"
