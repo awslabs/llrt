@@ -20,6 +20,16 @@ describe("Headers class", () => {
     expect(h.get("Content-Type")).toEqual("text/plain");
   });
 
+  it("should coerce non-string names and values in tuples", () => {
+    // WebIDL ByteString conversion applies ToString, so numbers and booleans
+    // are valid header names and values.
+    const h = new Headers([[1 as unknown as string, 2 as unknown as string]]);
+    expect(h.get("1")).toEqual("2");
+    const h2 = new Headers();
+    h2.append("x", true as unknown as string);
+    expect(h2.get("x")).toEqual("true");
+  });
+
   it("should delete headers from the Headers object", () => {
     const headers = { "Content-Type": "application/json" };
     const h = new Headers(headers);

@@ -80,6 +80,7 @@ pub fn structured_clone<'js>(
     let mut stack = Vec::with_capacity(10);
     let mut visited = Vec::<(usize, usize)>::with_capacity(10);
     let mut index = 0usize;
+    let data_view_ctor = &primordials.constructor_data_view;
 
     stack.push(StackItem::Value(0, value, None, None));
 
@@ -98,6 +99,12 @@ pub fn structured_clone<'js>(
                         return Err(Exception::throw_type(
                             ctx,
                             "A Proxy value could not be cloned",
+                        ));
+                    },
+                    Type::Function | Type::Symbol | Type::Promise | Type::Constructor => {
+                        return Err(DOMException::data_clone_error(
+                            ctx,
+                            "Value could not be cloned",
                         ));
                     },
                     Type::Object => {
@@ -183,7 +190,15 @@ pub fn structured_clone<'js>(
                             .function_array_buffer_is_view
                             .call::<_, bool>((value.clone(),))?
                         {
-                            append_buffer(&mut tape, object, parent, object_key, array_index)?;
+                            let is_data_view = object.is_instance_of(data_view_ctor);
+                            append_buffer(
+                                &mut tape,
+                                object,
+                                parent,
+                                object_key,
+                                array_index,
+                                is_data_view,
+                            )?;
                             index += 1;
                             continue;
                         }
@@ -306,8 +321,26 @@ fn append_buffer<'js>(
     parent: usize,
     object_key: Option<String>,
     array_index: Option<usize>,
+    is_data_view: bool,
 ) -> Result<()> {
     let ctor: Constructor = object.get(PredefinedAtom::Constructor)?;
+    // DataView has no slice(): clone the viewed ArrayBuffer and rebuild the
+    // view at the same offset and length, per the HTML spec.
+    if is_data_view {
+        let buffer: Object = object.get("buffer")?;
+        let byte_offset: usize = object.get("byteOffset")?;
+        let byte_length: usize = object.get("byteLength")?;
+        let slice: Function = buffer.get("slice")?;
+        let cloned_buffer: Value = slice.call((This(buffer),))?;
+        let new = ctor.construct((cloned_buffer, byte_offset, byte_length))?;
+        tape.push(TapeItem {
+            parent,
+            object_key,
+            array_index,
+            value: TapeValue::Value(new),
+        });
+        return Ok(());
+    }
     let slice: Function = object.get("slice")?;
     let clone: Value = slice.call((This(object.clone()),))?;
     let new = ctor.construct((clone,))?;
