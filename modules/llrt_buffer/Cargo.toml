@@ -18,7 +18,7 @@ llrt_utils = { version = "0.9.0-beta", path = "../../libs/llrt_utils", default-f
 rquickjs = { version = "0.14", features = [
   "futures",
 ], default-features = false }
-ryu = { version = "1", default-features = false }
+ryu-js = { version = "1", default-features = false }
 
 [dev-dependencies]
 llrt_test = { path = "../../libs/llrt_test" }
