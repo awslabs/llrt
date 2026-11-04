@@ -26,8 +26,8 @@ describe("Number to base conversion within 32-bit range", () => {
 
     { num: 2147483647, radix: 16, expected: "7fffffff" }, // max 32bit signed
     { num: -2147483648, radix: 16, expected: "-80000000" }, // min 32bit signed
-    { num: 12345.6789, radix: 16, expected: "3039.adcc63f14" },
-    { num: -12345.6789, radix: 16, expected: "-3039.adcc63f14" },
+    { num: 12345.6789, radix: 16, expected: "3039.adcc63f142" },
+    { num: -12345.6789, radix: 16, expected: "-3039.adcc63f142" },
     { num: NaN, radix: 16, expected: "NaN" },
     { num: Infinity, radix: 16, expected: "Infinity" },
     { num: -Infinity, radix: 16, expected: "-Infinity" },
@@ -39,6 +39,12 @@ describe("Number to base conversion within 32-bit range", () => {
 
     { num: new Number(0), radix: undefined, expected: "0" },
     { num: new Number(42), radix: undefined, expected: "42" },
+
+    // The exponent sign is required even when positive.
+    { num: 1e21, radix: 10, expected: "1e+21" },
+    { num: -1e21, radix: 10, expected: "-1e+21" },
+    { num: 1e-7, radix: 10, expected: "1e-7" },
+    { num: 1e20, radix: 10, expected: "100000000000000000000" },
   ];
 
   testCases.forEach(({ num, radix, expected }) => {
@@ -84,5 +90,35 @@ describe("Number to base conversion over 32-bit range", () => {
 
   it("should convert number to base-36", () => {
     expect(num.toString(36)).toEqual("mbp4fshl");
+  });
+});
+
+describe("Number to base conversion with fractional parts", () => {
+  // The final fractional digit must be emitted even when the remaining
+  // fraction reaches zero within floating point error.
+  const testCases = [
+    { num: 3.5, radix: 36, expected: "3.i" },
+    { num: -3.5, radix: 36, expected: "-3.i" },
+    { num: 255.75, radix: 16, expected: "ff.c" },
+    { num: 0.5, radix: 2, expected: "0.1" },
+    { num: 10.625, radix: 8, expected: "12.5" },
+    { num: 0.1, radix: 36, expected: "0.3lllllllllm" },
+    {
+      num: 0.1,
+      radix: 2,
+      expected:
+        "0.0001100110011001100110011001100110011001100110011001101",
+    },
+    // Fractional digits follow the exact binary expansion and round-trip;
+    // the final-digit choice may differ from Node's bignum-based output
+    // (spec: implementation-defined for radix != 10).
+    { num: 31.99999999999999, radix: 36, expected: "v.zzzzzzzzyx" },
+    { num: 0.49999999999999994, radix: 16, expected: "0.7ffffffffffffc" },
+  ];
+
+  testCases.forEach(({ num, radix, expected }) => {
+    it(`num=${num} radix=${radix} => ${expected}`, () => {
+      expect(num.toString(radix)).toBe(expected);
+    });
   });
 });

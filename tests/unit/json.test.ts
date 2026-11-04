@@ -94,11 +94,23 @@ describe("JSON Stringified", () => {
     expect(jsonString).toEqual('{"value":1}');
   });
 
+  it("should print negative zero as 0", () => {
+    expect(JSON.stringify(-0)).toEqual("0");
+    expect(JSON.stringify([-0])).toEqual("[0]");
+    expect(JSON.stringify({ value: -0 })).toEqual('{"value":0}');
+  });
+
+  it("should include the exponent sign for large numbers", () => {
+    expect(JSON.stringify(1e21)).toEqual("1e+21");
+    expect(JSON.stringify(-1e21)).toEqual("-1e+21");
+    expect(JSON.stringify(1e-7)).toEqual("1e-7");
+  });
+
   it("should print very large numbers as floats with scientific notation", () => {
     const jsonString = JSON.stringify({
       value: 999999999999999999999999999999,
     });
-    expect(jsonString).toEqual('{"value":1e30}');
+    expect(jsonString).toEqual('{"value":1e+30}');
   });
 
   it("should stringify and parse recursive JSON with self-referencing structures", () => {
