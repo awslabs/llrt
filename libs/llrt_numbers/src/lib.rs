@@ -202,7 +202,7 @@ fn f64_to_base_n(number: f64, radix: u8) -> String {
     }
 
     if radix == 10 {
-        let mut result = ryu_js::Buffer::new().format_finite(number).to_string();
+        let mut result = zmij_ecma::Buffer::new().format_finite(number).to_string();
         if result.ends_with(".0") {
             result.truncate(result.len() - 2);
         }

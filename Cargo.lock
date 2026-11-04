@@ -2112,9 +2112,9 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rquickjs",
- "ryu-js",
  "simd-json",
  "tokio",
+ "zmij_ecma",
 ]
 
 [[package]]
@@ -2219,7 +2219,7 @@ dependencies = [
  "llrt_utils",
  "rand",
  "rquickjs",
- "ryu-js",
+ "zmij_ecma",
 ]
 
 [[package]]
@@ -3305,12 +3305,6 @@ name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
-
-[[package]]
-name = "ryu-js"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04d056b875a9d2e6cb9a61d127afee9ac5999b9f87bcb32079d1318e505be714"
 
 [[package]]
 name = "same-file"
@@ -4563,6 +4557,12 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
+
+[[package]]
+name = "zmij_ecma"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "458b3e7a977f14499066b6bdb63d69da30ce337d6c160f077e6c575c82a44db9"
 
 [[package]]
 name = "zstd"

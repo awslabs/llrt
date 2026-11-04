@@ -24,7 +24,7 @@ struct StringifyContext<'a, 'js> {
     replacer_fn: Option<&'a Function<'js>>,
     include_keys_replacer: Option<&'a HashSet<String>>,
     itoa_buffer: &'a mut itoa::Buffer,
-    ryu_buffer: &'a mut ryu_js::Buffer,
+    ecma_buffer: &'a mut zmij_ecma::Buffer,
 }
 
 #[allow(dead_code)]
@@ -54,7 +54,7 @@ pub fn json_stringify_replacer_space<'js>(
     let tmp_function;
 
     let mut itoa_buffer = itoa::Buffer::new();
-    let mut ryu_buffer = ryu_js::Buffer::new();
+    let mut ecma_buffer = zmij_ecma::Buffer::new();
 
     if let Some(replacer) = replacer {
         if let Some(function) = replacer.as_function() {
@@ -69,7 +69,7 @@ pub fn json_stringify_replacer_space<'js>(
                 } else if let Some(number) = value.as_int() {
                     filter.insert(itoa_buffer.format(number).to_string());
                 } else if let Some(number) = value.as_float() {
-                    filter.insert(ryu_buffer.format(number).to_string());
+                    filter.insert(ecma_buffer.format(number).to_string());
                 }
             }
             include_keys_replacer = Some(filter);
@@ -94,7 +94,7 @@ pub fn json_stringify_replacer_space<'js>(
         replacer_fn,
         include_keys_replacer,
         itoa_buffer: &mut itoa_buffer,
-        ryu_buffer: &mut ryu_buffer,
+        ecma_buffer: &mut ecma_buffer,
     };
 
     match write_primitive(&mut context, false)? {
@@ -154,7 +154,7 @@ fn run_to_json<'js>(
             replacer_fn: context.replacer_fn,
             include_keys_replacer: context.include_keys_replacer,
             itoa_buffer: context.itoa_buffer,
-            ryu_buffer: context.ryu_buffer,
+            ecma_buffer: context.ecma_buffer,
         },
         false,
     )?;
@@ -278,7 +278,7 @@ fn write_primitive2<'js>(
                 // both signs of zero.
                 context.result.push('0');
             } else {
-                let str = context.ryu_buffer.format_finite(float_value);
+                let str = context.ecma_buffer.format_finite(float_value);
 
                 let bytes = str.as_bytes();
                 let len = bytes.len();
@@ -493,7 +493,7 @@ fn iterate<'js>(
                         replacer_fn: context.replacer_fn,
                         include_keys_replacer: context.include_keys_replacer,
                         itoa_buffer: context.itoa_buffer,
-                        ryu_buffer: context.ryu_buffer,
+                        ecma_buffer: context.ecma_buffer,
                     },
                     value_written,
                 )?;
@@ -538,7 +538,7 @@ fn iterate<'js>(
                         replacer_fn: context.replacer_fn,
                         include_keys_replacer: context.include_keys_replacer,
                         itoa_buffer: context.itoa_buffer,
-                        ryu_buffer: context.ryu_buffer,
+                        ecma_buffer: context.ecma_buffer,
                     },
                     add_comma,
                 )?;
