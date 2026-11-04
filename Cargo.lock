@@ -2496,9 +2496,9 @@ dependencies = [
 
 [[package]]
 name = "ml-dsa"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "add6b9d92e496f16f4526d68ff29da1483aba4b119baeab8bed3b9e3544a6f3d"
+checksum = "6f6d49c3f3f0e10e18ca975ffda66f8da0ec36521c1d911adcbc521bf0743f5c"
 dependencies = [
  "const-oid",
  "crypto-common",
