@@ -19,6 +19,7 @@ pub struct BasePrimordials<'js> {
     pub constructor_regexp: Constructor<'js>,
     pub constructor_uint8array: Constructor<'js>,
     pub constructor_array_buffer: Constructor<'js>,
+    pub constructor_data_view: Constructor<'js>,
     pub constructor_proxy: Constructor<'js>,
     pub constructor_object: Constructor<'js>,
     pub constructor_bool: Constructor<'js>,
@@ -109,6 +110,7 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
 
         let constructor_array_buffer: Object = globals.get(PredefinedAtom::ArrayBuffer)?;
         let function_array_buffer_is_view: Function = constructor_array_buffer.get("isView")?;
+        let constructor_data_view: Constructor = globals.get("DataView")?;
 
         let constructor_bool: Constructor = globals.get(PredefinedAtom::Boolean)?;
 
@@ -143,6 +145,7 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
             constructor_regexp,
             constructor_uint8array,
             constructor_array_buffer: constructor_arraybuffer,
+            constructor_data_view,
             constructor_object,
             constructor_bool,
             constructor_number,

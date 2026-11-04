@@ -80,7 +80,7 @@ pub fn structured_clone<'js>(
     let mut stack = Vec::with_capacity(10);
     let mut visited = Vec::<(usize, usize)>::with_capacity(10);
     let mut index = 0usize;
-    let data_view_ctor: Option<Constructor> = ctx.globals().get("DataView").ok();
+    let data_view_ctor = &primordials.constructor_data_view;
 
     stack.push(StackItem::Value(0, value, None, None));
 
@@ -190,9 +190,7 @@ pub fn structured_clone<'js>(
                             .function_array_buffer_is_view
                             .call::<_, bool>((value.clone(),))?
                         {
-                            let is_data_view = data_view_ctor
-                                .as_ref()
-                                .is_some_and(|ctor| object.is_instance_of(ctor));
+                            let is_data_view = object.is_instance_of(data_view_ctor);
                             append_buffer(
                                 &mut tape,
                                 object,
