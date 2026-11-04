@@ -78,12 +78,15 @@ const BUFFER_ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
 };
 
 impl Encoder {
-    pub fn from_optional_str(encoding: Option<&str>) -> Result<Self, String> {
-        encoding.map_or(Ok(Self::Utf8), Self::from_str)
+    pub fn from_label_optional(encoding: Option<&str>) -> Result<Self, String> {
+        encoding.map_or(Ok(Self::Utf8), Self::from_label)
     }
 
+    /// The encoding set defined by the WHATWG Encoding Standard's labels
+    /// (TextEncoder/TextDecoder semantics). For Node.js `Buffer` encodings
+    /// use `for_buffer` instead.
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(encoding: &str) -> Result<Self, String> {
+    pub fn from_label(encoding: &str) -> Result<Self, String> {
         ENCODING_MAP
             .get(encoding.trim_ascii().to_ascii_lowercase().as_str())
             .cloned()
@@ -91,7 +94,7 @@ impl Encoder {
     }
 
     /// The encoding set accepted by Node.js `Buffer` methods. Differs from
-    /// `from_str`: Node-style "latin1"/"binary"/"ascii" map each byte to one
+    /// `from_label`: Node-style "latin1"/"binary"/"ascii" map each byte to one
     /// UTF-16 code unit instead of using the windows-1252 WHATWG table, and
     /// labels such as "iso-8859-1", "windows-1252" and "utf-16be" are rejected.
     pub fn for_buffer(encoding: &str) -> Result<Self, String> {

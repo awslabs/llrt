@@ -70,7 +70,7 @@ impl<'js> TextDecoder {
         let mut fatal = false;
         let mut ignore_bom = false;
 
-        let encoder = Encoder::from_optional_str(label.as_deref()).or_throw_range(&ctx, "")?;
+        let encoder = Encoder::from_label_optional(label.as_deref()).or_throw_range(&ctx, "")?;
 
         if let Some(opts) = options.0 {
             if let Some(opt) = opts.get_optional::<_, Coerced<bool>>("fatal")? {
