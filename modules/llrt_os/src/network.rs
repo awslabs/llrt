@@ -3,22 +3,17 @@
 use std::{
     collections::HashMap,
     net::{Ipv4Addr, Ipv6Addr},
-    sync::{Arc, Mutex},
 };
 
 use llrt_utils::result::ResultExt;
-use once_cell::sync::Lazy;
 use rquickjs::{Ctx, Object, Result};
 use sysinfo::Networks;
 
-static NETWORKS: Lazy<Arc<Mutex<Option<Networks>>>> =
-    Lazy::new(|| Arc::new(Mutex::new(Networks::new_with_refreshed_list().ok())));
-
 pub fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object<'_>>>> {
     let mut map: HashMap<String, Vec<Object>> = HashMap::new();
-    let networks = NETWORKS.lock().unwrap();
+    let networks = Networks::new_with_refreshed_list().or_throw(&ctx)?;
 
-    for (interface_name, network_data) in networks.iter().flat_map(|networks| networks.iter()) {
+    for (interface_name, network_data) in networks.iter() {
         let mut ifs = Vec::new();
 
         for ip_network in network_data.ip_networks() {
