@@ -11,14 +11,14 @@ use once_cell::sync::Lazy;
 use rquickjs::{Ctx, Object, Result};
 use sysinfo::Networks;
 
-static NETWORKS: Lazy<Arc<Mutex<Networks>>> =
-    Lazy::new(|| Arc::new(Mutex::new(Networks::new_with_refreshed_list())));
+static NETWORKS: Lazy<Arc<Mutex<Option<Networks>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(Networks::new_with_refreshed_list().ok())));
 
 pub fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object<'_>>>> {
     let mut map: HashMap<String, Vec<Object>> = HashMap::new();
     let networks = NETWORKS.lock().unwrap();
 
-    for (interface_name, network_data) in networks.iter() {
+    for (interface_name, network_data) in networks.iter().flat_map(|networks| networks.iter()) {
         let mut ifs = Vec::new();
 
         for ip_network in network_data.ip_networks() {
@@ -52,7 +52,7 @@ pub fn get_network_interfaces(ctx: Ctx<'_>) -> Result<HashMap<String, Vec<Object
             ifs.push(obj);
         }
         if !ifs.is_empty() {
-            map.insert(interface_name.to_string(), ifs);
+            map.insert(interface_name.to_string_lossy().into_owned(), ifs);
         }
     }
     Ok(map)

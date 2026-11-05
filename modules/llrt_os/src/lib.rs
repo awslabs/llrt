@@ -64,14 +64,16 @@ fn get_home_dir(ctx: Ctx<'_>) -> Result<String> {
 
 #[cfg(feature = "system")]
 fn get_host_name(ctx: Ctx<'_>) -> Result<String> {
-    System::host_name().ok_or_else(|| Exception::throw_reference(&ctx, "System::host_name"))
+    System::host_name()
+        .map_err(|e| Exception::throw_reference(&ctx, &format!("System::host_name: {e}")))
 }
 
 #[cfg(feature = "system")]
 fn get_load_avg() -> Vec<f64> {
-    let load_avg = System::load_average();
-
-    vec![load_avg.one, load_avg.five, load_avg.fifteen]
+    match System::load_average() {
+        Ok(load_avg) => vec![load_avg.one, load_avg.five, load_avg.fifteen],
+        Err(_) => vec![0.0; 3],
+    }
 }
 
 #[cfg(feature = "system")]
@@ -85,7 +87,7 @@ fn get_tmp_dir() -> String {
 
 #[cfg(feature = "system")]
 fn get_uptime() -> u64 {
-    System::uptime()
+    System::uptime().unwrap_or_default()
 }
 
 pub struct OsModule;
@@ -365,6 +367,36 @@ mod tests {
                     assert!(!result.is_empty()); // platform dependant
                 })
                 .await;
+            })
+        })
+        .await;
+    }
+
+    #[cfg(feature = "system")]
+    #[tokio::test]
+    async fn test_loadavg() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                ModuleEvaluator::eval_rust::<OsModule>(ctx.clone(), "os")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { loadavg } from 'os';
+
+                        export async function test() {
+                            return loadavg().length
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<usize, _>(&ctx, &module, ()).await;
+                assert_eq!(result, 3);
             })
         })
         .await;
