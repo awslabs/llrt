@@ -56,8 +56,7 @@ pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Valu
 // Matches every `\uD...` escape, including non-surrogates D000-D7FF; those only
 // take the slower QuickJS path.
 fn has_surrogate_escape(json: &[u8]) -> bool {
-    json.windows(3)
-        .any(|w| w[0] == b'\\' && w[1] == b'u' && (w[2] == b'd' || w[2] == b'D'))
+    memchr::memmem::find_iter(json, b"\\u").any(|i| matches!(json.get(i + 2), Some(b'd' | b'D')))
 }
 
 #[inline(always)]

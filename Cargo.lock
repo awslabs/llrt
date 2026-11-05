@@ -2111,6 +2111,7 @@ dependencies = [
  "llrt_build",
  "llrt_test",
  "llrt_utils",
+ "memchr",
  "rquickjs",
  "ryu",
  "simd-json",
