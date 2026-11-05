@@ -11,22 +11,15 @@ pub fn json_parse_string<'js>(ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<
 }
 
 pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Value<'js>> {
-    let json: Vec<u8> = json.into();
-    let mut parse_buf = json.clone();
-    let tape = match simd_json::to_tape(&mut parse_buf) {
+    let mut json: Vec<u8> = json.into();
+    // simd_json rejects lone surrogate escapes and unescapes in place before
+    // failing, so such input goes to QuickJS, whose JSON.parse accepts them.
+    if has_surrogate_escape(&json) {
+        return ctx.json_parse(json.as_slice());
+    }
+    let tape = match simd_json::to_tape(&mut json) {
         Ok(tape) => tape,
         Err(err) => {
-            // simd_json is strict about lone / unpaired surrogate escapes
-            // (`\uXXXX` where XXXX is a surrogate code point). Fall back to
-            // QuickJS's native `JSON.parse`, which is more permissive and is
-            // needed for spec compliance with content that round-trips
-            // through `JSON.stringify` of strings containing lone surrogates.
-            // simd_json unescapes in place, so this must read the untouched copy.
-            if err.character() == Some('u') {
-                if let Ok(value) = ctx.json_parse(json.as_slice()) {
-                    return Ok(value);
-                }
-            }
             let mut itoa = itoa::Buffer::new();
             let mut error_msg = String::with_capacity(256);
             let json_length = json.len();
@@ -58,6 +51,13 @@ pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Valu
     }
 
     Undefined.into_js(ctx)
+}
+
+// Matches every `\uD...` escape, including non-surrogates D000-D7FF; those only
+// take the slower QuickJS path.
+fn has_surrogate_escape(json: &[u8]) -> bool {
+    json.windows(3)
+        .any(|w| w[0] == b'\\' && w[1] == b'u' && (w[2] == b'd' || w[2] == b'D'))
 }
 
 #[inline(always)]
