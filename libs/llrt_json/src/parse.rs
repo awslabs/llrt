@@ -11,8 +11,9 @@ pub fn json_parse_string<'js>(ctx: Ctx<'js>, bytes: ObjectBytes<'js>) -> Result<
 }
 
 pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Value<'js>> {
-    let mut json: Vec<u8> = json.into();
-    let tape = match simd_json::to_tape(&mut json) {
+    let json: Vec<u8> = json.into();
+    let mut parse_buf = json.clone();
+    let tape = match simd_json::to_tape(&mut parse_buf) {
         Ok(tape) => tape,
         Err(err) => {
             // simd_json is strict about lone / unpaired surrogate escapes
@@ -20,6 +21,7 @@ pub fn json_parse<'js, T: Into<Vec<u8>>>(ctx: &Ctx<'js>, json: T) -> Result<Valu
             // QuickJS's native `JSON.parse`, which is more permissive and is
             // needed for spec compliance with content that round-trips
             // through `JSON.stringify` of strings containing lone surrogates.
+            // simd_json unescapes in place, so this must read the untouched copy.
             if err.character() == Some('u') {
                 if let Ok(value) = ctx.json_parse(json.as_slice()) {
                     return Ok(value);

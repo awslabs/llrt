@@ -90,6 +90,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn json_parse_lone_surrogate_fallback_keeps_input() {
+        test_sync_with(|ctx| {
+            let value = json_parse(&ctx, "[\"fa\\u00df.de\",\"a\\ud900z\"]")?;
+            ctx.globals().set("parsed", value)?;
+            let ok: bool = ctx.eval(
+                r#"parsed[0] === "fa" + String.fromCharCode(0xdf) + ".de" && parsed[1].length === 3"#,
+            )?;
+            assert!(ok);
+            Ok(())
+        })
+        .await;
+    }
+
+    #[tokio::test]
     async fn json_parse_non_string() {
         test_sync_with(|ctx| {
             ctx.globals().set("parse", Func::from(json_parse_string))?;
