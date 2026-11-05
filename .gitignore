@@ -12,6 +12,7 @@
 /slask
 /VERSION
 /bundle
+/site
 
 *.zip
 cdk.out
