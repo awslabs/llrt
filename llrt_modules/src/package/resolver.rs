@@ -253,13 +253,34 @@ fn resolved_by_file_exists(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
 }
 
 fn to_abs_path(path: Cow<'_, str>) -> Result<Cow<'_, str>> {
-    Ok(if !path::is_absolute(&path) {
-        path::resolve_path_with_separator([path], true)?.into()
-    } else if cfg!(windows) {
-        path::replace_backslash(path).into()
-    } else {
+    let path = if path::is_absolute(&path) {
         path
+    } else {
+        path::resolve_path_with_separator([path], true)?.into()
+    };
+
+    Ok(match normalize_absolute_path(path.as_ref()) {
+        Some(normalized) if normalized != path => normalized.into(),
+        _ => path,
     })
+}
+
+#[cfg(not(windows))]
+fn normalize_absolute_path(path: &str) -> Option<String> {
+    if path == "/"
+        || path
+            .strip_prefix('/')
+            .is_some_and(|path| path.split('/').all(|part| !matches!(part, "" | "." | "..")))
+    {
+        None
+    } else {
+        Some(path::normalize(path))
+    }
+}
+
+#[cfg(windows)]
+fn normalize_absolute_path(path: &str) -> Option<String> {
+    Some(path::replace_backslash(path::normalize(path)))
 }
 
 // LOAD_AS_FILE(X)
@@ -606,7 +627,7 @@ fn load_package_exports<'a>(
 
     let mut sub_module = None;
 
-    let (scope, name) = if name != "." && !package_json_exists {
+    let (scope, name) = if !package_json_exists {
         package_json_path.truncate(base_path_length);
         package_json_path.push_str(x);
         package_json_path.push_str("/package.json");
@@ -627,24 +648,31 @@ fn load_package_exports<'a>(
         }
 
         path.push_str(trimmed_name);
-        let base_path_length = path.len();
-
-        let mut path = Some(path);
+        let requested_extension = JS_EXTENSIONS
+            .iter()
+            .copied()
+            .find(|ext| path.ends_with(ext));
 
         for ext in JS_EXTENSIONS {
-            if let Some(mut current_path) = path.take() {
-                current_path.truncate(base_path_length);
-                current_path.push_str(ext);
-
-                if Path::new(&current_path).exists() {
-                    if *ext == ".mjs" {
-                        //we know its an ESM module
-                        return Ok(current_path.into());
-                    }
-                    sub_module = Some(current_path);
-                    break;
+            if let Some(requested_extension) = requested_extension {
+                if *ext != requested_extension {
+                    continue;
                 }
-                path = Some(current_path);
+            }
+
+            let current_path = if requested_extension.is_some() {
+                path.clone()
+            } else {
+                [path.as_str(), ext].concat()
+            };
+
+            if Path::new(&current_path).is_file() {
+                if *ext == ".mjs" {
+                    //we know its an ESM module
+                    return Ok(current_path.into());
+                }
+                sub_module = Some(current_path);
+                break;
             }
         }
         (scope, name)
@@ -857,7 +885,7 @@ fn package_exports_resolve<'a>(
         // [ESM only] Check for module field
         if is_esm {
             if let Some(BorrowedValue::String(module)) = map.get("module") {
-                return Ok((module.as_ref(), None, is_cjs));
+                return Ok((module.as_ref(), None, false));
             }
         }
         // Check for main field
@@ -969,4 +997,92 @@ fn correct_extensions<'a>(x: String) -> Cow<'a, str> {
         }
     }
     x.into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{load_package_exports, package_exports_resolve, CJS_LOADER_PREFIX};
+
+    #[test]
+    fn package_subpath_with_extension_resolves_to_existing_file() {
+        let root = std::env::temp_dir().join(format!(
+            "llrt-package-resolver-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let node_modules = root.join("node_modules");
+        let nested_node_modules = node_modules
+            .join("@middy/http-content-negotiation")
+            .join("node_modules");
+        let package_dir = node_modules.join("negotiator");
+        let subpath = package_dir.join("lib/charset.js");
+        std::fs::create_dir_all(&nested_node_modules).unwrap();
+        std::fs::create_dir_all(subpath.parent().unwrap()).unwrap();
+        std::fs::write(package_dir.join("package.json"), r#"{"name":"negotiator"}"#).unwrap();
+        std::fs::write(&subpath, "").unwrap();
+
+        let runtime = rquickjs::Runtime::new().unwrap();
+        let context = rquickjs::Context::full(&runtime).unwrap();
+        context.with(|ctx| {
+            assert!(load_package_exports(
+                &ctx,
+                "negotiator/lib/charset.js",
+                nested_node_modules.to_str().unwrap(),
+                true,
+            )
+            .is_err());
+            assert!(!ctx.has_exception());
+
+            let resolved = load_package_exports(
+                &ctx,
+                "negotiator/lib/charset.js",
+                node_modules.to_str().unwrap(),
+                true,
+            )
+            .unwrap();
+            let expected_path = subpath.to_string_lossy().replace('\\', "/");
+            assert_eq!(resolved, format!("{CJS_LOADER_PREFIX}{expected_path}"));
+        });
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(windows)]
+    use super::{path, to_abs_path};
+
+    #[test]
+    fn module_field_resolves_as_esm() {
+        let mut package_json =
+            br#"{"module":"./dist/index.js","main":"./dist/index.cjs"}"#.to_vec();
+        let package_json = simd_json::to_borrowed_value(&mut package_json).unwrap();
+
+        let (entry, _, is_cjs) = package_exports_resolve(&package_json, ".", true).unwrap();
+
+        assert_eq!(entry, "./dist/index.js");
+        assert!(!is_cjs);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn to_abs_path_normalizes_windows_paths_with_forward_slashes() {
+        let current_dir = std::env::current_dir().unwrap();
+        let path = current_dir
+            .join("fixtures")
+            .join("..")
+            .join("fixtures")
+            .join("cjs-handler.cjs");
+        let path = path::replace_backslash(path.to_string_lossy().to_string());
+
+        let normalized = to_abs_path(path.into()).unwrap();
+
+        let expected = current_dir
+            .join("fixtures")
+            .join("cjs-handler.cjs")
+            .to_string_lossy()
+            .replace('\\', "/");
+        assert_eq!(normalized, expected);
+    }
 }

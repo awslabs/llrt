@@ -1,43 +1,27 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use hyper::Uri;
+use llrt_net_policy::{check_network, has_allow_list, parse_host, Access};
 use rquickjs::{Ctx, Error, Exception, Result};
-use std::sync::OnceLock;
 
-static HTTP_ALLOW_LIST: OnceLock<Vec<Uri>> = OnceLock::new();
-
-static HTTP_DENY_LIST: OnceLock<Vec<Uri>> = OnceLock::new();
-
-pub fn set_allow_list(values: Vec<Uri>) {
-    _ = HTTP_ALLOW_LIST.set(values);
-}
-
-pub fn get_allow_list() -> Option<&'static Vec<Uri>> {
-    HTTP_ALLOW_LIST.get()
-}
-
-pub fn set_deny_list(values: Vec<Uri>) {
-    _ = HTTP_DENY_LIST.set(values);
-}
-
-pub fn get_deny_list() -> Option<&'static Vec<Uri>> {
-    HTTP_DENY_LIST.get()
-}
+/// Ports an entry without an explicit port covers for HTTP requests.
+const DEFAULT_HTTP_PORTS: &[u16] = &[80, 443];
 
 pub fn ensure_url_access(ctx: &Ctx<'_>, uri: &Uri) -> Result<()> {
-    if let Some(allow_list) = HTTP_ALLOW_LIST.get() {
-        if !url_match(allow_list, uri) {
-            return Err(url_restricted_error(ctx, "URL not allowed", uri));
-        }
-    }
+    let Some(host) = uri.host() else {
+        // Without a host there is nothing to match, so an allow list rejects.
+        return if has_allow_list() {
+            Err(url_restricted_error(ctx, "URL not allowed", uri))
+        } else {
+            Ok(())
+        };
+    };
 
-    if let Some(deny_list) = HTTP_DENY_LIST.get() {
-        if url_match(deny_list, uri) {
-            return Err(url_restricted_error(ctx, "URL denied", uri));
-        }
+    match check_network(&parse_host(host), effective_port(uri), DEFAULT_HTTP_PORTS) {
+        Access::Allowed => Ok(()),
+        Access::NotAllowed => Err(url_restricted_error(ctx, "URL not allowed", uri)),
+        Access::Denied => Err(url_restricted_error(ctx, "URL denied", uri)),
     }
-
-    Ok(())
 }
 
 fn url_restricted_error(ctx: &Ctx<'_>, message: &str, uri: &Uri) -> Error {
@@ -54,13 +38,12 @@ fn url_restricted_error(ctx: &Ctx<'_>, message: &str, uri: &Uri) -> Error {
     Exception::throw_message(ctx, &message_string)
 }
 
-fn url_match(list: &[Uri], uri: &Uri) -> bool {
-    let host = uri.host().unwrap_or_default();
-    let port = uri.port_u16().unwrap_or(80);
-    list.iter().any(|entry| {
-        let entry_host = entry.host().unwrap_or_default();
-        let port_match = entry.port_u16().unwrap_or(80) == port;
-        let host_match = host == entry_host || host.ends_with(&format!(".{}", entry_host));
-        port_match && host_match
+fn effective_port(uri: &Uri) -> u16 {
+    uri.port_u16().unwrap_or_else(|| {
+        if uri.scheme_str() == Some("https") {
+            443
+        } else {
+            80
+        }
     })
 }

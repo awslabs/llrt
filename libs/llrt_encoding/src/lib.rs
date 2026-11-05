@@ -8,10 +8,13 @@ use hex_simd::AsciiCase;
 pub enum Encoder {
     Hex,
     Base64,
+    Base64Url,
     Windows1252,
     Utf8,
     Utf16le,
     Utf16be,
+    Latin1,
+    Ascii,
 }
 
 const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
@@ -54,27 +57,68 @@ const ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
     "x-cp1252" => Encoder::Windows1252,
 };
 
+// Node.js Buffer encodings. This is a deliberately smaller set than the
+// WHATWG label map above: labels like "iso-8859-1" and "windows-1252" are
+// TextDecoder labels but are not valid Buffer encodings. Matching is
+// case-insensitive with no trimming, like Node's Buffer.isEncoding.
+const BUFFER_ENCODING_MAP: phf::Map<&'static str, Encoder> = phf::phf_map! {
+    "buffer" => Encoder::Utf8,
+    "utf8" => Encoder::Utf8,
+    "utf-8" => Encoder::Utf8,
+    "utf16le" => Encoder::Utf16le,
+    "utf-16le" => Encoder::Utf16le,
+    "ucs2" => Encoder::Utf16le,
+    "ucs-2" => Encoder::Utf16le,
+    "latin1" => Encoder::Latin1,
+    "binary" => Encoder::Latin1,
+    "ascii" => Encoder::Ascii,
+    "hex" => Encoder::Hex,
+    "base64" => Encoder::Base64,
+    "base64url" => Encoder::Base64Url,
+};
+
 impl Encoder {
-    pub fn from_optional_str(encoding: Option<&str>) -> Result<Self, String> {
-        encoding.map_or(Ok(Self::Utf8), Self::from_str)
+    pub fn from_label_optional(encoding: Option<&str>) -> Result<Self, String> {
+        encoding.map_or(Ok(Self::Utf8), Self::from_label)
     }
 
+    /// The encoding set defined by the WHATWG Encoding Standard's labels
+    /// (TextEncoder/TextDecoder semantics). For Node.js `Buffer` encodings
+    /// use `for_buffer` instead.
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(encoding: &str) -> Result<Self, String> {
+    pub fn from_label(encoding: &str) -> Result<Self, String> {
         ENCODING_MAP
             .get(encoding.trim_ascii().to_ascii_lowercase().as_str())
             .cloned()
             .ok_or_else(|| ["The \"", encoding, "\" encoding is not supported"].concat())
     }
 
+    /// The encoding set accepted by Node.js `Buffer` methods. Differs from
+    /// `from_label`: Node-style "latin1"/"binary"/"ascii" map each byte to one
+    /// UTF-16 code unit instead of using the windows-1252 WHATWG table, and
+    /// labels such as "iso-8859-1", "windows-1252" and "utf-16be" are rejected.
+    pub fn for_buffer(encoding: &str) -> Result<Self, String> {
+        BUFFER_ENCODING_MAP
+            .get(encoding.to_ascii_lowercase().as_str())
+            .cloned()
+            .ok_or_else(|| ["The \"", encoding, "\" encoding is not supported"].concat())
+    }
+
+    pub fn for_buffer_optional(encoding: Option<&str>) -> Result<Self, String> {
+        encoding.map_or(Ok(Self::Utf8), Self::for_buffer)
+    }
+
     pub fn encode_to_string(&self, bytes: &[u8], lossy: bool) -> Result<String, String> {
         match self {
             Self::Hex => Ok(bytes_to_hex_string(bytes)),
             Self::Base64 => Ok(bytes_to_b64_string(bytes)),
+            Self::Base64Url => Ok(bytes_to_b64_url_safe_string(bytes)),
             Self::Utf8 => bytes_to_utf8_string(bytes, lossy),
             Self::Windows1252 => Ok(bytes_to_windows1252_string(bytes)),
             Self::Utf16le => bytes_to_utf16_string(bytes, Endian::Little, lossy),
             Self::Utf16be => bytes_to_utf16_string(bytes, Endian::Big, lossy),
+            Self::Latin1 => Ok(bytes_to_latin1_string(bytes)),
+            Self::Ascii => Ok(bytes_to_ascii_string(bytes)),
         }
     }
 
@@ -83,24 +127,33 @@ impl Encoder {
         match self {
             Self::Hex => Ok(bytes_to_hex(bytes)),
             Self::Base64 => Ok(bytes_to_b64(bytes)),
-            Self::Utf8 | Self::Windows1252 | Self::Utf16le | Self::Utf16be => Ok(bytes.to_vec()),
+            Self::Base64Url => Ok(bytes_to_b64_url_safe_string(bytes).into_bytes()),
+            Self::Utf8
+            | Self::Windows1252
+            | Self::Utf16le
+            | Self::Utf16be
+            | Self::Latin1
+            | Self::Ascii => Ok(bytes.to_vec()),
         }
     }
 
     pub fn decode<'a, T: Into<Cow<'a, [u8]>>>(&self, bytes: T) -> Result<Vec<u8>, String> {
         match self {
             Self::Hex => bytes_from_hex(bytes),
-            Self::Base64 => bytes_from_b64(bytes),
-            Self::Utf8 | Self::Windows1252 | Self::Utf16le | Self::Utf16be => {
-                Ok(bytes.into().into())
-            },
+            Self::Base64 | Self::Base64Url => bytes_from_b64(bytes),
+            Self::Utf8
+            | Self::Windows1252
+            | Self::Utf16le
+            | Self::Utf16be
+            | Self::Latin1
+            | Self::Ascii => Ok(bytes.into().into()),
         }
     }
 
     pub fn decode_from_string(&self, string: String) -> Result<Vec<u8>, String> {
         match self {
             Self::Hex => bytes_from_hex(string.into_bytes()),
-            Self::Base64 => bytes_from_b64(string.into_bytes()),
+            Self::Base64 | Self::Base64Url => bytes_from_b64(string.into_bytes()),
             Self::Utf8 | Self::Windows1252 => Ok(string.into_bytes()),
             Self::Utf16le => Ok(string
                 .encode_utf16()
@@ -110,6 +163,10 @@ impl Encoder {
                 .encode_utf16()
                 .flat_map(|utf16| utf16.to_be_bytes())
                 .collect::<Vec<u8>>()),
+            Self::Latin1 | Self::Ascii => Ok(string
+                .encode_utf16()
+                .map(|utf16| (utf16 & 0xFF) as u8)
+                .collect::<Vec<u8>>()),
         }
     }
 
@@ -117,10 +174,13 @@ impl Encoder {
         match self {
             Self::Hex => "hex",
             Self::Base64 => "base64",
+            Self::Base64Url => "base64url",
             Self::Windows1252 => "windows-1252",
             Self::Utf8 => "utf-8",
             Self::Utf16le => "utf-16le",
             Self::Utf16be => "utf-16be",
+            Self::Latin1 => "latin1",
+            Self::Ascii => "ascii",
         }
     }
 }
@@ -153,6 +213,16 @@ pub fn bytes_from_b64<'a, T: Into<Cow<'a, [u8]>>>(base64_bytes: T) -> Result<Vec
         };
     }
     base64_simd::forgiving_decode_to_vec(&bytes).map_err(|e| e.to_string())
+}
+
+// Node's "latin1"/"binary" decode maps every byte to one UTF-16 code unit.
+pub fn bytes_to_latin1_string(bytes: &[u8]) -> String {
+    bytes.iter().map(|&byte| char::from(byte)).collect()
+}
+
+// Node's "ascii" decode additionally unsets the high bit of each byte.
+pub fn bytes_to_ascii_string(bytes: &[u8]) -> String {
+    bytes.iter().map(|&byte| char::from(byte & 0x7F)).collect()
 }
 
 /// Strict standard-base64 decode (single SIMD pass): rejects url-safe chars,

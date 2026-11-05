@@ -1,24 +1,30 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 use rquickjs::{Ctx, Object, Result};
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
-static SYSTEM: Lazy<Arc<Mutex<System>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(System::new_with_specifics(
-        RefreshKind::nothing()
-            .with_cpu(CpuRefreshKind::nothing().with_cpu_usage().with_frequency())
-            .with_memory(MemoryRefreshKind::nothing().with_ram()),
-    )))
+static SYSTEM: Lazy<Mutex<Option<System>>> = Lazy::new(|| {
+    Mutex::new(
+        System::new_with_specifics(
+            RefreshKind::nothing()
+                .with_cpu(CpuRefreshKind::nothing().with_frequency())
+                .with_memory(MemoryRefreshKind::nothing().with_ram()),
+        )
+        .ok(),
+    )
 });
 
 pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object<'_>>> {
     let mut vec: Vec<Object> = Vec::new();
-    let system = SYSTEM.lock().unwrap();
+    let mut system = SYSTEM.lock().unwrap();
+    if let Some(system) = system.as_mut() {
+        system.refresh_cpu_frequency();
+    }
 
-    for cpu in system.cpus() {
+    for cpu in system.iter().flat_map(|system| system.cpus()) {
         let obj = Object::new(ctx.clone())?;
         obj.set("model", cpu.brand())?;
         obj.set("speed", cpu.frequency())?;
@@ -40,13 +46,17 @@ pub fn get_cpus(ctx: Ctx<'_>) -> Result<Vec<Object<'_>>> {
 pub fn get_free_mem() -> u64 {
     let mut system = SYSTEM.lock().unwrap();
 
-    system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
-    system.free_memory()
+    system.as_mut().map_or(0, |system| {
+        system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
+        system.free_memory()
+    })
 }
 
 pub fn get_total_mem() -> u64 {
     let mut system = SYSTEM.lock().unwrap();
 
-    system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
-    system.total_memory()
+    system.as_mut().map_or(0, |system| {
+        system.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());
+        system.total_memory()
+    })
 }

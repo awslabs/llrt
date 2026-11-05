@@ -372,6 +372,9 @@ impl<'js> Socket<'js> {
     ) -> Result<()> {
         let address = address.0.unwrap_or_else(|| "localhost".to_string());
 
+        llrt_net_policy::check_endpoint(&address, port)
+            .map_err(|message| Exception::throw_message(&ctx, &message))?;
+
         // Extract bytes from message
         let bytes: Vec<u8> = if let Some(str_val) = msg.as_string() {
             str_val.to_string()?.into_bytes()

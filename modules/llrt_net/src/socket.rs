@@ -25,7 +25,7 @@ use tokio::{
 };
 use tracing::trace;
 
-use super::{ensure_access, get_address_parts, get_hostname, rw_join, ReadyState, LOCALHOST};
+use super::{get_address_parts, rw_join, ReadyState, LOCALHOST};
 
 impl_stream_events!(Socket);
 
@@ -242,12 +242,13 @@ impl<'js> Socket<'js> {
         }
 
         if let Some(path) = path.clone() {
-            ensure_access(&ctx, &path)?;
+            llrt_net_policy::check_socket_path(&path)
+                .map_err(|message| Exception::throw_message(&ctx, &message))?;
         }
         if let Some(port) = port {
-            let hostname = get_hostname(&host, port);
-            ensure_access(&ctx, &hostname)?;
-            addr = Some(hostname);
+            llrt_net_policy::check_endpoint(&host, port)
+                .map_err(|message| Exception::throw_message(&ctx, &message))?;
+            addr = Some((host, port));
         }
 
         let this = this.0;
@@ -281,8 +282,10 @@ impl<'js> Socket<'js> {
                             "Unix domain sockets are not supported on this platform",
                         ));
                     }
-                } else if let Some(addr) = addr {
-                    let stream = TcpStream::connect(addr).await.or_throw(&ctx3)?;
+                } else if let Some((host, port)) = addr {
+                    let stream = TcpStream::connect((host.as_str(), port))
+                        .await
+                        .or_throw(&ctx3)?;
                     Self::process_tcp_stream(&this2, &ctx3, stream, allow_half_open)
                 } else {
                     unreachable!()

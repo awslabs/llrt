@@ -296,7 +296,7 @@ impl FileHandle {
                     .0
                     .and_then(|e| e.right())
                     .unwrap_or_else(|| DEFAULT_ENCODING.to_string());
-                let buffer = Encoder::from_str(&encoding)
+                let buffer = Encoder::from_label(&encoding)
                     .and_then(|enc| enc.decode_from_string(string.clone()))
                     .or_throw(&ctx)?;
                 Cow::Owned(buffer)
@@ -375,7 +375,7 @@ impl FileHandle {
                 Cow::Borrowed(buffer)
             },
             Either::Right(string) => {
-                let buffer = Encoder::from_str(&encoding)
+                let buffer = Encoder::from_label(&encoding)
                     .and_then(|enc| enc.decode_from_string(string.clone()))
                     .or_throw(&ctx)?;
                 Cow::Owned(buffer)

@@ -7,6 +7,7 @@ members = [
   "libs/llrt_context",
   "libs/llrt_encoding",
   "libs/llrt_json",
+  "libs/llrt_net_policy",
   "libs/llrt_numbers",
   "libs/llrt_test",
   "libs/llrt_test_tls",

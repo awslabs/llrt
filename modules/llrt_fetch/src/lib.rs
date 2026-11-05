@@ -1,6 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-pub use self::security::{get_allow_list, get_deny_list, set_allow_list, set_deny_list};
 use self::{form_data::FormData, headers::Headers, request::Request, response::Response};
 use llrt_buffer::Blob;
 use llrt_http::HTTP_CLIENT;

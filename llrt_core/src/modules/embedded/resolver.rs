@@ -44,7 +44,8 @@ pub fn embedded_resolve<'a>(x: &'a str, y: &str) -> Result<Cow<'a, str>> {
         return Ok(x.into());
     }
 
-    let x_normalized = path::normalize(x);
+    // SDK entry points import their shared chunks as "../llrt-chunk-sdk-HASH.js", cached by file name
+    let x_normalized = path::normalize(x.trim_start_matches("../"));
     if BYTECODE_CACHE.contains_key(&x_normalized) {
         trace!("+- Resolved by `BYTECODE_CACHE`: {}", x_normalized);
         return Ok(x_normalized.into());

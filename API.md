@@ -838,6 +838,9 @@ export function print(value: any): void;
 
 [fetch](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
 
+Repeated response header values are combined with a comma and space when read through
+`Headers`. `getSetCookie()` preserves separate `Set-Cookie` values.
+
 > [!IMPORTANT]
 > There are some differences with the [WHATWG standard](https://fetch.spec.whatwg.org). Mainly browser specific behavior is removed:
 >
@@ -845,6 +848,9 @@ export function print(value: any): void;
 > - `request.body` can only be `string`, `Array`, `ArrayBuffer` or `Uint8Array`
 > - `response.body` returns `null`. Use `response.text()`, `response.json()` etc
 > - `mode`, `credentials`, `referrerPolicy`, `priority`, `cache` is not available/applicable
+
+Fetch resolves relative `Location` headers against the current response URL when
+following redirects. With `redirect: "manual"`, the response retains its source URL.
 
 ## FILEAPI
 

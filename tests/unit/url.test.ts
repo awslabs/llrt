@@ -194,6 +194,22 @@ describe("URLSearchParams class", () => {
     expect(searchParams.get("category")).toBe("coding skills");
   });
 
+  it("constructor from string keeps '#' literal", () => {
+    // In the URLSearchParams constructor '#' is a literal character, not a
+    // fragment delimiter as in full URL parsing.
+    const searchParams = new URLSearchParams("a=1&b=X#Y");
+    expect(searchParams.get("b")).toBe("X#Y");
+    expect([...searchParams.keys()]).toEqual(["a", "b"]);
+    expect(searchParams.toString()).toBe("a=1&b=X%23Y");
+  });
+
+  it("constructor from string skips a single leading '?'", () => {
+    const searchParams = new URLSearchParams("?a=1&b=2");
+    expect(searchParams.toString()).toBe("a=1&b=2");
+    const onlyQmark = new URLSearchParams("?");
+    expect(onlyQmark.toString()).toBe("");
+  });
+
   it("constructor from URLSearchParams object", () => {
     const existingParamsString = "topic=api";
     const existingSearchParams = new URLSearchParams(existingParamsString);

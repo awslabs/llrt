@@ -30,7 +30,7 @@ use tokio::{
 };
 use tracing::trace;
 
-use super::{get_address_parts, get_hostname, socket::Socket, Listener, NetStream};
+use super::{get_address_parts, socket::Socket, Listener, NetStream};
 
 impl_stream_events!(Server);
 
@@ -292,12 +292,10 @@ impl<'js> Server<'js> {
         path: Option<String>,
     ) -> Result<Listener> {
         let listener = if let Some(port) = port {
-            let listener = TcpListener::bind(get_hostname(
-                &host.unwrap_or_else(|| String::from("0.0.0.0")),
-                port as u16,
-            ))
-            .await
-            .or_throw(&ctx)?;
+            let host = host.unwrap_or_else(|| String::from("0.0.0.0"));
+            let listener = TcpListener::bind((host.as_str(), port as u16))
+                .await
+                .or_throw(&ctx)?;
 
             let address_object = Object::new(ctx.clone())?;
 
