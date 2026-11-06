@@ -1,7 +1,7 @@
 import {
   makeRunnerTest262 as makeRunner,
   runSuiteTest262 as runSuite,
-} from "../../_harness-util.js";
+} from "../../wpt/_harness-util.js";
 
 const runTestDynamic = makeRunner({
   context: () => ({
