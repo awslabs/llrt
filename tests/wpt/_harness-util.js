@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const CWD = process.cwd();
 const WPT_DIR = path.join(CWD, "wpt");
 const TEST_DIR = path.join(CWD, "bundle", "js", "__tests__", "wpt");
+const TEST262_TEST_DIR = path.join(CWD, "bundle", "js", "__tests__");
 
 // Compile a WPT support script into a reusable `(self) => void` function.
 // `with (self)` lets `self.Foo = …; Foo` work (see idlharness.js); the
@@ -267,7 +268,7 @@ export function runSuiteTest262(metaUrl, harness, skipFiles = []) {
 
 function deriveTest262SubDir(metaUrl) {
   const metaPath = fileURLToPath(metaUrl);
-  const relativePath = path.relative(TEST_DIR, metaPath);
+  const relativePath = path.relative(TEST262_TEST_DIR, metaPath);
 
   const match = relativePath.match(/^test262[\\/](.+)\.test\.[jt]s$/);
 

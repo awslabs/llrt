@@ -193,7 +193,7 @@ test: export LLRT_ASYNC_HOOKS = 1
 test: js
 	cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
-setup-wpt:
+setup-wpt-data:
 	@if [ ! -d wpt/.git ]; then \
 		echo "Cloning WPT (shallow, master HEAD only — this may take a few minutes)..."; \
 		git submodule add --force --depth 1 -b master --progress https://github.com/web-platform-tests/wpt wpt || \
@@ -223,6 +223,8 @@ setup-wpt:
 		/webidl \
 		/wpt \
 		/xhr
+
+setup-wpt: setup-wpt-data
 	@$(MAKE) setup-wpt-hosts
 
 setup-wpt-hosts:
@@ -250,6 +252,7 @@ test-wpt: export JS_MINIFY = 0
 test-wpt: export TEST_SUB_DIR = wpt
 test-wpt: export TEST_TIMEOUT = 20000
 test-wpt: setup-wpt js
+	rm -rf bundle/js/__tests__/wpt/test262
 	@echo "Starting WPT server (logs: wpt_server.log)..."
 	@./wpt/wpt serve >wpt_server.log 2>&1 & WPT_PID=$$!; \
 	trap 'kill $$WPT_PID 2>/dev/null' EXIT; \
@@ -271,6 +274,12 @@ test-wpt: setup-wpt js
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
 	TEST_REPORT_FILE=wpt_errors.txt cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR); \
 	kill $$WPT_PID 2>/dev/null
+
+test-262: export JS_MINIFY = 0
+test-262: export TEST_SUB_DIR = test262
+test-262: export TEST_TIMEOUT = 20000
+test-262: setup-wpt-data js
+	TEST_REPORT_FILE= cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
 
 # Run the WPT suite and compare the failing-test list (wpt_errors.txt, written
 # by test-wpt) against the committed baseline. Fails on any difference: a new
@@ -384,4 +393,4 @@ check-crates:
 	  cargo check -p "$$crate"; \
 	done
 
-.PHONY: libs check check-all check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci test-e2e setup-e2e e2e-env run js run-release build release clean flame deploy
+.PHONY: libs check check-all check-crates libs-arm64 libs-x64 toolchain clean-js release-linux release-darwin release-windows lambda stdlib stdlib-x64 stdlib-arm64 test test-ci test-e2e setup-wpt-data setup-wpt setup-wpt-hosts update-wpt test-wpt test-262 check-wpt setup-e2e e2e-env run js run-release build release clean flame deploy

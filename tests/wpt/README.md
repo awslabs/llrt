@@ -16,6 +16,8 @@ skipFiles)` and drives the matching `wpt/...` suite through the harness.
   `makeRunner({ ... })`.
   These declare which WPT support scripts to load and any category-specific
   environment extras (`fetch`, `location`, etc.).
+- `tests/test262/intl402/*.test.ts` — Test262 entry points, run separately with
+  `make test-262` so they are excluded from `make test-wpt`.
 - `tests/wpt/_harness-util.js` — shared harness machinery imported by the
   wrappers, not directly by `.test.ts` entry points.
   It provides:
@@ -39,15 +41,18 @@ make test-wpt
 This starts the WPT server in the background and runs the suite. `setup-wpt`
 runs first if needed, initialising the `wpt/` submodule and configuring
 sparse-checkout. The full run is printed to the console and distilled into the
-sorted failing-test list `wpt_errors.txt`.
+sorted failing-test list `wpt_errors.txt`. Test262 entry points live outside
+`tests/wpt/` and run separately with `make test-262`; their results are shown
+in the console and are not written to `wpt_errors.txt`.
 
 Other targets:
 
-| target       | what it does                                                  |
-| ------------ | ------------------------------------------------------------- |
-| `setup-wpt`  | init the submodule, set up sparse-checkout, `/etc/hosts`      |
-| `update-wpt` | pull upstream master into the `wpt/` submodule                |
-| `check-wpt`  | run the suite and diff results against the committed baseline |
+| target       | what it does                                                      |
+| ------------ | ----------------------------------------------------------------- |
+| `setup-wpt`  | init the submodule, set up sparse-checkout, `/etc/hosts`          |
+| `update-wpt` | pull upstream master into the `wpt/` submodule                    |
+| `test-262`   | run Test262 locally without writing results to `wpt_errors.txt`   |
+| `check-wpt`  | run the WPT suite and diff results against the committed baseline |
 
 ## Regression baseline
 
@@ -55,6 +60,8 @@ Other targets:
 de-duplicated list of WPT test files that currently fail (just the
 `suite > should pass <file>.any.js tests` identifiers — no error messages,
 stack traces, or version strings, so it stays stable across machines and CI).
+It excludes Test262 failures; those can vary by local environment and are
+available only in the output of `make test-262`.
 The runner reports one result per `.any.js` file (it stops a file at its first
 failing sub-test), so file identity is the reliable signal; the raw messages
 vary by environment (`"Failed to fetch"` vs `"client error (Connect)"`, absolute
@@ -157,6 +164,15 @@ New failures show up as additions in the `make check-wpt` diff against the
 committed `wpt_errors.txt` baseline. Decide whether to fix the code, add the
 whole file to `skipFiles` (with a one-line reason), or accept the failure by
 committing the updated baseline.
+
+Run the Test262 subset separately:
+
+```sh
+make test-262
+```
+
+This uses the Test262 files in the `wpt/` submodule but does not start the WPT
+server or write a report file.
 
 ## Updating WPT
 
