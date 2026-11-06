@@ -228,13 +228,13 @@ describe("Buffer.concat", () => {
     expect(resultBuffer2.toString()).toEqual("123");
   });
 
-  it("should throw an error when totalLength is less than the actual length of concatenated buffers", () => {
+  it("should truncate the result when totalLength is less than the actual length of concatenated buffers", () => {
     const buffer1 = Buffer.from("Hello");
     const buffer2 = Buffer.from("World");
-    const resultBuffer = Buffer.concat([buffer1, buffer2], 999);
+    const resultBuffer = Buffer.concat([buffer1, buffer2], 5);
 
-    expect(resultBuffer.toString()).toEqual("HelloWorld");
-    expect(resultBuffer.length).toEqual(buffer1.length + buffer2.length);
+    expect(resultBuffer.toString()).toEqual("Hello");
+    expect(resultBuffer.length).toEqual(5);
   });
 });
 
@@ -450,8 +450,12 @@ describe("Buffer.isEncoding", () => {
 
   it("should encode and decode latin1/binary as one byte per code unit", () => {
     // latin1 write: each UTF-16 code unit contributes its low byte.
-    expect(Array.from(Buffer.from("café", "latin1"))).toEqual([99, 97, 102, 233]);
-    expect(Array.from(Buffer.from("café", "binary"))).toEqual([99, 97, 102, 233]);
+    expect(Array.from(Buffer.from("café", "latin1"))).toEqual([
+      99, 97, 102, 233,
+    ]);
+    expect(Array.from(Buffer.from("café", "binary"))).toEqual([
+      99, 97, 102, 233,
+    ]);
     // code units above U+00FF are truncated to their low byte.
     expect(Array.from(Buffer.from("Ē", "latin1"))).toEqual([0x12]);
     // latin1 read: every byte maps to one code unit (no windows-1252 table).
@@ -465,14 +469,18 @@ describe("Buffer.isEncoding", () => {
     expect(Buffer.from([0xe9, 0x93, 0x41]).toString("ascii")).toEqual(
       "i\u0013A"
     );
-    expect(Array.from(Buffer.from("café", "ascii"))).toEqual([99, 97, 102, 233]);
+    expect(Array.from(Buffer.from("café", "ascii"))).toEqual([
+      99, 97, 102, 233,
+    ]);
   });
 
   it("should support base64url without padding", () => {
     expect(Buffer.from([0xfa, 0xff]).toString("base64url")).toEqual("-v8");
     expect(Array.from(Buffer.from("aGk", "base64url"))).toEqual([104, 105]);
     // url-safe and standard alphabets both decode
-    expect(Array.from(Buffer.from("aGk+", "base64url"))).toEqual([104, 105, 62]);
+    expect(Array.from(Buffer.from("aGk+", "base64url"))).toEqual([
+      104, 105, 62,
+    ]);
   });
 
   it("should accept 'buffer' encoding in Buffer.from and stream writes", async () => {
