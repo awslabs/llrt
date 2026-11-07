@@ -40,7 +40,7 @@ use llrt_utils::{
     result::ResultExt,
 };
 use once_cell::sync::Lazy;
-use rand::RngExt;
+use rand::Rng;
 use rquickjs::prelude::Async;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -84,7 +84,7 @@ fn encoded_bytes<'js>(ctx: &Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Op
 #[inline]
 pub fn random_byte_array(length: usize) -> Vec<u8> {
     let mut vec = vec![0u8; length];
-    rand::rng().fill(&mut vec[..]);
+    rand::rng().fill_bytes(&mut vec[..]);
     vec
 }
 
@@ -96,8 +96,8 @@ fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
 fn get_random_int(first: i64, second: Opt<i64>) -> Result<i64> {
     let mut rng = rand::rng();
     let random_number = match second.0 {
-        Some(max) => rng.random_range(first..max),
-        None => rng.random_range(0..first),
+        Some(max) => rng.gen_range(first..max),
+        None => rng.gen_range(0..first),
     };
 
     Ok(random_number)
@@ -173,7 +173,7 @@ fn random_fill_sync<'js>(
             slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(source_offset), source_length)
         };
 
-        rand::rng().fill(&mut bytes[start..end]);
+        rand::rng().fill_bytes(&mut bytes[start..end]);
     }
 
     Ok(obj)
@@ -216,18 +216,19 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             )
         };
 
-        rand::rng().fill(bytes)
+        rand::rng().fill_bytes(bytes)
     }
 
     Ok(obj)
 }
 
 fn uuidv4() -> String {
-    let uuid = rand::random::<u128>() & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF | 0x40008000000000000000;
+    let mut bytes = [0u8; 16];
+    rand::rng().fill_bytes(&mut bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
     static HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
-    let bytes = uuid.to_be_bytes();
-
     let mut buf = [0u8; 36];
 
     // Precomputed positions for 32 hex digits (excluding hyphens)
