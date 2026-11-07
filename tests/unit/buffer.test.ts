@@ -228,13 +228,13 @@ describe("Buffer.concat", () => {
     expect(resultBuffer2.toString()).toEqual("123");
   });
 
-  it("should throw an error when totalLength is less than the actual length of concatenated buffers", () => {
+  it("should truncate the result when totalLength is less than the actual length of concatenated buffers", () => {
     const buffer1 = Buffer.from("Hello");
     const buffer2 = Buffer.from("World");
-    const resultBuffer = Buffer.concat([buffer1, buffer2], 999);
+    const resultBuffer = Buffer.concat([buffer1, buffer2], 7);
 
-    expect(resultBuffer.toString()).toEqual("HelloWorld");
-    expect(resultBuffer.length).toEqual(buffer1.length + buffer2.length);
+    expect(resultBuffer.toString()).toEqual("HelloWo");
+    expect(resultBuffer.length).toEqual(7);
   });
 });
 
