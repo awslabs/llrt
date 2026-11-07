@@ -46,6 +46,14 @@ const handler = new LlrtFunction(this, "Handler", {
 
 See [Construct Hub](https://constructs.dev/packages/cdk-lambda-llrt/) and [its examples](https://github.com/tmokmss/cdk-lambda-llrt/tree/main/example) for more details.
 
+## Time zone data
+
+Temporal uses the host time zone database. On Debian/Ubuntu install `tzdata-legacy` for legacy IANA names.
+
+```bash
+sudo apt install tzdata-legacy
+```
+
 ## Build from source
 
 1. Clone code and cd to directory

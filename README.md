@@ -193,6 +193,8 @@ _⏱ = planned partial support_<br />
 _\* = Not native_<br />
 _\*\* = The `module.registerHooks()` API allows you to emulate some functionality. See also `example/register-hooks`._<br />
 
+Temporal uses the host time zone database. On Debian/Ubuntu install `tzdata-legacy` for legacy IANA names.
+
 ## Using node_modules (dependencies) with LLRT
 
 Since LLRT is meant for performance critical application it's not recommended to deploy `node_modules` without bundling, minification and tree-shaking.
