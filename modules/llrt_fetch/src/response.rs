@@ -538,6 +538,9 @@ impl<'js> Response<'js> {
             }
 
             if let Some(bytes) = bytes {
+                if is_urlencoded {
+                    return Ok(FormData::from_urlencoded_bytes(&bytes));
+                }
                 let form_data = FormData::from_multipart_bytes(&ctx_clone, &mime_type, bytes)?;
                 return Ok(form_data);
             }

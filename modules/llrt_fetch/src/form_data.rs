@@ -287,6 +287,15 @@ impl<'js> FormData<'js> {
         })
     }
 
+    pub fn from_urlencoded_bytes(bytes: &[u8]) -> Self {
+        let entries = url::form_urlencoded::parse(bytes)
+            .map(|(name, value)| (name.into_owned(), FormValue::Text(value.into_owned())))
+            .collect();
+        Self {
+            entries: Rc::new(RefCell::new(FormEntries(entries))),
+        }
+    }
+
     pub fn to_multipart_bytes(&self, ctx: &Ctx<'js>) -> Result<(Vec<u8>, String)> {
         let boundary = generate_boundary();
         let mut body = Vec::new();

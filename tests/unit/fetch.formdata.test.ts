@@ -101,3 +101,42 @@ describe("FormData class", () => {
     expect(all).toEqual(["news", "tech"]);
   });
 });
+
+describe("FormData from urlencoded bodies", () => {
+  it("should parse a urlencoded Response body", async () => {
+    const response = new Response("a=b&c=d", {
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+    });
+
+    const fd = await response.formData();
+    expect([...fd.entries()]).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
+  });
+
+  it("should parse a urlencoded Request body", async () => {
+    const request = new Request("https://example.com/", {
+      method: "POST",
+      body: "a=b",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+      },
+    });
+
+    const fd = await request.formData();
+    expect([...fd.entries()]).toEqual([["a", "b"]]);
+  });
+
+  it("should decode urlencoded names and values", async () => {
+    const response = new Response("a+b=c%26d&e=%E2%9C%93", {
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+    });
+
+    const fd = await response.formData();
+    expect([...fd.entries()]).toEqual([
+      ["a b", "c&d"],
+      ["e", "✓"],
+    ]);
+  });
+});
