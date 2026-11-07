@@ -12,6 +12,7 @@ use llrt_stream_web::{
 use llrt_utils::{
     array_buffer::shared_array_buffer_view,
     bytes::{get_lossy_string, ObjectBytes},
+    clone::StructuredClone,
     object::not_a_object_error,
     primordials::Primordial,
     result::ResultExt,
@@ -313,6 +314,13 @@ impl<'js> Blob<'js> {
     /// has been detached (shouldn't happen in normal blob flow).
     pub fn as_bytes(&self) -> &[u8] {
         unsafe { self.data.as_bytes() }.unwrap_or(&[])
+    }
+}
+
+impl<'js> StructuredClone<'js> for Blob<'js> {
+    fn structured_clone(&self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        let clone = Blob::from_bytes(ctx, self.get_bytes(), Some(self.mime_type.clone()))?;
+        Ok(Class::instance(ctx.clone(), clone)?.into_value())
     }
 }
 

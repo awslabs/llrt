@@ -1,8 +1,8 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use llrt_utils::time;
+use llrt_utils::{clone::StructuredClone, time};
 use rquickjs::{
-    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Coerced, Ctx, Exception,
+    atom::PredefinedAtom, class::Trace, function::Opt, ArrayBuffer, Class, Coerced, Ctx, Exception,
     IntoJs, Object, Result, Value,
 };
 
@@ -124,5 +124,20 @@ impl<'js> File<'js> {
 
     pub fn set_filename(&mut self, filename: String) {
         self.filename = filename;
+    }
+}
+
+impl<'js> StructuredClone<'js> for File<'js> {
+    fn structured_clone(&self, ctx: &Ctx<'js>) -> Result<Value<'js>> {
+        let blob = Blob::from_bytes(ctx, self.blob.get_bytes(), Some(self.blob.mime_type()))?;
+        Ok(Class::instance(
+            ctx.clone(),
+            File {
+                blob,
+                filename: self.filename.clone(),
+                last_modified: self.last_modified,
+            },
+        )?
+        .into_value())
     }
 }
