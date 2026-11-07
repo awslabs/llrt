@@ -48,7 +48,7 @@ See [Construct Hub](https://constructs.dev/packages/cdk-lambda-llrt/) and [its e
 
 ## Time zone data
 
-Temporal uses the host time zone database. On Debian/Ubuntu install `tzdata-legacy` for legacy IANA names.
+Temporal uses the host time zone database. On Ubuntu 24.04+ and Debian 13+, install `tzdata-legacy` for legacy IANA names.
 
 ```bash
 sudo apt install tzdata-legacy
