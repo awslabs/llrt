@@ -12,6 +12,7 @@ const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
 const BUF_SIZE: usize = 80;
 const BIN_MAX_DIGITS: usize = 64;
 const OCT_MAX_DIGITS: usize = 21;
+const MAX_FRACTION_DIGITS: usize = 1100;
 
 pub fn redefine_prototype(ctx: &Ctx<'_>) -> Result<()> {
     let globals = ctx.globals();
@@ -126,7 +127,8 @@ fn next_up(num: f64) -> f64 {
 }
 
 #[inline(always)]
-fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: u8) -> usize {
+fn fractional_to_base(mut number: f64, radix: u8) -> String {
+    let mut buf = Vec::with_capacity(BUF_SIZE);
     let mut is_odd = number <= 0x1fffffffffffffi64 as f64 && (number as i64) & 1 != 0;
     let mut digit;
 
@@ -148,6 +150,11 @@ fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: 
         number = ntmp - digit as f64;
         delta_next_double = rtmp - ritmp as f64;
 
+        if number == 0.0 {
+            buf.push(DIGITS[digit]);
+            break;
+        }
+
         if number > 0.5f64 || number == 0.5f64 && if radix & 1 > 0 { is_odd } else { digit & 1 > 0 }
         {
             if number + delta_next_double > 1.0 {
@@ -157,23 +164,68 @@ fn fractional_to_base(buf: &mut [u8], mut index: usize, mut number: f64, radix: 
         } else if number < delta_next_double * 2.0 {
             break;
         }
-        buf[index] = DIGITS[digit];
+        buf.push(DIGITS[digit]);
 
-        index += 1;
+        if buf.len() >= MAX_FRACTION_DIGITS {
+            break;
+        }
     }
 
-    // let last_index = index;
-    // while number > 0.0 {
-    //     let tmp = number * radix as f64;
-    //     let itmp = tmp as usize;
-    //     buf[index] = DIGITS[itmp];
-    //     number = tmp - itmp as f64;
-    //     index += 1;
-    //     if index - last_index > BUF_SIZE - last_index - 1 {
-    //         break;
-    //     }
-    // }
-    index
+    unsafe { String::from_utf8_unchecked(buf) }
+}
+
+#[inline(always)]
+fn integer_limbs(value: f64) -> Vec<u32> {
+    let bits = value.to_bits();
+    let exponent = ((bits >> 52) & 0x7ff) as i32;
+    let mantissa = (bits & ((1u64 << 52) - 1)) | (1u64 << 52);
+    let shift = exponent - 1075;
+
+    if shift >= 0 {
+        let word = (shift / 32) as usize;
+        let bit = (shift % 32) as u32;
+        let source = [mantissa as u32, (mantissa >> 32) as u32];
+        let mut limbs = vec![0u32; word + 3];
+        for (index, source) in source.into_iter().enumerate() {
+            let value = (source as u64) << bit;
+            limbs[index + word] |= value as u32;
+            limbs[index + word + 1] |= (value >> 32) as u32;
+        }
+        limbs
+    } else {
+        let shift = (-shift) as u32;
+        if shift >= 64 {
+            vec![0]
+        } else {
+            let value = mantissa >> shift;
+            vec![value as u32, (value >> 32) as u32]
+        }
+    }
+}
+
+fn integer_to_base_n(value: f64, radix: u8) -> String {
+    let mut limbs = integer_limbs(value);
+    let mut digits = Vec::with_capacity(BUF_SIZE);
+
+    loop {
+        let mut remainder = 0u64;
+        for limb in limbs.iter_mut().rev() {
+            let current = (remainder << 32) | u64::from(*limb);
+            *limb = (current / radix as u64) as u32;
+            remainder = current % radix as u64;
+        }
+        digits.push(DIGITS[remainder as usize]);
+
+        while limbs.len() > 1 && limbs[limbs.len() - 1] == 0 {
+            limbs.pop();
+        }
+        if limbs.len() == 1 && limbs[0] == 0 {
+            break;
+        }
+    }
+
+    digits.reverse();
+    unsafe { String::from_utf8_unchecked(digits) }
 }
 
 #[inline(always)]
@@ -194,7 +246,6 @@ fn f64_to_base_n(number: f64, radix: u8) -> String {
 
     let mut abs_num = number;
     let mut string = String::with_capacity(BUF_SIZE);
-    let mut buf = [0u8; BUF_SIZE];
 
     if number < 0.0 {
         abs_num = -number;
@@ -203,17 +254,18 @@ fn f64_to_base_n(number: f64, radix: u8) -> String {
 
     let integer_part = abs_num.trunc();
     let fractional_part = abs_num - integer_part;
-    let integer_part = abs_num as i64;
 
-    let index = internal_i64_to_base_n(&mut buf, integer_part, radix);
-    string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[index..BUF_SIZE]) });
+    if integer_part < 9_223_372_036_854_775_808.0 {
+        string.push_str(&i64_to_base_n(integer_part as i64, radix));
+    } else {
+        string.push_str(&integer_to_base_n(integer_part, radix));
+    }
 
     if fractional_part > 0.0 {
-        buf.fill(0);
-        let frac_end = fractional_to_base(&mut buf, 0, fractional_part, radix);
-        if frac_end > 0 {
+        let fraction = fractional_to_base(fractional_part, radix);
+        if !fraction.is_empty() {
             string.push('.');
-            string.push_str(unsafe { std::str::from_utf8_unchecked(&buf[0..frac_end]) });
+            string.push_str(&fraction);
         }
     }
     string
@@ -288,7 +340,24 @@ mod test {
 
     use rand::RngExt;
 
-    use crate::{float_to_string, i64_to_base_n};
+    use crate::{f64_to_base_n, float_to_string, i64_to_base_n};
+
+    #[test]
+    fn test_large_and_small_base_conversions() {
+        assert_eq!(f64_to_base_n(1e21, 16), "3635c9adc5dea00000");
+        assert_eq!(f64_to_base_n(18_446_744_073_709_551_616.0, 2).len(), 65);
+        assert_eq!(
+            f64_to_base_n(1e-35, 16),
+            "0.00000000000000000000000000000d4ad2dbfc3d078"
+        );
+        assert_eq!(
+            f64_to_base_n(f64::MIN_POSITIVE, 16),
+            ["0.", &"0".repeat(255), "4"].concat()
+        );
+        assert_eq!(f64_to_base_n(-1e21, 16), "-3635c9adc5dea00000");
+        assert_eq!(f64_to_base_n(0.0, 16), "0");
+        assert_eq!(f64_to_base_n(-0.0, 16), "0");
+    }
 
     #[test]
     fn test_base_conversions() {
