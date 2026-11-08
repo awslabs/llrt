@@ -181,10 +181,7 @@ fn supports_wrap<'js>(
         EncryptionAlgorithm::AesKw => false,
         _ => true,
     };
-    if !valid_parameters || !cfg!(feature = "_subtle-full") {
-        return Ok(false);
-    }
-    Ok(true)
+    Ok(valid_parameters && cfg!(feature = "_subtle-full"))
 }
 
 fn supports_sign<'js>(ctx: &Ctx<'js>, algorithm: Value<'js>) -> Result<bool> {
