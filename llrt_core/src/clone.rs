@@ -83,9 +83,8 @@ pub fn structured_clone<'js>(
     let mut visited = Vec::<(Value<'js>, usize)>::with_capacity(10);
     let mut index = 0usize;
     let data_view_ctor = &primordials.constructor_data_view;
-    let globals = ctx.globals();
-    let weak_map: Option<Constructor> = globals.get("WeakMap")?;
-    let weak_set: Option<Constructor> = globals.get("WeakSet")?;
+    let weak_map_ctor = &primordials.constructor_weak_map;
+    let weak_set_ctor = &primordials.constructor_weak_set;
 
     stack.push(StackItem::Value(0, value, None, None));
 
@@ -129,12 +128,8 @@ pub fn structured_clone<'js>(
                         //unsafe OK since we're guaranteed to be object by the match
                         let object = unsafe { value.as_object().unwrap_unchecked() };
 
-                        let is_weak_collection = weak_map
-                            .as_ref()
-                            .is_some_and(|ctor| object.is_instance_of(ctor))
-                            || weak_set
-                                .as_ref()
-                                .is_some_and(|ctor| object.is_instance_of(ctor));
+                        let is_weak_collection = object.is_instance_of(weak_map_ctor)
+                            || object.is_instance_of(weak_set_ctor);
                         if is_weak_collection {
                             return Err(DOMException::data_clone_error(
                                 ctx,
