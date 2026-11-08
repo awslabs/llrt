@@ -4,6 +4,7 @@ use std::{cmp::Ordering, str::FromStr};
 
 use jiff::{
     civil::{Date, DateTime},
+    tz::TimeZone,
     Timestamp,
 };
 use llrt_utils::result::ResultExt;
@@ -14,11 +15,13 @@ use rquickjs::{
     Class, Ctx, Exception, JsLifetime, Object, Result, Value,
 };
 
-use crate::duration::Duration;
-use crate::plain_date_time::PlainDateTime;
+use crate::utils::calendar::{split_calendar_annotation, Calendar};
 use crate::utils::date::{fill_from_iter, DateExt};
-use crate::zoned_date_time::ZonedDateTime;
+use crate::utils::parse_temporal_calendar;
 
+use super::duration::Duration;
+use super::plain_date_time::PlainDateTime;
+use super::zoned_date_time::ZonedDateTime;
 use super::{extract_time, extract_time_and_timezone};
 
 #[derive(Clone, JsLifetime, Trace)]
@@ -26,6 +29,8 @@ use super::{extract_time, extract_time_and_timezone};
 pub(crate) struct PlainDate {
     #[qjs(skip_trace)]
     inner: Date,
+    #[qjs(skip_trace)]
+    ca: Calendar,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
@@ -74,7 +79,8 @@ impl PlainDate {
         let duration = Duration::from_value(&ctx, &duration)?;
         let span = duration.into_inner();
         let zoned = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
-        Ok(Self { inner: zoned })
+        let ca = self.ca.clone();
+        Ok(Self { inner: zoned, ca })
     }
 
     fn equals(&self, other: Self) -> bool {
@@ -89,7 +95,8 @@ impl PlainDate {
         let duration = Duration::from_value(&ctx, &duration)?;
         let span = duration.into_inner();
         let date = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
-        Ok(Self { inner: date })
+        let ca = self.ca.clone();
+        Ok(Self { inner: date, ca })
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -101,7 +108,8 @@ impl PlainDate {
     fn to_plain_date_time(&self, ctx: Ctx<'_>, value: Opt<Value<'_>>) -> Result<PlainDateTime> {
         let time = extract_time(&ctx, &value.0)?;
         let dt = DateTime::from_parts(self.inner, time);
-        Ok(PlainDateTime::new_object(dt))
+        let ca = self.ca.clone();
+        Ok(PlainDateTime::new_object(dt, ca))
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -114,7 +122,8 @@ impl PlainDate {
         let (time, tz) = extract_time_and_timezone(&ctx, &value)?;
         let dt = DateTime::from_parts(self.inner, time);
         let zoned = dt.in_tz(&tz).or_throw_range(&ctx, "")?;
-        Ok(ZonedDateTime::new_object(zoned))
+        let ca = self.ca.clone();
+        Ok(ZonedDateTime::new_object(zoned, ca))
     }
 
     fn until(&self, other: Self) -> Duration {
@@ -130,12 +139,13 @@ impl PlainDate {
 
     fn with(&self, ctx: Ctx<'_>, info: Value<'_>) -> Result<Self> {
         let date = self.inner.date_with(&ctx, &info)?;
-        Ok(Self { inner: date })
+        let ca = self.ca.clone();
+        Ok(Self { inner: date, ca })
     }
 
     #[qjs(get)]
-    fn calendar_id() -> &'static str {
-        "iso8601"
+    fn calendar_id(&self) -> &'static str {
+        self.ca.id()
     }
 
     #[qjs(get)]
@@ -189,17 +199,20 @@ impl PlainDate {
 
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
         let date = Date::from_object(ctx, obj)?;
-        Ok(Self { inner: date })
+        let ca = Calendar::from_object(ctx, obj)?;
+        Ok(Self { inner: date, ca })
     }
 
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let date = Date::from_str(str).or_throw_range(ctx, "")?;
-        Ok(Self { inner: date })
+        let (str, ca) = split_calendar_annotation(str);
+        let ca = parse_temporal_calendar(ctx, ca)?;
+        let date = Date::from_str(&str).or_throw_range(ctx, "")?;
+        Ok(Self { inner: date, ca })
     }
 
-    pub(crate) fn from_ts_tz(ctx: &Ctx<'_>, ts: &Timestamp, tz: &str) -> Result<Self> {
-        let zoned = ts.in_tz(tz).or_throw_range(ctx, "")?;
-        let zdt = ZonedDateTime::new_object(zoned);
+    pub(crate) fn from_parts(ts: &Timestamp, tz: TimeZone, ca: Calendar) -> Result<Self> {
+        let zoned = ts.to_zoned(tz);
+        let zdt = ZonedDateTime::new_object(zoned, ca);
         Ok(zdt.to_plain_date())
     }
 
@@ -207,7 +220,7 @@ impl PlainDate {
         self.inner
     }
 
-    pub(crate) fn new_object(date: Date) -> Self {
-        Self { inner: date }
+    pub(crate) fn new_object(date: Date, ca: Calendar) -> Self {
+        Self { inner: date, ca }
     }
 }

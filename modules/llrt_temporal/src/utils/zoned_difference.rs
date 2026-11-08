@@ -4,7 +4,7 @@ use jiff::{Unit, Zoned, ZonedDifference};
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Result, Value};
 
-use crate::utils::{get_duration_unit, get_round_mode};
+use super::{get_duration_unit, get_round_mode};
 
 pub trait ZonedDifferenceExt<'a> {
     fn from_value(ctx: &Ctx<'_>, zoned: &'a Zoned, value: &Value) -> Result<ZonedDifference<'a>>;

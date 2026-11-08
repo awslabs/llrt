@@ -1,5 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+pub mod calendar;
 pub mod date;
 pub mod date_time;
 pub mod date_time_round;
@@ -8,11 +9,15 @@ pub mod span_round;
 pub mod span_total;
 pub mod time;
 pub mod time_round;
+pub mod time_zone;
 pub mod timestamp_round;
 pub mod zoned;
 pub mod zoned_difference;
 pub mod zoned_round;
 
+use std::str::FromStr;
+
+use calendar::Calendar;
 use jiff::{RoundMode, Unit};
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Exception, Result, Value};
@@ -108,4 +113,9 @@ pub(super) fn get_round_mode(ctx: &Ctx, mode: &Option<String>) -> Result<RoundMo
         _ => return Err(Exception::throw_type(ctx, "Cannot convert to RoundMode")),
     };
     Ok(mode)
+}
+
+pub(crate) fn parse_temporal_calendar(ctx: &Ctx<'_>, calendar: Option<String>) -> Result<Calendar> {
+    let id = calendar.unwrap_or_else(|| "iso8601".to_string());
+    Calendar::from_str(&id).map_err(|err| Exception::throw_range(ctx, &err.to_string()))
 }

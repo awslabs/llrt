@@ -162,7 +162,7 @@ describe("Instance methods", () => {
       const dt2 = Temporal.ZonedDateTime.from(
         "2021-07-01T12:34:56+05:30[Asia/Calcutta]"
       );
-      // expect(dt1.equals(dt2)).toBe(true);
+      expect(dt1.equals(dt2)).toBe(true);
 
       const dt3 = Temporal.ZonedDateTime.from(
         "2021-07-01T12:34:56+05:30[+05:30]"
@@ -172,7 +172,7 @@ describe("Instance methods", () => {
       const dt4 = Temporal.ZonedDateTime.from(
         "2021-07-01T12:34:56+05:30[Asia/Kolkata][u-ca=buddhist]"
       );
-      // expect(dt1.equals(dt4)).toBe(false);
+      expect(dt1.equals(dt4)).toBe(false);
     });
 
     it("Testing if two time zone identifiers are equivalent", () => {
@@ -192,7 +192,7 @@ describe("Instance methods", () => {
         return dt1.equals(dt2);
       }
 
-      // expect(sameTimeZone("Asia/Kolkata", "Asia/Calcutta")).toBe(true);
+      expect(sameTimeZone("Asia/Kolkata", "Asia/Calcutta")).toBe(true);
       expect(sameTimeZone("Asia/Shanghai", "Asia/Taipei")).toBe(false);
     });
   });

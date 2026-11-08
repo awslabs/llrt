@@ -7,11 +7,14 @@ use rquickjs::{
     Ctx, Object, Result,
 };
 
-use crate::instant::Instant;
-use crate::plain_date::PlainDate;
-use crate::plain_date_time::PlainDateTime;
-use crate::plain_time::PlainTime;
-use crate::zoned_date_time::ZonedDateTime;
+use crate::utils::parse_temporal_calendar;
+use crate::utils::time_zone::parse_temporal_time_zone;
+
+use super::instant::Instant;
+use super::plain_date::PlainDate;
+use super::plain_date_time::PlainDateTime;
+use super::plain_time::PlainTime;
+use super::zoned_date_time::ZonedDateTime;
 
 pub(crate) fn define_object<'a>(ctx: &Ctx<'a>) -> Result<Object<'a>> {
     let obj = Object::new(ctx.clone())?;
@@ -26,18 +29,21 @@ pub(crate) fn define_object<'a>(ctx: &Ctx<'a>) -> Result<Object<'a>> {
 }
 
 fn plain_date_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<PlainDate> {
-    let (ts, tz) = parts_of_zoned_now(timezone);
-    PlainDate::from_ts_tz(&ctx, &ts, &tz)
+    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let ca = parse_temporal_calendar(&ctx, None)?;
+    PlainDate::from_parts(&ts, tz, ca)
 }
 
 fn plain_datetime_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<PlainDateTime> {
-    let (ts, tz) = parts_of_zoned_now(timezone);
-    PlainDateTime::from_ts_tz(&ctx, &ts, &tz)
+    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let ca = parse_temporal_calendar(&ctx, None)?;
+    PlainDateTime::from_parts(&ts, tz, ca)
 }
 
 fn plain_time_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<PlainTime> {
-    let (ts, tz) = parts_of_zoned_now(timezone);
-    PlainTime::from_ts_tz(&ctx, &ts, &tz)
+    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let ca = parse_temporal_calendar(&ctx, None)?;
+    PlainTime::from_parts(&ts, tz, ca)
 }
 
 fn time_zone_id() -> String {
@@ -48,14 +54,14 @@ fn time_zone_id() -> String {
 }
 
 fn zoned_datetime_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<ZonedDateTime> {
-    let (ts, tz) = parts_of_zoned_now(timezone);
-    ZonedDateTime::from_ts_tz(&ctx, &ts, &tz)
+    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let ca = parse_temporal_calendar(&ctx, None)?;
+    ZonedDateTime::from_parts(&ts, tz, ca)
 }
 
-fn parts_of_zoned_now(timezone: Opt<String>) -> (Timestamp, String) {
+fn parts_of_zoned_now(ctx: &Ctx<'_>, timezone: &Option<String>) -> Result<(Timestamp, TimeZone)> {
     let zoned = Zoned::now();
     let ts = zoned.timestamp();
-    let tz = zoned.time_zone().iana_name().unwrap_or("UTC");
-    let tz = timezone.0.unwrap_or(tz.to_string());
-    (ts, tz)
+    let tz = parse_temporal_time_zone(ctx, timezone)?;
+    Ok((ts, tz))
 }

@@ -9,11 +9,13 @@ use rquickjs::{
     Result, Value,
 };
 
-use crate::duration::Duration;
+use crate::utils::parse_temporal_calendar;
+use crate::utils::time_zone::parse_temporal_time_zone;
 use crate::utils::timestamp_round::TimestampRoundOption;
-use crate::zoned_date_time::ZonedDateTime;
 
+use super::duration::Duration;
 use super::extract_bigint_or_number;
+use super::zoned_date_time::ZonedDateTime;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
@@ -109,8 +111,9 @@ impl Instant {
 
     #[qjs(rename = "toZonedDateTimeISO")]
     fn to_zoned_dt_iso(&self, ctx: Ctx<'_>, timezone: Opt<String>) -> Result<ZonedDateTime> {
-        let tz = timezone.as_deref().unwrap_or("UTC");
-        ZonedDateTime::from_ts_tz(&ctx, &self.inner, tz)
+        let tz = parse_temporal_time_zone(&ctx, &timezone)?;
+        let ca = parse_temporal_calendar(&ctx, None)?;
+        ZonedDateTime::from_parts(&self.inner, tz, ca)
     }
 
     fn until(&self, other: Self) -> Duration {

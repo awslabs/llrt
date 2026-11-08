@@ -13,5 +13,6 @@ path = "src/lib.rs"
 
 [dependencies]
 jiff = { version = "0.2" }
+jiff-tzdb = { version = "0.1" }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", features = ["macro"], default-features = false }
