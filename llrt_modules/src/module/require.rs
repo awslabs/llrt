@@ -4,7 +4,12 @@ use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
 use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
 use llrt_json::parse::json_parse;
-use llrt_utils::{ctx::CtxExt, io::BYTECODE_FILE_EXT, provider::ProviderType};
+use llrt_utils::{
+    ctx::CtxExt,
+    io::BYTECODE_FILE_EXT,
+    primordials::{BasePrimordials, Primordial},
+    provider::ProviderType,
+};
 use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, Function, Module, Object, Result, Value};
 use tokio::time::Instant;
 use tracing::trace;
@@ -141,10 +146,15 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             drop(state);
             let exports = unsafe { exports_obj.as_object().unwrap_unchecked() };
 
-            for prop in exports.own_props::<Value, Value>(Filter::new().private().string().symbol())
-            {
-                let (key, value) = prop?;
-                obj.set(key, value)?;
+            let primordials = BasePrimordials::get(&ctx)?;
+            let get_descriptor = primordials.function_get_own_property_descriptor.clone();
+            let define_property = primordials.function_define_property.clone();
+            let keys: Vec<Value> = exports
+                .own_keys(Filter::new().private().string().symbol())
+                .collect::<Result<_>>()?;
+            for key in keys {
+                let descriptor: Value = get_descriptor.call((exports.clone(), key.clone()))?;
+                define_property.call::<_, Value>((obj.clone(), key, descriptor))?;
             }
         } else {
             //we have explicitly set it
