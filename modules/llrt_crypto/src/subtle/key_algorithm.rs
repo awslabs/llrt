@@ -1850,7 +1850,9 @@ fn import_symmetric_key<'js>(
     kind: &mut KeyKind,
     data: &mut Vec<u8>,
     algorithm_name: &str,
-    _hash: Option<&HashAlgorithm>,
+    #[cfg_attr(not(feature = "_subtle-full"), allow(unused_variables))] hash: Option<
+        &HashAlgorithm,
+    >,
 ) -> Result<usize> {
     *kind = KeyKind::Secret;
 
@@ -1860,31 +1862,31 @@ fn import_symmetric_key<'js>(
             validate_jwk_kty(ctx, &object, "oct")?;
 
             let k: String = get_jwk_required_string(ctx, &object, "k")?;
-            let alg: String = get_jwk_required_string(ctx, &object, "alg")?;
+            *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
+            let key_length = data.len() * 8;
 
-            let prefix = &alg[..1];
-
-            match (prefix, _hash) {
-                //HMAC - HS256, HS512 etc
-                ("H", Some(hash)) => {
-                    if &alg[2..] != hash.as_numeric_str() {
-                        return hash_mismatch_error(ctx, hash);
-                    }
-                },
-                //AES - A256KW, A256GCM, A256CRT, A512CBC etc
-                ("A", None) => {
-                    //extract AES-{suffix}
-                    let aes_variant = &alg[4..];
-
-                    if !algorithm_name.ends_with(aes_variant) {
-                        return algorithm_mismatch_error(ctx, algorithm_name);
-                    }
-                },
-                _ => return algorithm_mismatch_error(ctx, algorithm_name),
+            if let Some(alg) = object.get_optional::<_, String>("alg")? {
+                match hash {
+                    Some(hash) => {
+                        if alg.strip_prefix("HS") != Some(hash.as_numeric_str()) {
+                            return jwk_alg_mismatch_error(ctx);
+                        }
+                    },
+                    None => {
+                        let bits = alg
+                            .strip_prefix('A')
+                            .and_then(|rest| rest.get(..3))
+                            .and_then(|bits| bits.parse::<usize>().ok());
+                        if bits != Some(key_length)
+                            || alg.get(4..) != algorithm_name.strip_prefix("AES-")
+                        {
+                            return jwk_alg_mismatch_error(ctx);
+                        }
+                    },
+                }
             }
 
-            *data = bytes_from_b64_url_safe(k.as_bytes()).or_throw(ctx)?;
-            Ok(data.len() * 8)
+            Ok(key_length)
         },
         KeyFormatData::Raw(object_bytes) | KeyFormatData::RawSecret(object_bytes) => {
             let bytes = object_bytes.into_bytes(ctx)?;
@@ -2268,6 +2270,14 @@ pub fn hash_mismatch_error<T>(ctx: &Ctx<'_>, hash: &HashAlgorithm) -> Result<T> 
     Err(DOMException::type_mismatch_error(
         ctx,
         ["Algorithm hash expected to be ", hash.as_str()].concat(),
+    ))
+}
+
+#[cfg(feature = "_subtle-full")]
+fn jwk_alg_mismatch_error<T>(ctx: &Ctx<'_>) -> Result<T> {
+    Err(DOMException::data_error(
+        ctx,
+        "JWK \"alg\" does not match the requested algorithm",
     ))
 }
 

@@ -2030,6 +2030,50 @@ fullCrypto("SubtileCrypto import/export", () => {
     ).rejects.toMatchObject({ name: "SyntaxError" });
   });
 
+  it("imports oct JWKs without alg and validates alg key sizes", async () => {
+    const key128 = { kty: "oct", k: "AAAAAAAAAAAAAAAAAAAAAA" };
+
+    const aes = await crypto.subtle.importKey("jwk", key128, "AES-GCM", true, [
+      "encrypt",
+    ]);
+    expect((aes.algorithm as webcrypto.AesKeyAlgorithm).length).toBe(128);
+
+    const hmac = await crypto.subtle.importKey(
+      "jwk",
+      { kty: "oct", k: "AAAA" },
+      { name: "HMAC", hash: "SHA-256" },
+      true,
+      ["sign"]
+    );
+    expect((hmac.algorithm as webcrypto.HmacKeyAlgorithm).length).toBe(24);
+
+    await expect(
+      crypto.subtle.importKey(
+        "jwk",
+        { ...key128, alg: "A256GCM" },
+        "AES-GCM",
+        true,
+        ["encrypt"]
+      )
+    ).rejects.toMatchObject({
+      name: "DataError",
+      message: 'JWK "alg" does not match the requested algorithm',
+    });
+
+    const aes256 = await crypto.subtle.importKey(
+      "jwk",
+      {
+        kty: "oct",
+        k: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        alg: "A256GCM",
+      },
+      "AES-GCM",
+      true,
+      ["encrypt"]
+    );
+    expect((aes256.algorithm as webcrypto.AesKeyAlgorithm).length).toBe(256);
+  });
+
   it("rejects importing a non-extractable JWK as extractable", async () => {
     const jwk = {
       kty: "oct",
