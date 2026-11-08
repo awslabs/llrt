@@ -76,6 +76,14 @@ it("should handle cjs requires", () => {
   expect(a.prop).toEqual("a");
 });
 
+it("should not evaluate exported getters during require", () => {
+  const mod = _require(`${CWD}/fixtures/lazy-export.cjs`);
+
+  expect(mod.wasInitialized()).toBe(false);
+  expect(mod.lazy).toBe(42);
+  expect(mod.wasInitialized()).toBe(true);
+});
+
 it("should be able to use node module with prefix `node:` with require", () => {
   let { Console } = require("node:console");
   const consoleObj = new Console({
