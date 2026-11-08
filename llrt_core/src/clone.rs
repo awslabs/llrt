@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use llrt_modules::exceptions::DOMException;
 use llrt_utils::{
     clone::clone_platform_object,
-    hash,
     object::ObjectExt,
     primordials::{BasePrimordials, Primordial},
 };
@@ -15,7 +14,10 @@ use rquickjs::{
     Array, ArrayBuffer, Ctx, Exception, Function, IntoJs, Null, Object, Result, Type, Value,
 };
 
-use crate::modules::crypto::CryptoKey;
+use crate::modules::{
+    buffer::{Blob, File},
+    crypto::CryptoKey,
+};
 
 #[derive(Debug)]
 enum StackItem<'js> {
@@ -78,9 +80,12 @@ pub fn structured_clone<'js>(
 
     let mut tape = Vec::<TapeItem>::with_capacity(10);
     let mut stack = Vec::with_capacity(10);
-    let mut visited = Vec::<(usize, usize)>::with_capacity(10);
+    let mut visited = Vec::<(Value<'js>, usize)>::with_capacity(10);
     let mut index = 0usize;
     let data_view_ctor = &primordials.constructor_data_view;
+    let globals = ctx.globals();
+    let weak_map: Option<Constructor> = globals.get("WeakMap")?;
+    let weak_set: Option<Constructor> = globals.get("WeakSet")?;
 
     stack.push(StackItem::Value(0, value, None, None));
 
@@ -124,6 +129,19 @@ pub fn structured_clone<'js>(
                         //unsafe OK since we're guaranteed to be object by the match
                         let object = unsafe { value.as_object().unwrap_unchecked() };
 
+                        let is_weak_collection = weak_map
+                            .as_ref()
+                            .is_some_and(|ctor| object.is_instance_of(ctor))
+                            || weak_set
+                                .as_ref()
+                                .is_some_and(|ctor| object.is_instance_of(ctor));
+                        if is_weak_collection {
+                            return Err(DOMException::data_clone_error(
+                                ctx,
+                                "Value could not be cloned",
+                            ));
+                        }
+
                         if let Some(value) = try_clone_platform_object(ctx, object)? {
                             tape.push(TapeItem {
                                 parent,
@@ -157,6 +175,24 @@ pub fn structured_clone<'js>(
                                 object_key,
                                 array_index,
                             )?;
+                            index += 1;
+                            continue;
+                        }
+
+                        if object.is_instance_of(&primordials.constructor_number)
+                            || object.is_instance_of(&primordials.constructor_string)
+                            || object.is_instance_of(&primordials.constructor_bool)
+                        {
+                            let value_of: Function = object.get("valueOf")?;
+                            let primitive: Value = value_of.call((This(object.clone()),))?;
+                            let clone: Value =
+                                primordials.constructor_object.construct((primitive,))?;
+                            tape.push(TapeItem {
+                                parent,
+                                object_key,
+                                array_index,
+                                value: TapeValue::Value(clone),
+                            });
                             index += 1;
                             continue;
                         }
@@ -203,6 +239,19 @@ pub fn structured_clone<'js>(
                             continue;
                         }
 
+                        if let Some(buffer) = ArrayBuffer::from_value(value.clone()) {
+                            let slice: Function = buffer.get("slice")?;
+                            let clone: Value = slice.call((This(buffer),))?;
+                            tape.push(TapeItem {
+                                parent,
+                                object_key,
+                                array_index,
+                                value: TapeValue::Value(clone),
+                            });
+                            index += 1;
+                            continue;
+                        }
+
                         let new: Object<'_> =
                             if object.is_instance_of(&primordials.constructor_error) {
                                 primordials.constructor_error.construct(("",))
@@ -237,7 +286,15 @@ pub fn structured_clone<'js>(
                             index += 1;
                             continue;
                         }
+                        //unsafe OK since we're guaranteed to be object by the match
+                        let array = unsafe { value.as_array().unwrap_unchecked() };
+                        let length = array.len();
+                        let keys = array
+                            .as_object()
+                            .keys::<String>()
+                            .collect::<Result<Vec<_>>>()?;
                         let new = Array::new(ctx.clone())?;
+                        new.as_object().set(PredefinedAtom::Length, length)?;
                         tape.push(TapeItem {
                             parent,
                             object_key,
@@ -245,17 +302,10 @@ pub fn structured_clone<'js>(
                             value: TapeValue::Array(new),
                         });
                         stack.push(StackItem::ObjectEnd);
-                        //unsafe OK since we're guaranteed to be object by the match
-                        let array = unsafe { value.as_array().unwrap_unchecked() };
 
-                        //reverse for loop of items in array
-                        for array_index in (0usize..array.len()).rev() {
-                            stack.push(StackItem::Value(
-                                index,
-                                array.get(array_index)?,
-                                None,
-                                Some(array_index),
-                            ));
+                        for key in keys.into_iter().rev() {
+                            let item = array.as_object().get(&key)?;
+                            stack.push(StackItem::Value(index, item, Some(key), None));
                         }
                     },
                     _ => {
@@ -290,7 +340,11 @@ pub fn structured_clone<'js>(
         let object_key = item.object_key;
         match &mut parent.value {
             TapeValue::Array(array) => {
-                array.set(array_index.unwrap(), value)?;
+                if let Some(key) = object_key {
+                    array.as_object().set(key, value)?;
+                } else {
+                    array.set(array_index.unwrap(), value)?;
+                }
             },
             TapeValue::Object(object) => {
                 let string = object_key.unwrap();
@@ -324,26 +378,18 @@ fn append_buffer<'js>(
     is_data_view: bool,
 ) -> Result<()> {
     let ctor: Constructor = object.get(PredefinedAtom::Constructor)?;
-    // DataView has no slice(): clone the viewed ArrayBuffer and rebuild the
-    // view at the same offset and length, per the HTML spec.
-    if is_data_view {
-        let buffer: Object = object.get("buffer")?;
-        let byte_offset: usize = object.get("byteOffset")?;
-        let byte_length: usize = object.get("byteLength")?;
-        let slice: Function = buffer.get("slice")?;
-        let cloned_buffer: Value = slice.call((This(buffer),))?;
-        let new = ctor.construct((cloned_buffer, byte_offset, byte_length))?;
-        tape.push(TapeItem {
-            parent,
-            object_key,
-            array_index,
-            value: TapeValue::Value(new),
-        });
-        return Ok(());
-    }
-    let slice: Function = object.get("slice")?;
-    let clone: Value = slice.call((This(object.clone()),))?;
-    let new = ctor.construct((clone,))?;
+    // Views are cloned over a copy of their whole backing buffer, retaining
+    // the original offset and length per the HTML spec.
+    let buffer: Object = object.get("buffer")?;
+    let byte_offset: usize = object.get("byteOffset")?;
+    let view_len: usize = if is_data_view {
+        object.get("byteLength")?
+    } else {
+        object.get("length")?
+    };
+    let slice: Function = buffer.get("slice")?;
+    let cloned_buffer: Value = slice.call((This(buffer),))?;
+    let new = ctor.construct((cloned_buffer, byte_offset, view_len))?;
     tape.push(TapeItem {
         parent,
         object_key,
@@ -380,21 +426,20 @@ fn append_collection<'js>(
 }
 
 #[inline(always)]
-fn check_circular(
-    tape: &mut Vec<TapeItem>,
-    visited: &mut Vec<(usize, usize)>,
-    value: &Value<'_>,
+fn check_circular<'js>(
+    tape: &mut Vec<TapeItem<'js>>,
+    visited: &mut Vec<(Value<'js>, usize)>,
+    value: &Value<'js>,
     parent: usize,
     object_key: &mut Option<String>,
     array_index: Option<usize>,
     index: usize,
 ) -> bool {
-    let hash = hash::default_hash(value);
-    if let Some(visited) = visited.iter().find(|v| v.0 == hash) {
+    if let Some(visited) = visited.iter().find(|v| &v.0 == value) {
         append_circular(tape, visited, object_key, parent, array_index);
         return true;
     }
-    visited.push((hash, index));
+    visited.push((value.clone(), index));
     false
 }
 
@@ -424,9 +469,9 @@ fn append_transfer_value<'js>(
 
 #[inline(always)]
 #[cold]
-fn append_circular(
-    tape: &mut Vec<TapeItem<'_>>,
-    visited: &(usize, usize),
+fn append_circular<'js>(
+    tape: &mut Vec<TapeItem<'js>>,
+    visited: &(Value<'js>, usize),
     object_key: &mut Option<String>,
     parent: usize,
     array_index: Option<usize>,
@@ -472,6 +517,12 @@ fn try_clone_platform_object<'js>(
     ctx: &Ctx<'js>,
     object: &Object<'js>,
 ) -> Result<Option<Value<'js>>> {
+    if let Some(value) = clone_platform_object::<File>(ctx, object)? {
+        return Ok(Some(value));
+    }
+    if let Some(value) = clone_platform_object::<Blob>(ctx, object)? {
+        return Ok(Some(value));
+    }
     if let Some(value) = clone_platform_object::<CryptoKey>(ctx, object)? {
         return Ok(Some(value));
     }

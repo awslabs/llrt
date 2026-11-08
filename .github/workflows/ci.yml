@@ -50,7 +50,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install make nodejs
+          sudo apt-get -y install make nodejs tzdata-legacy
       - name: Install JavaScript dependencies
         run: |
           corepack enable

@@ -91,6 +91,90 @@ describe("structuredClone", () => {
     expect(cloned).not.toBe(original);
   });
 
+  it("Clones typed array views with their backing buffer", () => {
+    const buffer = new ArrayBuffer(16);
+    new Uint8Array(buffer).set([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    ]);
+    const view = new Uint8Array(buffer, 4, 4);
+    const cloned = structuredClone(view);
+    expect(cloned.byteOffset).toBe(4);
+    expect(cloned.length).toBe(4);
+    expect(cloned.buffer.byteLength).toBe(16);
+    expect(Array.from(new Uint8Array(cloned.buffer))).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    ]);
+    expect(cloned.buffer).not.toBe(buffer);
+  });
+
+  it("Clones ArrayBuffers", () => {
+    const buffer = new ArrayBuffer(8);
+    new Uint8Array(buffer).set([1, 2, 3, 4, 5, 6, 7, 8]);
+    const cloned = structuredClone(buffer);
+    expect(cloned).toBeInstanceOf(ArrayBuffer);
+    expect(cloned.byteLength).toBe(8);
+    expect(Array.from(new Uint8Array(cloned))).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
+    expect(cloned).not.toBe(buffer);
+  });
+
+  it("Clones boxed primitives", () => {
+    const num = structuredClone(new Number(5));
+    expect(Object.prototype.toString.call(num)).toBe("[object Number]");
+    expect(+num).toBe(5);
+
+    const str = structuredClone(new String("ab"));
+    expect(Object.prototype.toString.call(str)).toBe("[object String]");
+    expect(str.length).toBe(2);
+    expect(String(str)).toBe("ab");
+
+    const bool = structuredClone(new Boolean(true));
+    expect(Object.prototype.toString.call(bool)).toBe("[object Boolean]");
+    expect(bool.valueOf()).toBe(true);
+  });
+
+  it("Clones nested collections", () => {
+    const set = structuredClone(new Set([new Set([1])]));
+    expect(set.values().next().value.size).toBe(1);
+
+    const map = structuredClone(new Map([["k", new Map([[1, 2]])]]));
+    expect(map.get("k").size).toBe(1);
+    expect(map.get("k").get(1)).toBe(2);
+  });
+
+  it("Preserves array holes and extra properties", () => {
+    const sparse = structuredClone([, , 1]);
+    expect(sparse.length).toBe(3);
+    expect(Object.keys(sparse)).toEqual(["2"]);
+    expect(1 in sparse).toBe(false);
+
+    const withProps: any = structuredClone(Object.assign([1], { x: 2 }));
+    expect(Object.keys(withProps)).toEqual(["0", "x"]);
+    expect(withProps[0]).toBe(1);
+    expect(withProps.x).toBe(2);
+  });
+
+  it("Clones Blob and File", () => {
+    const blob = structuredClone(new Blob(["ab"]));
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.size).toBe(2);
+
+    const file = structuredClone(
+      new File(["abc"], "a.txt", { type: "text/plain", lastModified: 123 })
+    );
+    expect(file).toBeInstanceOf(File);
+    expect(file.name).toBe("a.txt");
+    expect(file.size).toBe(3);
+    expect(file.type).toBe("text/plain");
+    expect(file.lastModified).toBe(123);
+  });
+
+  it("Throws DataCloneError for weak collections", () => {
+    expect(() => structuredClone(new WeakMap())).toThrow(/could not be cloned/);
+    expect(() => structuredClone(new WeakSet())).toThrow(/could not be cloned/);
+  });
+
   it("Handles transfer list", () => {
     const buffer = new ArrayBuffer(3);
     new Uint8Array(buffer).set([1, 2, 3]);

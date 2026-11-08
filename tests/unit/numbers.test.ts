@@ -26,8 +26,8 @@ describe("Number to base conversion within 32-bit range", () => {
 
     { num: 2147483647, radix: 16, expected: "7fffffff" }, // max 32bit signed
     { num: -2147483648, radix: 16, expected: "-80000000" }, // min 32bit signed
-    { num: 12345.6789, radix: 16, expected: "3039.adcc63f14" },
-    { num: -12345.6789, radix: 16, expected: "-3039.adcc63f14" },
+    { num: 12345.6789, radix: 16, expected: "3039.adcc63f142" },
+    { num: -12345.6789, radix: 16, expected: "-3039.adcc63f142" },
     { num: NaN, radix: 16, expected: "NaN" },
     { num: Infinity, radix: 16, expected: "Infinity" },
     { num: -Infinity, radix: 16, expected: "-Infinity" },
@@ -84,5 +84,18 @@ describe("Number to base conversion over 32-bit range", () => {
 
   it("should convert number to base-36", () => {
     expect(num.toString(36)).toEqual("mbp4fshl");
+  });
+});
+
+describe("Number to base conversion edge cases", () => {
+  it("should convert integers above i64::MAX", () => {
+    expect((1e21).toString(16)).toEqual("3635c9adc5dea00000");
+    expect((2 ** 64).toString(2)).toHaveLength(65);
+  });
+
+  it("should convert small fractions without panicking", () => {
+    expect((1e-35).toString(16)).toEqual(
+      "0.00000000000000000000000000000d4ad2dbfc3d078"
+    );
   });
 });

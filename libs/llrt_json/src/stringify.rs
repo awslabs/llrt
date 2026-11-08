@@ -211,8 +211,6 @@ fn write_primitive2<'js>(
     new_value: Option<Value<'js>>,
 ) -> Result<PrimitiveStatus<'js>> {
     let key = context.key;
-    let index = context.index;
-    let include_keys_replacer = context.include_keys_replacer;
     let indentation = context.indentation;
     let depth = context.depth;
 
@@ -235,13 +233,6 @@ fn write_primitive2<'js>(
             "Do not know how to serialize a BigInt",
         ));
     }
-
-    if let Some(include_keys_replacer) = include_keys_replacer {
-        let key = get_key_or_index(context.itoa_buffer, key, index);
-        if !include_keys_replacer.contains(key) {
-            return Ok(PrimitiveStatus::Ignored);
-        }
-    };
 
     if let Some(indentation) = indentation {
         write_indented_separator(context.result, key, add_comma, indentation, depth);
@@ -473,6 +464,12 @@ fn iterate<'js>(
             };
 
             for key in keys {
+                if let Some(include_keys_replacer) = context.include_keys_replacer {
+                    if !include_keys_replacer.contains(&key) {
+                        continue;
+                    }
+                }
+
                 let val = js_object.get(&key)?;
 
                 add_comma = append_value(

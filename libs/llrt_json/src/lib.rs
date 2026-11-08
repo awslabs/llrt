@@ -149,6 +149,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn json_stringify_array_replacer() {
+        test_sync_with(|ctx| {
+            crate::redefine_static_methods(&ctx)?;
+
+            let cases = [
+                (r#"JSON.stringify({ a: 1, b: 2 }, ["a"])"#, r#"{"a":1}"#),
+                (
+                    r#"JSON.stringify([{ a: 1, b: 2 }], ["0", "a"])"#,
+                    r#"[{"a":1}]"#,
+                ),
+                (r#"JSON.stringify([10, 20], ["0"])"#, "[10,20]"),
+                (r#"JSON.stringify(5, ["a"])"#, "5"),
+                (
+                    r#"JSON.stringify({ a: { b: 1, c: 2 }, d: 3 }, ["a", "b"])"#,
+                    r#"{"a":{"b":1}}"#,
+                ),
+            ];
+
+            for (source, expected) in cases {
+                let actual: String = ctx.eval(source)?;
+                assert_eq!(actual, expected, "source: {source}");
+            }
+
+            Ok(())
+        })
+        .await;
+    }
+
+    #[tokio::test]
     async fn json_stringify_objects() {
         test_sync_with(|ctx| {
             let date: Value = ctx.eval("let obj = { date: new Date(0) };obj;")?;
