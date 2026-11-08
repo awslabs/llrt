@@ -35,7 +35,7 @@ fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<DateTime> {
 
 fn into_date_time(ctx: &Ctx<'_>, dt: &DateTime, obj: &Object<'_>) -> Result<DateTime> {
     let mut dt = dt.with();
-    if let Ok(v) = obj.get::<_, i16>("yaer") {
+    if let Ok(v) = obj.get::<_, i16>("year") {
         dt = dt.year(v);
     }
     if let Ok(v) = obj.get::<_, i8>("month") {

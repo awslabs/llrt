@@ -1,28 +1,17 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use jiff::{
-    Unit, ZonedDateTime as JiffZonedDateTime,
-    ZonedDateTimeDifference as JiffZonedDateTimeDifference,
-};
+use jiff::{Unit, ZonedDateTime as Zoned, ZonedDateTimeDifference as ZonedDifference};
 use llrt_utils::result::ResultExt;
 use rquickjs::{Ctx, Result, Value};
 
-use crate::utils::{get_duration_unit, get_round_mode};
+use super::{get_duration_unit, get_round_mode};
 
 pub trait ZonedDifferenceExt<'a> {
-    fn from_value(
-        ctx: &Ctx<'_>,
-        zoned: &'a JiffZonedDateTime,
-        value: &Value,
-    ) -> Result<JiffZonedDateTimeDifference<'a>>;
+    fn from_value(ctx: &Ctx<'_>, zoned: &'a Zoned, value: &Value) -> Result<ZonedDifference<'a>>;
 }
 
-impl<'a> ZonedDifferenceExt<'a> for JiffZonedDateTimeDifference<'a> {
-    fn from_value(
-        ctx: &Ctx<'_>,
-        zoned: &'a JiffZonedDateTime,
-        value: &Value,
-    ) -> Result<JiffZonedDateTimeDifference<'a>> {
+impl<'a> ZonedDifferenceExt<'a> for ZonedDifference<'a> {
+    fn from_value(ctx: &Ctx<'_>, zoned: &'a Zoned, value: &Value) -> Result<ZonedDifference<'a>> {
         if let Some(obj) = value.as_object() {
             let largest_unit = obj.get::<_, String>("largestUnit").ok();
             let increment = obj.get::<_, i64>("roundingIncrement").ok();
@@ -49,18 +38,19 @@ impl<'a> ZonedDifferenceExt<'a> for JiffZonedDateTimeDifference<'a> {
 
 fn into_zoned_deffierence<'a>(
     ctx: Ctx,
-    zoned: &'a JiffZonedDateTime,
+    zoned: &'a Zoned,
     largest_unit: Option<String>,
     increment: Option<i64>,
     mode: Option<String>,
     smallest_unit: Option<String>,
-) -> Result<JiffZonedDateTimeDifference<'a>> {
-    let largest_unit = get_duration_unit(&ctx, &largest_unit)?.unwrap_or(Unit::Hour);
+) -> Result<ZonedDifference<'a>> {
+    let largest_unit = get_duration_unit(&ctx, largest_unit.as_ref())?.unwrap_or(Unit::Hour);
     let increment = increment.unwrap_or(1);
-    let mode = get_round_mode(&ctx, &mode)?;
-    let smallest_unit = get_duration_unit(&ctx, &smallest_unit)?.unwrap_or(Unit::Nanosecond);
+    let mode = get_round_mode(&ctx, mode.as_ref())?;
+    let smallest_unit =
+        get_duration_unit(&ctx, smallest_unit.as_ref())?.unwrap_or(Unit::Nanosecond);
 
-    let zoned_deffierence = JiffZonedDateTimeDifference::new(zoned)
+    let zoned_deffierence = ZonedDifference::new(zoned)
         .mode(mode)
         .increment(increment)
         .largest(largest_unit)

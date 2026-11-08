@@ -12,6 +12,13 @@ name = "llrt_temporal"
 path = "src/lib.rs"
 
 [dependencies]
-jiff = { version = "1" }
+jiff = { version = "1", features = [
+  "std",
+  "tz-system",
+  "tzdb-bundle-platform",
+  "tzdb-concatenated",
+  "tzdb-zoneinfo",
+  "perf-inline",
+], default-features = false }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", features = ["macro"], default-features = false }
