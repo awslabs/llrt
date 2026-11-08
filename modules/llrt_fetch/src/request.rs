@@ -497,6 +497,9 @@ impl<'js> Request<'js> {
         }
 
         if let Some(bytes) = resolve_body_taken(&ctx, self.take_body_sync(&ctx)?).await? {
+            if is_urlencoded {
+                return Ok(FormData::from_urlencoded_bytes(&bytes));
+            }
             let form_data = FormData::from_multipart_bytes(&ctx, &mime_type, bytes)?;
             return Ok(form_data);
         }
