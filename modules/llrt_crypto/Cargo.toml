@@ -132,10 +132,10 @@ ml-kem = { version = "0.3", features = [
   "alloc",
   "pkcs8",
 ], default-features = false, optional = true }
-rsa = { version = "0.10.0-rc.19", features = [
+rsa = { version = "0.10.0-rc.22", features = [
   "std",
-  "sha2",
   "encoding",
+  "pkcs1v15",
 ], default-features = false, optional = true }
 p256 = { version = "0.14", features = [
   "alloc",

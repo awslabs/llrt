@@ -52,7 +52,7 @@ use rsa::signature::hazmat::PrehashSigner;
 use rsa::{
     pss::Pss,
     sha2::{Digest, Sha256, Sha384, Sha512},
-    BoxedUint, Oaep, Pkcs1v15Sign, RsaPrivateKey, RsaPublicKey,
+    BoxedUint, Oaep, Pkcs1v15Sign, PrivateKey, PublicKey,
 };
 use sha1::Sha1;
 
@@ -278,7 +278,7 @@ impl CryptoProvider for RustCryptoProvider {
         hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
-        let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
+        let private_key = PrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
@@ -306,8 +306,8 @@ impl CryptoProvider for RustCryptoProvider {
         salt_length: usize,
         hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError> {
-        let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
-            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let public_key =
+            PublicKey::from_pkcs1_der(public_key_der).map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             HashAlgorithm::Sha1 => Ok(public_key
@@ -333,7 +333,7 @@ impl CryptoProvider for RustCryptoProvider {
         hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
-        let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
+        let private_key = PrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
@@ -360,8 +360,8 @@ impl CryptoProvider for RustCryptoProvider {
         digest: &[u8],
         hash_alg: HashAlgorithm,
     ) -> Result<bool, CryptoError> {
-        let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
-            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let public_key =
+            PublicKey::from_pkcs1_der(public_key_der).map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             HashAlgorithm::Sha1 => Ok(public_key
@@ -388,8 +388,8 @@ impl CryptoProvider for RustCryptoProvider {
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
         let mut rng = rand::rng();
-        let public_key = RsaPublicKey::from_pkcs1_der(public_key_der)
-            .map_err(|_| CryptoError::InvalidKey(None))?;
+        let public_key =
+            PublicKey::from_pkcs1_der(public_key_der).map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
             HashAlgorithm::Sha1 => {
@@ -447,7 +447,7 @@ impl CryptoProvider for RustCryptoProvider {
         hash_alg: HashAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let private_key = RsaPrivateKey::from_pkcs1_der(private_key_der)
+        let private_key = PrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
         match hash_alg {
@@ -965,7 +965,7 @@ impl CryptoProvider for RustCryptoProvider {
 
         let exp = BoxedUint::from(exponent);
         let mut rng = rand::rng();
-        let rsa_private_key = RsaPrivateKey::new_with_exp(&mut rng, modulus_length as usize, exp)
+        let rsa_private_key = PrivateKey::new_with_exp(&mut rng, modulus_length as usize, exp)
             .map_err(|_| CryptoError::OperationFailed(None))?;
 
         let public_key = rsa_private_key
@@ -1094,7 +1094,7 @@ impl CryptoProvider for RustCryptoProvider {
 
     fn export_rsa_private_key_pkcs8(&self, key_data: &[u8]) -> Result<Vec<u8>, CryptoError> {
         let private_key =
-            RsaPrivateKey::from_pkcs1_der(key_data).map_err(|_| CryptoError::InvalidKey(None))?;
+            PrivateKey::from_pkcs1_der(key_data).map_err(|_| CryptoError::InvalidKey(None))?;
         private_key
             .to_pkcs8_der()
             .map(|doc| doc.as_bytes().to_vec())
