@@ -12,6 +12,8 @@ pub struct BasePrimordials<'js> {
     // Constructors
     pub constructor_map: Constructor<'js>,
     pub constructor_set: Constructor<'js>,
+    pub constructor_weak_map: Constructor<'js>,
+    pub constructor_weak_set: Constructor<'js>,
     pub constructor_date: Constructor<'js>,
     pub constructor_error: Constructor<'js>,
     pub constructor_type_error: Constructor<'js>,
@@ -94,6 +96,9 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
         let constructor_set: Constructor = globals.get(PredefinedAtom::Set)?;
         let prototype_set: Object = constructor_set.get(PredefinedAtom::Prototype)?;
 
+        let constructor_weak_map: Constructor = globals.get(PredefinedAtom::WeakMap)?;
+        let constructor_weak_set: Constructor = globals.get(PredefinedAtom::WeakSet)?;
+
         let constructor_regexp: Constructor = globals.get(PredefinedAtom::RegExp)?;
         let prototype_regexp: Object = constructor_regexp.get(PredefinedAtom::Prototype)?;
 
@@ -137,6 +142,8 @@ impl<'js> Primordial<'js> for BasePrimordials<'js> {
         Ok(Self {
             constructor_map,
             constructor_set,
+            constructor_weak_map,
+            constructor_weak_set,
             constructor_date,
             constructor_proxy,
             constructor_error,
