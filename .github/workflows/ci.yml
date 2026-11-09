@@ -161,10 +161,35 @@ jobs:
       - name: Comment
         if: github.event_name == 'pull_request' && hashFiles('baseline/*.json') != ''
         continue-on-error: true
-        uses: marocchino/sticky-pull-request-comment@v3
+        uses: actions/github-script@v9
         with:
-          header: size-report
-          path: size-table.md
+          script: |
+            const fs = require("fs");
+            const body = "<!-- size-report -->\n" + fs.readFileSync("size-table.md", "utf8");
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) =>
+              comment.body?.startsWith("<!-- size-report -->")
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
       - name: Upload baseline
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v7
