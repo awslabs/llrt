@@ -61,6 +61,143 @@ jobs:
           toolchain: stable
       - name: Run WPT
         run: make check-wpt
+  size:
+    needs:
+      - check
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            target: x86_64-unknown-linux-musl
+            release: x64
+          - arch: aarch64
+            target: aarch64-unknown-linux-musl
+            release: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Checkout submodules
+        run: git submodule update --init --checkout
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          cache: yarn
+          node-version: lts/*
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install make nodejs zstd zip
+          sudo snap install zig --classic --beta
+      - name: Install JavaScript dependencies
+        run: |
+          corepack enable
+          yarn
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          toolchain: nightly-2026-08-26
+          target: ${{ matrix.target }}
+          components: rust-src
+      - name: Install cargo-zigbuild
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+      - name: Build binaries
+        run: |
+          make libs-${{ matrix.release }}
+          make llrt-linux-${{ matrix.release }}.zip
+          linux=$(stat -c%s "target/${{ matrix.target }}/release/llrt")
+          make llrt-lambda-${{ matrix.release }}.zip
+          compressed=$(stat -c%s "target/${{ matrix.target }}/release/bootstrap")
+          make llrt-container-${{ matrix.release }}
+          lambda=$(stat -c%s "llrt-container-${{ matrix.release }}")
+          mkdir -p sizes
+          cat > "sizes/sizes-${{ matrix.arch }}.json" <<EOF
+          {
+            "llrt (linux) ${{ matrix.arch }}": $linux,
+            "llrt (lambda compressed) ${{ matrix.arch }}": $compressed,
+            "llrt (lambda) ${{ matrix.arch }}": $lambda
+          }
+          EOF
+      - name: Upload sizes
+        uses: actions/upload-artifact@v7
+        with:
+          name: sizes-${{ matrix.arch }}
+          path: sizes/sizes-${{ matrix.arch }}.json
+  size-report:
+    needs:
+      - size
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Download sizes
+        uses: actions/download-artifact@v7
+        with:
+          pattern: sizes-*
+          path: current
+          merge-multiple: true
+      - name: Download baseline
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p baseline
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name size-baseline --dir baseline
+      - name: Report
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python3 scripts/size-diff.py baseline current > size-table.md
+            cat size-table.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Comment
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require("fs");
+            const body = fs.readFileSync("size-table.md", "utf8");
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.login === "github-actions[bot]" &&
+                comment.body?.startsWith("### Binary size")
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+      - name: Upload baseline
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: size-baseline
+          path: current/*.json
   build:
     needs:
       - check

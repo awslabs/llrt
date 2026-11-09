@@ -111,7 +111,7 @@ der = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }
 ecdsa = { version = "0.17", default-features = false, optional = true }
-ed25519-dalek = { version = "3.0.0-rc.1", features = [
+ed25519-dalek = { version = "3", features = [
   "alloc",
   "pkcs8",
   "rand_core",
@@ -132,10 +132,10 @@ ml-kem = { version = "0.3", features = [
   "alloc",
   "pkcs8",
 ], default-features = false, optional = true }
-rsa = { version = "0.10.0-rc.19", features = [
+rsa = { version = "0.10", features = [
   "std",
-  "sha2",
   "encoding",
+  "pkcs1v15",
 ], default-features = false, optional = true }
 p256 = { version = "0.14", features = [
   "alloc",
@@ -143,13 +143,13 @@ p256 = { version = "0.14", features = [
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p384 = { version = "0.14.0-rc.15", features = [
+p384 = { version = "0.14", features = [
   "alloc",
   "ecdh",
   "ecdsa",
   "pkcs8",
 ], default-features = false, optional = true }
-p521 = { version = "0.14.0-rc.15", features = [
+p521 = { version = "0.14", features = [
   "ecdh",
   "ecdsa",
   "pkcs8",
@@ -165,7 +165,7 @@ shake = { version = "0.1", default-features = false, optional = true }
 spki = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }
-x25519-dalek = { version = "3.0.0-rc.1", features = [
+x25519-dalek = { version = "3", features = [
   "static_secrets",
   "zeroize",
 ], default-features = false, optional = true }
