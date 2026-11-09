@@ -133,7 +133,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -157,41 +156,16 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             python3 scripts/size-diff.py baseline current > size-table.md
             cat size-table.md >> "$GITHUB_STEP_SUMMARY"
+            echo "${{ github.event.pull_request.number }}" > pr.txt
           fi
-      - name: Comment
+      - name: Upload table
         if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: actions/github-script@v9
+        uses: actions/upload-artifact@v7
         with:
-          script: |
-            const fs = require("fs");
-            const body = fs.readFileSync("size-table.md", "utf8");
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-            const existing = comments.find(
-              (comment) =>
-                comment.user?.login === "github-actions[bot]" &&
-                comment.body?.startsWith("### Binary size")
-            );
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+          name: size-table
+          path: |
+            size-table.md
+            pr.txt
       - name: Upload baseline
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v7
