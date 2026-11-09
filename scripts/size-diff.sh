@@ -1,80 +1,49 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
 
-base=$1
-cur=$2
+if len(sys.argv) < 3 or not Path(sys.argv[1]).exists():
+    print("Size baseline unavailable.")
+    sys.exit(0)
 
-fmt() {
-  local n=$1 s out=
-  s=$(printf '%d' "$n")
-  local sign=
-  if [[ $s == -* ]]; then
-    sign=-
-    s=${s#-}
-  fi
-  while (( ${#s} > 3 )); do
-    out=",${s: -3}${out}"
-    s=${s:0:${#s}-3}
-  done
-  printf '%s%s%s' "$sign" "$s" "$out"
-}
+with open(sys.argv[1]) as f:
+    base_data = json.load(f)
+with open(sys.argv[2]) as f:
+    cur_data = json.load(f)
 
-if [[ ! -f $base ]]; then
-  echo "Size baseline unavailable."
-  exit 0
-fi
+rows = [
+    ("llrt (linux)", "x86_64"),
+    ("llrt (lambda compressed)", "x86_64"),
+    ("llrt (lambda)", "x86_64"),
+    ("llrt (linux)", "aarch64"),
+    ("llrt (lambda compressed)", "aarch64"),
+    ("llrt (lambda)", "aarch64"),
+]
 
-rows=(
-  "llrt (linux)|x86_64"
-  "llrt (lambda compressed)|x86_64"
-  "llrt (lambda)|x86_64"
-  "llrt (linux)|aarch64"
-  "llrt (lambda compressed)|aarch64"
-  "llrt (lambda)|aarch64"
-)
+print("### Binary size\n")
+print("| Binary | Arch | Base | PR | Δ | Δ % |")
+print("|---|---:|---:|---:|---:|---:|")
 
-echo "### Binary size"
-echo
-echo "| Binary | Arch | Base | PR | Δ | Δ % |"
-echo "|---|---:|---:|---:|---:|---:|"
+for name, arch in rows:
+    key = f"{name} {arch}"
+    b, c = base_data.get(key), cur_data.get(key)
 
-for row in "${rows[@]}"; do
-  name=${row%|*}
-  arch=${row#*|}
-  key="$name $arch"
-  b=$(jq -r --arg k "$key" '.[$k] // empty' "$base")
-  c=$(jq -r --arg k "$key" '.[$k] // empty' "$cur")
+    if b is None or c is None:
+        print(f"| `{name}` | {arch} | — | — | — | — |")
+        continue
 
-  if [[ -z $b || -z $c ]]; then
-    printf '| `%s` | %s | — | — | — | — |\n' "$name" "$arch"
-    continue
-  fi
+    d = c - b
+    delta = f"{d:,}" if d <= 0 else f"+{d:,}"
+    pct = f"{(d * 100 / b):+.2f}%" if b else "0.00%"
 
-  d=$((c - b))
+    if d <= -1024:
+        icon = "🟢"
+    elif d < 1024:
+        icon = "⚪"
+    elif d >= 32768 or d * 1000 >= b * 5:
+        icon = "🔴"
+    else:
+        icon = "🟡"
 
-  if (( d > 0 )); then
-    delta="+$(fmt "$d")"
-  elif (( d < 0 )); then
-    delta=$(fmt "$d")
-  else
-    delta=0
-  fi
-
-  if (( d == 0 )); then
-    pct=0.00%
-  else
-    pct=$(awk -v d="$d" -v b="$b" 'BEGIN { printf "%+.2f%%", d * 100 / b }')
-  fi
-
-  if (( d <= -1024 )); then
-    icon=🟢
-  elif (( d < 1024 )); then
-    icon=⚪
-  elif (( d >= 32768 )) || (( d * 1000 >= b * 5 )); then
-    icon=🔴
-  else
-    icon=🟡
-  fi
-
-  printf '| `%s` | %s | %s | %s | %s %s | %s |\n' "$name" "$arch" "$(fmt "$b")" "$(fmt "$c")" "$icon" "$delta" "$pct"
-done
+    print(f"| `{name}` | {arch} | {b:,} | {c:,} | {icon} {delta} | {pct} |")
