@@ -72,27 +72,9 @@ jobs:
           - arch: x86_64
             target: x86_64-unknown-linux-musl
             release: x64
-            variant: linux
-          - arch: x86_64
-            target: x86_64-unknown-linux-musl
-            release: x64
-            variant: lambda-compressed
-          - arch: x86_64
-            target: x86_64-unknown-linux-musl
-            release: x64
-            variant: lambda
           - arch: aarch64
             target: aarch64-unknown-linux-musl
             release: arm64
-            variant: linux
-          - arch: aarch64
-            target: aarch64-unknown-linux-musl
-            release: arm64
-            variant: lambda-compressed
-          - arch: aarch64
-            target: aarch64-unknown-linux-musl
-            release: arm64
-            variant: lambda
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -122,34 +104,28 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-zigbuild
-      - name: Build binary
+      - name: Build binaries
         run: |
           make libs-${{ matrix.release }}
-          case "${{ matrix.variant }}" in
-            linux)
-              make llrt-linux-${{ matrix.release }}.zip
-              bin="target/${{ matrix.target }}/release/llrt"
-              name="llrt (linux)"
-              ;;
-            lambda-compressed)
-              make llrt-lambda-${{ matrix.release }}.zip
-              bin="target/${{ matrix.target }}/release/bootstrap"
-              name="llrt (lambda compressed)"
-              ;;
-            lambda)
-              make llrt-container-${{ matrix.release }}
-              bin="llrt-container-${{ matrix.release }}"
-              name="llrt (lambda)"
-              ;;
-          esac
-          size=$(stat -c%s "$bin")
+          make llrt-linux-${{ matrix.release }}.zip
+          linux=$(stat -c%s "target/${{ matrix.target }}/release/llrt")
+          make llrt-lambda-${{ matrix.release }}.zip
+          compressed=$(stat -c%s "target/${{ matrix.target }}/release/bootstrap")
+          make llrt-container-${{ matrix.release }}
+          lambda=$(stat -c%s "llrt-container-${{ matrix.release }}")
           mkdir -p sizes
-          printf '{"%s %s": %s}\n' "$name" "${{ matrix.arch }}" "$size" > "sizes/sizes-${{ matrix.arch }}-${{ matrix.variant }}.json"
+          cat > "sizes/sizes-${{ matrix.arch }}.json" <<EOF
+          {
+            "llrt (linux) ${{ matrix.arch }}": $linux,
+            "llrt (lambda compressed) ${{ matrix.arch }}": $compressed,
+            "llrt (lambda) ${{ matrix.arch }}": $lambda
+          }
+          EOF
       - name: Upload sizes
         uses: actions/upload-artifact@v7
         with:
-          name: sizes-${{ matrix.arch }}-${{ matrix.variant }}
-          path: sizes/sizes-${{ matrix.arch }}-${{ matrix.variant }}.json
+          name: sizes-${{ matrix.arch }}
+          path: sizes/sizes-${{ matrix.arch }}.json
   size-report:
     needs:
       - size
@@ -157,6 +133,7 @@ jobs:
     permissions:
       actions: read
       contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -178,9 +155,26 @@ jobs:
       - name: Report
         run: |
           jq -s 'add' current/*.json > sizes.json
-          if [ "${{ github.event_name }}" = "pull_request" ] && [ -f baseline/sizes.json ]; then
-            chmod +x scripts/size-diff.sh
-            scripts/size-diff.sh baseline/sizes.json sizes.json >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python3 scripts/size-diff.py baseline/sizes.json sizes.json > size-table.md
+            cat size-table.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Comment
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f baseline/sizes.json ]; then exit 0; fi
+          {
+            echo "<!-- size-report -->"
+            cat size-table.md
+          } > size-comment.md
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/${{ github.event.pull_request.number }}/comments" --paginate --jq '.[] | select(.body | startswith("<!-- size-report -->")) | .id' | tail -1)
+          if [ -n "$id" ]; then
+            jq -Rs '{body: .}' size-comment.md | gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" --input -
+          else
+            gh pr comment "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --body-file size-comment.md
           fi
       - name: Upload baseline
         if: github.event_name == 'push'

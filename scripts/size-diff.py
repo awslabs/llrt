@@ -35,7 +35,7 @@ for name, arch in rows:
 
     d = c - b
     delta = f"{d:,}" if d <= 0 else f"+{d:,}"
-    pct = f"{(d * 100 / b):+.2f}%" if b else "0.00%"
+    pct = "0.00%" if d == 0 else f"{(d * 100 / b):+.2f}%"
 
     if d <= -1024:
         icon = "🟢"
