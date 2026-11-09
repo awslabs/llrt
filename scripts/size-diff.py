@@ -3,9 +3,9 @@ import json
 import sys
 from pathlib import Path
 
-if len(sys.argv) < 3 or not Path(sys.argv[1]).exists():
-    print("Size baseline unavailable.")
-    sys.exit(0)
+if len(sys.argv) < 3:
+    print("Usage: size-diff.py <baseline-dir> <current-dir>")
+    sys.exit(1)
 
 base_dir = Path(sys.argv[1])
 cur_dir = Path(sys.argv[2])
@@ -18,7 +18,7 @@ def load(directory):
     return data
 
 
-base_data = load(base_dir)
+base_data = load(base_dir) if base_dir.exists() else {}
 cur_data = load(cur_dir)
 
 rows = [
@@ -39,7 +39,9 @@ for name, arch in rows:
     b, c = base_data.get(key), cur_data.get(key)
 
     if b is None or c is None:
-        print(f"| `{name}` | {arch} | — | — | — | — |")
+        base = f"{b:,}" if b is not None else "—"
+        current = f"{c:,}" if c is not None else "—"
+        print(f"| `{name}` | {arch} | {base} | {current} | — | — |")
         continue
 
     d = c - b

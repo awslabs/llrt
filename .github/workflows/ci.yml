@@ -159,7 +159,7 @@ jobs:
             cat size-table.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Comment
-        if: github.event_name == 'pull_request' && hashFiles('baseline/*.json') != ''
+        if: github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@v9
         with:
