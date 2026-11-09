@@ -58,3 +58,9 @@ for name, arch in rows:
         icon = "🟡"
 
     print(f"| `{name}` | {arch} | {b:,} | {c:,} | {icon} {delta} | {pct} |")
+
+print(
+    "\n<sub>`llrt (linux)` = default Linux binary · "
+    "`llrt (lambda compressed)` = packed lambda bootstrap · "
+    "`llrt (lambda)` = uncompressed lambda/container binary</sub>"
+)
