@@ -116,6 +116,6 @@ pub(super) fn get_round_mode(ctx: &Ctx, mode: &Option<String>) -> Result<RoundMo
 }
 
 pub(crate) fn parse_temporal_calendar(ctx: &Ctx<'_>, calendar: Option<String>) -> Result<Calendar> {
-    let id = calendar.unwrap_or_else(|| "iso8601".to_string());
+    let id = calendar.unwrap_or_else(|| "iso8601".into());
     Calendar::from_str(&id).map_err(|err| Exception::throw_range(ctx, &err.to_string()))
 }

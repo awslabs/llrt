@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{error::Error, fmt, str::FromStr};
+use std::{borrow::Cow, error::Error, fmt, str::FromStr};
 
 use rquickjs::{Ctx, Object, Result};
 
@@ -20,24 +20,46 @@ impl fmt::Display for CalendarError {
     }
 }
 impl Error for CalendarError {}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum CalendarKind {
-    Iso8601,
-    Buddhist,
-    Chinese,
-    Coptic,
-    Dangi,
-    Ethiopian,
-    EthiopianAmeteAlem,
-    Gregorian,
-    Hebrew,
-    Indian,
-    IslamicCivil,
-    IslamicTabular,
-    IslamicUmalqura,
-    Japanese,
-    Persian,
-    Roc,
+
+macro_rules! define_calendar_kinds {
+    ($( $kind:ident => $id:literal, )+) => {
+        #[derive(Clone, Debug, PartialEq, Eq)]
+        pub(crate) enum CalendarKind {
+            $( $kind, )+
+        }
+        impl CalendarKind {
+            fn from_id(id: &str) -> Option<Self> {
+                match id {
+                    $( $id => Some(Self::$kind), )+
+                    _ => None,
+                }
+            }
+            const fn id(&self) -> &'static str {
+                match self {
+                    $( Self::$kind => $id, )+
+                }
+            }
+        }
+    };
+}
+
+define_calendar_kinds! {
+    Iso8601 => "iso8601",
+    Buddhist => "buddhist",
+    Chinese => "chinese",
+    Coptic => "coptic",
+    Dangi => "dangi",
+    Ethiopian => "ethiopic",
+    EthiopianAmeteAlem => "ethioaa",
+    Gregorian => "gregory",
+    Hebrew => "hebrew",
+    Indian => "indian",
+    IslamicCivil => "islamic-civil",
+    IslamicTabular => "islamic-tbla",
+    IslamicUmalqura => "islamic-umalqura",
+    Japanese => "japanese",
+    Persian => "persian",
+    Roc => "roc",
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,48 +70,16 @@ impl FromStr for Calendar {
     type Err = CalendarError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let s = canonicalize_calendar_identifier(s);
-        let kind = match s.as_str() {
-            "iso8601" => CalendarKind::Iso8601,
-            "buddhist" => CalendarKind::Buddhist,
-            "chinese" => CalendarKind::Chinese,
-            "coptic" => CalendarKind::Coptic,
-            "dangi" => CalendarKind::Dangi,
-            "ethiopic" => CalendarKind::Ethiopian,
-            "ethioaa" => CalendarKind::EthiopianAmeteAlem,
-            "gregory" => CalendarKind::Gregorian,
-            "hebrew" => CalendarKind::Hebrew,
-            "indian" => CalendarKind::Indian,
-            "islamic-civil" => CalendarKind::IslamicCivil,
-            "islamic-tbla" => CalendarKind::IslamicTabular,
-            "islamic-umalqura" => CalendarKind::IslamicUmalqura,
-            "japanese" => CalendarKind::Japanese,
-            "persian" => CalendarKind::Persian,
-            "roc" => CalendarKind::Roc,
-            _ => return Err(CalendarError::UnknownCalendar(s)),
+        let kind = match CalendarKind::from_id(&s) {
+            Some(kind) => kind,
+            None => return Err(CalendarError::UnknownCalendar(s.into_owned())),
         };
         Ok(Self { kind })
     }
 }
 impl Calendar {
     pub const fn id(&self) -> &'static str {
-        match self.kind {
-            CalendarKind::Iso8601 => "iso8601",
-            CalendarKind::Buddhist => "buddhist",
-            CalendarKind::Chinese => "chinese",
-            CalendarKind::Coptic => "coptic",
-            CalendarKind::Dangi => "dangi",
-            CalendarKind::Ethiopian => "ethiopic",
-            CalendarKind::EthiopianAmeteAlem => "ethioaa",
-            CalendarKind::Gregorian => "gregory",
-            CalendarKind::Hebrew => "hebrew",
-            CalendarKind::Indian => "indian",
-            CalendarKind::IslamicCivil => "islamic-civil",
-            CalendarKind::IslamicTabular => "islamic-tbla",
-            CalendarKind::IslamicUmalqura => "islamic-umalqura",
-            CalendarKind::Japanese => "japanese",
-            CalendarKind::Persian => "persian",
-            CalendarKind::Roc => "roc",
-        }
+        self.kind.id()
     }
 
     pub fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Calendar> {
@@ -109,12 +99,14 @@ pub(crate) fn split_calendar_annotation(s: &str) -> (String, Option<String>) {
     (s.to_owned(), None)
 }
 
-pub(crate) fn canonicalize_calendar_identifier(id: &str) -> String {
-    match id.trim().to_ascii_lowercase().as_str() {
-        "gregorian" => "gregory".into(),
-        "ethiopian" => "ethiopic".into(),
-        "ethiopic-amete-alem" => "ethioaa".into(),
-        "islamicc" => "islamic-civil".into(),
-        id => id.into(),
+pub(crate) fn canonicalize_calendar_identifier<'a>(id: &'a str) -> Cow<'a, str> {
+    let normalized = id.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "gregorian" => Cow::Borrowed("gregory"),
+        "ethiopian" => Cow::Borrowed("ethiopic"),
+        "ethiopic-amete-alem" => Cow::Borrowed("ethioaa"),
+        "islamicc" => Cow::Borrowed("islamic-civil"),
+        _ if normalized == id => Cow::Borrowed(id),
+        _ => Cow::Owned(normalized),
     }
 }
