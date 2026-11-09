@@ -7,10 +7,19 @@ if len(sys.argv) < 3 or not Path(sys.argv[1]).exists():
     print("Size baseline unavailable.")
     sys.exit(0)
 
-with open(sys.argv[1]) as f:
-    base_data = json.load(f)
-with open(sys.argv[2]) as f:
-    cur_data = json.load(f)
+base_dir = Path(sys.argv[1])
+cur_dir = Path(sys.argv[2])
+
+
+def load(directory):
+    data = {}
+    for path in directory.glob("*.json"):
+        data.update(json.loads(path.read_text()))
+    return data
+
+
+base_data = load(base_dir)
+cur_data = load(cur_dir)
 
 rows = [
     ("llrt (linux)", "x86_64"),

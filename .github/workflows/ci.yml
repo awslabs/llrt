@@ -154,34 +154,23 @@ jobs:
           gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name size-baseline --dir baseline
       - name: Report
         run: |
-          jq -s 'add' current/*.json > sizes.json
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            python3 scripts/size-diff.py baseline/sizes.json sizes.json > size-table.md
+            python3 scripts/size-diff.py baseline current > size-table.md
             cat size-table.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Comment
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && hashFiles('baseline/*.json') != ''
         continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ ! -f baseline/sizes.json ]; then exit 0; fi
-          {
-            echo "<!-- size-report -->"
-            cat size-table.md
-          } > size-comment.md
-          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/${{ github.event.pull_request.number }}/comments" --paginate --jq '.[] | select(.body | startswith("<!-- size-report -->")) | .id' | tail -1)
-          if [ -n "$id" ]; then
-            jq -Rs '{body: .}' size-comment.md | gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" --input -
-          else
-            gh pr comment "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --body-file size-comment.md
-          fi
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: size-report
+          path: size-table.md
       - name: Upload baseline
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v7
         with:
           name: size-baseline
-          path: sizes.json
+          path: current/*.json
   build:
     needs:
       - check
