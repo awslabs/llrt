@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+
+if len(sys.argv) < 3:
+    print("Usage: size-diff.py <baseline-dir> <current-dir>")
+    sys.exit(1)
+
+base_dir = Path(sys.argv[1])
+cur_dir = Path(sys.argv[2])
+
+
+def load(directory):
+    data = {}
+    for path in directory.glob("*.json"):
+        data.update(json.loads(path.read_text()))
+    return data
+
+
+base_data = load(base_dir) if base_dir.exists() else {}
+cur_data = load(cur_dir)
+
+rows = [
+    ("llrt (linux)", "x86_64"),
+    ("llrt (lambda compressed)", "x86_64"),
+    ("llrt (lambda)", "x86_64"),
+    ("llrt (linux)", "aarch64"),
+    ("llrt (lambda compressed)", "aarch64"),
+    ("llrt (lambda)", "aarch64"),
+]
+
+print("### Binary size\n")
+print("| Binary | Arch | Base | PR | Δ | Δ % |")
+print("|---|---:|---:|---:|---:|---:|")
+
+for name, arch in rows:
+    key = f"{name} {arch}"
+    b, c = base_data.get(key), cur_data.get(key)
+
+    if b is None or c is None:
+        base = f"{b:,}" if b is not None else "—"
+        current = f"{c:,}" if c is not None else "—"
+        print(f"| `{name}` | {arch} | {base} | {current} | — | — |")
+        continue
+
+    d = c - b
+    delta = f"{d:,}" if d <= 0 else f"+{d:,}"
+    pct = "0.00%" if d == 0 else f"{(d * 100 / b):+.2f}%"
+
+    if d <= -1024:
+        icon = "🟢"
+    elif d < 1024:
+        icon = "⚪"
+    elif d >= 32768 or d * 1000 >= b * 5:
+        icon = "🔴"
+    else:
+        icon = "🟡"
+
+    print(f"| `{name}` | {arch} | {b:,} | {c:,} | {icon} {delta} | {pct} |")
+
+print(
+    "\n<sub>`llrt (linux)` = default Linux binary · "
+    "`llrt (lambda compressed)` = packed lambda bootstrap · "
+    "`llrt (lambda)` = uncompressed lambda/container binary</sub>"
+)
