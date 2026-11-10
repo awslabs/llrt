@@ -74,9 +74,21 @@ fn parse_two_digits(bytes: &[u8]) -> Option<i32> {
     Some(i32::from(a - b'0') * 10 + i32::from(b - b'0'))
 }
 
-pub(crate) fn timezone_rules(name: &str) -> Option<&[u8]> {
+#[cfg(feature = "tzdb")]
+// Compare the bundled TZif data; equality is byte-for-byte, not semantic.
+pub(crate) fn timezone_rules(ctx: &Ctx<'_>, name: &str) -> Result<Vec<u8>> {
     let name = normalize_time_zone_id(name);
-    jiff_tzdb::get(name).map(|(_, offset)| offset)
+    let (_, offset) = jiff_tzdb::get(name).or_throw(ctx)?;
+    Ok(offset.to_vec())
+}
+
+#[cfg(not(feature = "tzdb"))]
+// Without bundled data, compare IANA names, so different IDs are not equated
+// even when they describe the same timezone rules.
+pub(crate) fn timezone_rules(ctx: &Ctx<'_>, name: &str) -> Result<Vec<u8>> {
+    let name = normalize_time_zone_id(name);
+    let tz = TimeZone::get(name).or_throw(ctx)?;
+    Ok(tz.iana_name().or_throw(ctx)?.as_bytes().to_vec())
 }
 
 fn normalize_time_zone_id(name: &str) -> &str {

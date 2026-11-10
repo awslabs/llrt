@@ -77,21 +77,21 @@ impl ZonedDateTime {
         Ok(Self { inner: zoned, ca })
     }
 
-    fn equals(&self, other: Self) -> bool {
+    fn equals(&self, ctx: Ctx<'_>, other: Self) -> Result<bool> {
         if self.inner.timestamp() != other.inner.timestamp() {
-            return false;
+            return Ok(false);
         }
 
         let tz1 = self.inner.time_zone();
         let tz2 = other.inner.time_zone();
 
         let timezone_equal = match (tz1.iana_name(), tz2.iana_name()) {
-            (Some(tz1), Some(tz2)) => timezone_rules(tz1) == timezone_rules(tz2),
+            (Some(tz1), Some(tz2)) => timezone_rules(&ctx, tz1)? == timezone_rules(&ctx, tz2)?,
             (None, None) => tz1 == tz2,
             _ => false,
         };
 
-        timezone_equal && self.ca == other.ca
+        Ok(timezone_equal && self.ca == other.ca)
     }
 
     #[qjs(rename = "getTimeZoneTransition")]
