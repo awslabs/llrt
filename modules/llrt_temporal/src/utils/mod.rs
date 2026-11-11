@@ -41,7 +41,7 @@ impl<T: RoundBuilder> RoundOption<T> {
                 .or_throw_range(ctx, "")?;
             let mode = obj.get::<_, String>("roundingMode").ok();
             let increment = obj.get::<_, i64>("roundingIncrement").ok();
-            let round = Self::from(ctx, &unit, &mode, &increment)?;
+            let round = Self::from(ctx, &unit, mode.as_ref(), &increment)?;
             return Ok(Self { inner: round });
         }
 
@@ -49,7 +49,7 @@ impl<T: RoundBuilder> RoundOption<T> {
             .as_string()
             .and_then(|s| s.to_string().ok())
             .or_throw_type(ctx, "Cannot convert value to string")?;
-        let round = Self::from(ctx, &unit, &None, &None)?;
+        let round = Self::from(ctx, &unit, None, &None)?;
         Ok(Self { inner: round })
     }
 
@@ -57,7 +57,7 @@ impl<T: RoundBuilder> RoundOption<T> {
         self.inner
     }
 
-    fn from(ctx: &Ctx, unit: &str, mode: &Option<String>, increment: &Option<i64>) -> Result<T> {
+    fn from(ctx: &Ctx, unit: &str, mode: Option<&String>, increment: &Option<i64>) -> Result<T> {
         let unit = get_unit(ctx, unit).or_throw_range(ctx, "")?;
         let mode = get_round_mode(ctx, mode)?;
         let increment = increment.unwrap_or(1);
@@ -79,7 +79,7 @@ pub(super) fn get_unit(ctx: &Ctx, unit: &str) -> Result<Unit> {
     Ok(unit)
 }
 
-pub(super) fn get_duration_unit(ctx: &Ctx, unit: &Option<String>) -> Result<Option<Unit>> {
+pub(super) fn get_duration_unit(ctx: &Ctx, unit: Option<&String>) -> Result<Option<Unit>> {
     let Some(unit) = unit else {
         return Ok(None);
     };
@@ -99,8 +99,8 @@ pub(super) fn get_duration_unit(ctx: &Ctx, unit: &Option<String>) -> Result<Opti
     Ok(Some(unit))
 }
 
-pub(super) fn get_round_mode(ctx: &Ctx, mode: &Option<String>) -> Result<RoundMode> {
-    let mode = match mode.clone().unwrap_or_else(|| "halfExpand".into()).as_ref() {
+pub(super) fn get_round_mode(ctx: &Ctx, mode: Option<&String>) -> Result<RoundMode> {
+    let mode = match mode.map(String::as_str).unwrap_or("halfExpand") {
         "ceil" => RoundMode::Ceil,
         "floor" => RoundMode::Floor,
         "expand" => RoundMode::Expand,

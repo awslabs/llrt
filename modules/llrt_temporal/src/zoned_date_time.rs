@@ -38,7 +38,7 @@ pub(crate) struct ZonedDateTime {
 impl ZonedDateTime {
     #[qjs(constructor)]
     fn new(ctx: Ctx<'_>, nanos: Value<'_>, tz: Opt<String>, ca: Opt<String>) -> Result<Self> {
-        Self::from_epoch_nanoseconds(&ctx, &nanos, &tz, &ca)
+        Self::from_epoch_nanoseconds(&ctx, &nanos, tz.0.as_ref(), ca.0.as_ref())
     }
 
     #[qjs(static)]
@@ -307,8 +307,8 @@ impl ZonedDateTime {
     fn from_epoch_nanoseconds(
         ctx: &Ctx<'_>,
         ns: &Value<'_>,
-        tz: &Option<String>,
-        ca: &Option<String>,
+        tz: Option<&String>,
+        ca: Option<&String>,
     ) -> Result<Self> {
         let nanos = extract_bigint_or_number(ctx, ns)?;
         Self::from_nanosecond(ctx, nanos, tz, ca)
@@ -317,12 +317,12 @@ impl ZonedDateTime {
     fn from_nanosecond(
         ctx: &Ctx<'_>,
         ns: i128,
-        tz: &Option<String>,
-        ca: &Option<String>,
+        tz: Option<&String>,
+        ca: Option<&String>,
     ) -> Result<Self> {
         let ts = Timestamp::from_nanosecond(ns).or_throw_range(ctx, "")?;
         let tz = parse_temporal_time_zone(ctx, tz)?;
-        let ca = parse_temporal_calendar(ctx, ca.clone())?;
+        let ca = parse_temporal_calendar(ctx, ca.cloned())?;
         Self::from_parts(&ts, tz, ca)
     }
 

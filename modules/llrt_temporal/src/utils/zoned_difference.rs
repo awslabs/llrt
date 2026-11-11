@@ -44,10 +44,11 @@ fn into_zoned_deffierence<'a>(
     mode: Option<String>,
     smallest_unit: Option<String>,
 ) -> Result<ZonedDifference<'a>> {
-    let largest_unit = get_duration_unit(&ctx, &largest_unit)?.unwrap_or(Unit::Hour);
+    let largest_unit = get_duration_unit(&ctx, largest_unit.as_ref())?.unwrap_or(Unit::Hour);
     let increment = increment.unwrap_or(1);
-    let mode = get_round_mode(&ctx, &mode)?;
-    let smallest_unit = get_duration_unit(&ctx, &smallest_unit)?.unwrap_or(Unit::Nanosecond);
+    let mode = get_round_mode(&ctx, mode.as_ref())?;
+    let smallest_unit =
+        get_duration_unit(&ctx, smallest_unit.as_ref())?.unwrap_or(Unit::Nanosecond);
 
     let zoned_deffierence = ZonedDifference::new(zoned)
         .mode(mode)

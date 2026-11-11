@@ -29,19 +29,19 @@ pub(crate) fn define_object<'a>(ctx: &Ctx<'a>) -> Result<Object<'a>> {
 }
 
 fn plain_date_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<PlainDate> {
-    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let (ts, tz) = parts_of_zoned_now(&ctx, timezone.0.as_ref())?;
     let ca = parse_temporal_calendar(&ctx, None)?;
     PlainDate::from_parts(&ts, tz, ca)
 }
 
 fn plain_datetime_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<PlainDateTime> {
-    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let (ts, tz) = parts_of_zoned_now(&ctx, timezone.0.as_ref())?;
     let ca = parse_temporal_calendar(&ctx, None)?;
     PlainDateTime::from_parts(&ts, tz, ca)
 }
 
 fn plain_time_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<PlainTime> {
-    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let (ts, tz) = parts_of_zoned_now(&ctx, timezone.0.as_ref())?;
     let ca = parse_temporal_calendar(&ctx, None)?;
     PlainTime::from_parts(&ts, tz, ca)
 }
@@ -54,12 +54,12 @@ fn time_zone_id() -> String {
 }
 
 fn zoned_datetime_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<ZonedDateTime> {
-    let (ts, tz) = parts_of_zoned_now(&ctx, &timezone)?;
+    let (ts, tz) = parts_of_zoned_now(&ctx, timezone.0.as_ref())?;
     let ca = parse_temporal_calendar(&ctx, None)?;
     ZonedDateTime::from_parts(&ts, tz, ca)
 }
 
-fn parts_of_zoned_now(ctx: &Ctx<'_>, timezone: &Option<String>) -> Result<(Timestamp, TimeZone)> {
+fn parts_of_zoned_now(ctx: &Ctx<'_>, timezone: Option<&String>) -> Result<(Timestamp, TimeZone)> {
     let zoned = Zoned::now();
     let ts = zoned.timestamp();
     let tz = parse_temporal_time_zone(ctx, timezone)?;

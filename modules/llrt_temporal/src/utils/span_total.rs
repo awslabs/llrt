@@ -16,7 +16,7 @@ impl<'a> SpanTotalExt<'a> for SpanTotal<'a> {
         if let Some(obj) = value.as_object() {
             let relative_to = obj.get::<_, Value>("relativeTo").ok();
             let unit = obj.get::<_, String>("unit").ok();
-            return into_span_total(ctx, &relative_to, &unit);
+            return into_span_total(ctx, &relative_to, unit.as_ref());
         }
 
         let unit = value
@@ -24,14 +24,14 @@ impl<'a> SpanTotalExt<'a> for SpanTotal<'a> {
             .and_then(|s| s.to_string().ok())
             .or_throw_type(ctx, "Cannot convert value to string")?;
 
-        into_span_total(ctx, &None, &Some(unit))
+        into_span_total(ctx, &None, Some(&unit))
     }
 }
 
 fn into_span_total<'a>(
     ctx: &Ctx,
     relative_to: &Option<Value<'a>>,
-    unit: &Option<String>,
+    unit: Option<&String>,
 ) -> Result<SpanTotal<'a>> {
     let relative_to = into_span_relative_to(relative_to);
     let unit = get_duration_unit(ctx, unit)?;

@@ -29,7 +29,7 @@ impl ZonedExt for Zoned {
 fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned> {
     let dt = DateTime::from_object(ctx, obj)?;
     let tz = obj.get_optional::<_, String>("timeZone")?;
-    let tz = parse_temporal_time_zone(ctx, &tz)?;
+    let tz = parse_temporal_time_zone(ctx, tz.as_ref())?;
     dt.to_zoned(tz).or_throw_range(ctx, "")
 }
 

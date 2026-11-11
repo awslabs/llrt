@@ -111,7 +111,7 @@ impl Instant {
 
     #[qjs(rename = "toZonedDateTimeISO")]
     fn to_zoned_dt_iso(&self, ctx: Ctx<'_>, timezone: Opt<String>) -> Result<ZonedDateTime> {
-        let tz = parse_temporal_time_zone(&ctx, &timezone)?;
+        let tz = parse_temporal_time_zone(&ctx, timezone.0.as_ref())?;
         let ca = parse_temporal_calendar(&ctx, None)?;
         ZonedDateTime::from_parts(&self.inner, tz, ca)
     }

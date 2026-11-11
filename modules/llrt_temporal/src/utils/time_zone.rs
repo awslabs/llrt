@@ -11,7 +11,7 @@ use rquickjs::{Ctx, Result};
 
 pub(crate) fn parse_temporal_time_zone(
     ctx: &Ctx<'_>,
-    timezone: &Option<String>,
+    timezone: Option<&String>,
 ) -> Result<TimeZone> {
     let tz = match timezone {
         Some(s) => {
