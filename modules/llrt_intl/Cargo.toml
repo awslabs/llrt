@@ -13,5 +13,5 @@ path = "src/lib.rs"
 
 [dependencies]
 itoa = "1.0"
-jiff = { version = "0.2" }
+jiff = { version = "0.2", default-features = false }
 rquickjs = { version = "0.14", features = ["macro"], default-features = false }
