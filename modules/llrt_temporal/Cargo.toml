@@ -14,12 +14,19 @@ path = "src/lib.rs"
 [features]
 default = []
 
-# Bundle timezone database for rule-based timezone equality; without it, IANA
-# timezone identifiers are compared instead.
-tzdb = ["dep:jiff-tzdb"]
+# Bundle the time zone database for rule-based equality.
+# Without this feature, Temporal equality compares normalized IANA identifiers.
+bundled-tzdb = ["dep:jiff-tzdb"]
 
 [dependencies]
-jiff = { version = "0.2" }
+jiff = { version = "0.2", features = [
+  "std",
+  "tz-system",
+  "tzdb-bundle-platform",
+  "tzdb-concatenated",
+  "tzdb-zoneinfo",
+  "perf-inline",
+], default-features = false }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", features = ["macro"], default-features = false }
 

@@ -40,6 +40,9 @@ crypto-openssl = ["llrt_crypto?/crypto-openssl"]
 # OpenSSL vendored (builds OpenSSL from source)
 openssl-vendored = ["dep:openssl", "openssl/vendored"]
 
+# Enable bundled time zone data for Temporal when that module is enabled.
+bundled-tzdb = ["llrt_temporal?/bundled-tzdb"]
+
 base = [
   "abort",
   "assert",
@@ -111,10 +114,7 @@ process = ["llrt_process"]
 perf-hooks = ["llrt_perf_hooks"]
 stream-web = ["llrt_stream_web"]
 string-decoder = ["llrt_string_decoder"]
-temporal = [
-  "llrt_temporal",
-  "llrt_temporal?/tzdb",
-]
+temporal = ["llrt_temporal"]
 timers = ["llrt_timers"]
 tls = ["llrt_tls"]
 tty = ["llrt_tty"]

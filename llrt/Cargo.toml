@@ -14,6 +14,7 @@ bindgen = ["llrt_core/bindgen"]
 
 pqc = ["llrt_core/pqc"]
 intl402 = ["llrt_core/intl402"]
+bundled-tzdb = ["llrt_core/bundled-tzdb"]
 
 # TLS crypto backend features
 tls-ring = ["llrt_core/tls-ring"]

@@ -32,6 +32,9 @@ crypto-openssl = ["llrt_modules/crypto-openssl"]
 # OpenSSL vendored (builds OpenSSL from source)
 openssl-vendored = ["openssl/vendored"]
 
+# Forward bundled time zone database support to llrt_modules.
+bundled-tzdb = ["llrt_modules/bundled-tzdb"]
+
 [dependencies]
 bytes = { version = "1", default-features = false }
 home = { version = "0.5", default-features = false }
