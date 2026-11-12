@@ -41,7 +41,7 @@ home = { version = "0.5", default-features = false }
 http-body-util = { version = "0.1", default-features = false }
 hyper = { version = "1", default-features = false }
 itoa = { version = "1", default-features = false }
-jiff = { version = "0.2", default-features = false }
+jiff = { version = "0.2", features = ["std"], default-features = false }
 libc = { version = "0.2", default-features = false }
 llrt_context = { path = "../libs/llrt_context" }
 llrt_encoding = { path = "../libs/llrt_encoding" }
