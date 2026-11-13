@@ -12,8 +12,6 @@ path = "src/lib.rs"
 
 [dependencies]
 itoa = { version = "1", default-features = false }
-llrt_context = { version = "0.10.0-beta", path = "../llrt_context" }
-llrt_encoding = { version = "0.10.0-beta", path = "../llrt_encoding" }
 llrt_json = { version = "0.10.0-beta", path = "../llrt_json" }
 llrt_numbers = { version = "0.10.0-beta", path = "../llrt_numbers" }
 llrt_utils = { version = "0.10.0-beta", path = "../llrt_utils", default-features = false }
