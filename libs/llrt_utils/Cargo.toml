@@ -19,7 +19,6 @@ memchr = { version = "2", default-features = false, features = ["std"] }
 rquickjs = { version = "0.14", features = ["half", "macro"], default-features = false }
 simdutf8 = { version = "0.1", default-features = false, features = ["std", "aarch64_neon"] }
 tokio = { version = "1", features = ["sync"], default-features = false }
-tracing = { version = "0.1", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2", default-features = false }
@@ -33,9 +32,6 @@ windows-sys = { version = "0.61", features = [
 [dev-dependencies]
 llrt_test = { version = "0.10.0-beta", path = "../llrt_test" }
 tokio = { version = "1", features = ["full"] }
-
-[build-dependencies]
-llrt_build = { version = "0.10.0-beta", path = "../llrt_build" }
 
 [[bench]]
 name = "lossy_string"

@@ -1711,7 +1711,6 @@ dependencies = [
 name = "llrt_abort"
 version = "0.10.0-beta"
 dependencies = [
- "llrt_async_hooks",
  "llrt_events",
  "llrt_exceptions",
  "llrt_test",
@@ -1800,7 +1799,6 @@ dependencies = [
 name = "llrt_context"
 version = "0.10.0-beta"
 dependencies = [
- "llrt_build",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
@@ -1939,8 +1937,6 @@ name = "llrt_dns_cache"
 version = "0.10.0-beta"
 dependencies = [
  "hyper-util",
- "llrt_context",
- "llrt_utils",
  "quick_cache",
  "tokio",
  "tower-service",
@@ -2061,7 +2057,6 @@ version = "0.10.0-beta"
 dependencies = [
  "itoa",
  "jiff",
- "llrt_utils",
  "rquickjs",
 ]
 
@@ -2086,8 +2081,6 @@ name = "llrt_logging"
 version = "0.10.0-beta"
 dependencies = [
  "itoa",
- "llrt_context",
- "llrt_encoding",
  "llrt_json",
  "llrt_numbers",
  "llrt_utils",
@@ -2377,13 +2370,11 @@ version = "0.10.0-beta"
 dependencies = [
  "half",
  "libc",
- "llrt_build",
  "llrt_test",
  "memchr",
  "rquickjs",
  "simdutf8",
  "tokio",
- "tracing",
  "windows-sys 0.61.2",
 ]
 
