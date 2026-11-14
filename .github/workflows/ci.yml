@@ -200,6 +200,11 @@ jobs:
             arch: x86_64
             toolchain: nightly
             crypto: openssl
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: nightly
+            crypto: rustcrypto
           # Ubuntu arm64
           - os: ubuntu-24.04-arm
             platform: linux
@@ -221,6 +226,11 @@ jobs:
             arch: aarch64
             toolchain: nightly
             crypto: openssl
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: nightly
+            crypto: rustcrypto
           # macOS arm64
           - os: macos-latest
             platform: darwin
@@ -242,6 +252,11 @@ jobs:
             arch: aarch64
             toolchain: nightly
             crypto: openssl
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: nightly
+            crypto: rustcrypto
           # Windows x64 (ring, openssl, graviola - no aws-lc)
           - os: windows-latest
             platform: windows
@@ -258,6 +273,11 @@ jobs:
             arch: x86_64
             toolchain: nightly-x86_64-pc-windows-gnu
             crypto: graviola
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            toolchain: nightly-x86_64-pc-windows-gnu
+            crypto: rustcrypto
     uses: ./.github/workflows/build.yml
     with:
       os: ${{ matrix.os }}
@@ -293,6 +313,11 @@ jobs:
             arch: x86_64
             toolchain: stable
             crypto: openssl
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            toolchain: stable
+            crypto: rustcrypto
           # Ubuntu arm64
           - os: ubuntu-24.04-arm
             platform: linux
@@ -314,6 +339,11 @@ jobs:
             arch: aarch64
             toolchain: stable
             crypto: openssl
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: aarch64
+            toolchain: stable
+            crypto: rustcrypto
           # macOS arm64
           - os: macos-latest
             platform: darwin
@@ -335,6 +365,11 @@ jobs:
             arch: aarch64
             toolchain: stable
             crypto: openssl
+          - os: macos-latest
+            platform: darwin
+            arch: aarch64
+            toolchain: stable
+            crypto: rustcrypto
           # Windows x64 (ring, openssl, graviola - no aws-lc)
           - os: windows-latest
             platform: windows
@@ -351,6 +386,11 @@ jobs:
             arch: x86_64
             toolchain: stable-x86_64-pc-windows-gnu
             crypto: graviola
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            toolchain: stable-x86_64-pc-windows-gnu
+            crypto: rustcrypto
     uses: ./.github/workflows/build-modules.yml
     with:
       os: ${{ matrix.os }}
