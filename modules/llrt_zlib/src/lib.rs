@@ -100,10 +100,12 @@ macro_rules! define_cb_function {
                 None => Opt(None),
             };
 
+            let async_resource = ::llrt_async_context::lifecycle::register_native_resource(&ctx)?;
+
             ctx.clone().spawn_exit(async move {
                 match $converter(ctx.clone(), value, options, $command) {
                     Ok(obj) => {
-                        () = cb.call((Null.into_js(&ctx), obj))?;
+                        async_resource.call(&ctx, &cb, (Null.into_js(&ctx)?, obj))?;
                         Ok::<_, Error>(())
                     },
                     Err(err) => {
@@ -114,7 +116,7 @@ macro_rules! define_cb_function {
                         } else {
                             Exception::from_message(ctx.clone(), &err.to_string())?.into_value()
                         };
-                        () = cb.call((err,))?;
+                        async_resource.call(&ctx, &cb, (err,))?;
                         Ok(())
                     },
                 }
