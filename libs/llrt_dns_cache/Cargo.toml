@@ -16,8 +16,6 @@ hyper-util = { version = "0.1", features = [
   "client",
   "client-legacy",
 ], default-features = false }
-llrt_context = { version = "0.10.0-beta", path = "../llrt_context" }
-llrt_utils = { version = "0.10.0-beta", path = "../llrt_utils", default-features = false }
 tokio = { version = "1", features = ["net"], default-features = false }
 tower-service = { version = "0.3", default-features = false }
 quick_cache = { version = "0.6", default-features = false }

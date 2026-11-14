@@ -510,9 +510,9 @@ dependencies = [
 
 [[package]]
 name = "crc32fast"
-version = "1.5.4"
+version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f97d3416d5337d15c4b0d78c8c91df922ca143f57ec20e2d1c188333047ef04"
+checksum = "2b929dd2a135771f40afabd1073f85eed59c800b7c61901e5c254270497dad64"
 dependencies = [
  "cfg-if",
 ]
@@ -1524,9 +1524,9 @@ checksum = "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4"
 
 [[package]]
 name = "jiff"
-version = "0.2.41"
+version = "0.2.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcefdcefac59ac8f8401852e3427d55610481fc41e6625c39bac62d2d771623a"
+checksum = "fefca06093eeaed707a905795e68206da0edca4edef23d2a3997a3ddbee462aa"
 dependencies = [
  "jiff-core",
  "jiff-static",
@@ -1549,9 +1549,9 @@ dependencies = [
 
 [[package]]
 name = "jiff-static"
-version = "0.2.41"
+version = "0.2.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "203edf9b0ce4083ec8fbf4adc823eac89768ea994b4953fc0dab1b90083234dd"
+checksum = "41d3213549742662eea1a18e6c5af9be5dfbabeb7611ab71356a54928ec398f0"
 dependencies = [
  "jiff-core",
  "proc-macro2",
@@ -1711,7 +1711,6 @@ dependencies = [
 name = "llrt_abort"
 version = "0.10.0-beta"
 dependencies = [
- "llrt_async_hooks",
  "llrt_events",
  "llrt_exceptions",
  "llrt_test",
@@ -1800,7 +1799,6 @@ dependencies = [
 name = "llrt_context"
 version = "0.10.0-beta"
 dependencies = [
- "llrt_build",
  "llrt_test",
  "llrt_utils",
  "rquickjs",
@@ -1939,8 +1937,6 @@ name = "llrt_dns_cache"
 version = "0.10.0-beta"
 dependencies = [
  "hyper-util",
- "llrt_context",
- "llrt_utils",
  "quick_cache",
  "tokio",
  "tower-service",
@@ -2061,7 +2057,6 @@ version = "0.10.0-beta"
 dependencies = [
  "itoa",
  "jiff",
- "llrt_utils",
  "rquickjs",
 ]
 
@@ -2086,8 +2081,6 @@ name = "llrt_logging"
 version = "0.10.0-beta"
 dependencies = [
  "itoa",
- "llrt_context",
- "llrt_encoding",
  "llrt_json",
  "llrt_numbers",
  "llrt_utils",
@@ -2377,13 +2370,11 @@ version = "0.10.0-beta"
 dependencies = [
  "half",
  "libc",
- "llrt_build",
  "llrt_test",
  "memchr",
  "rquickjs",
  "simdutf8",
  "tokio",
- "tracing",
  "windows-sys 0.61.2",
 ]
 
