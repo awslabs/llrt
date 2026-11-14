@@ -40,6 +40,9 @@ crypto-openssl = ["llrt_crypto?/crypto-openssl"]
 # OpenSSL vendored (builds OpenSSL from source)
 openssl-vendored = ["dep:openssl", "openssl/vendored"]
 
+# Enable bundled time zone data for Temporal when that module is enabled.
+bundled-tzdb = ["llrt_temporal?/bundled-tzdb"]
+
 base = [
   "abort",
   "assert",

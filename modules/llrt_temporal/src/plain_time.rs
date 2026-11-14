@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
+use jiff::tz::TimeZone;
 use jiff::{civil::Time, Timestamp};
 use llrt_utils::result::ResultExt;
 use rquickjs::{
@@ -9,11 +10,13 @@ use rquickjs::{
     Result, Value,
 };
 
-use crate::duration::Duration;
-use crate::plain_date_time::PlainDateTime;
+use crate::utils::calendar::Calendar;
 use crate::utils::time::{fill_from_iter, TimeExt};
 use crate::utils::time_round::TimeRoundOption;
-use crate::zoned_date_time::ZonedDateTime;
+
+use super::duration::Duration;
+use super::plain_date_time::PlainDateTime;
+use super::zoned_date_time::ZonedDateTime;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
@@ -175,9 +178,9 @@ impl PlainTime {
         Ok(Self { inner: time })
     }
 
-    pub(crate) fn from_ts_tz(ctx: &Ctx<'_>, ts: &Timestamp, tz: &str) -> Result<Self> {
-        let zoned = ts.in_tz(tz).or_throw_range(ctx, "")?;
-        let zdt = ZonedDateTime::new_object(zoned);
+    pub(crate) fn from_parts(ts: &Timestamp, tz: TimeZone, ca: Calendar) -> Result<Self> {
+        let zoned = ts.to_zoned(tz);
+        let zdt = ZonedDateTime::new_object(zoned, ca);
         Ok(zdt.to_plain_time())
     }
 

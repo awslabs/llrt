@@ -2273,6 +2273,7 @@ name = "llrt_temporal"
 version = "0.10.0-beta"
 dependencies = [
  "jiff",
+ "jiff-tzdb",
  "llrt_utils",
  "rquickjs",
 ]
