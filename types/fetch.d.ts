@@ -374,8 +374,17 @@ declare global {
     static redirect(url: string | URL, status?: number): Response;
   }
 
+  interface FetchOpts extends RequestOpts {
+    /**
+     * LLRT extension (also in Bun). When `false`, the response body is
+     * returned exactly as sent, with `Content-Encoding` left in the headers,
+     * and no default `Accept-Encoding` is sent. Defaults to `true`.
+     */
+    decompress?: boolean;
+  }
+
   function fetch(
     input: string | URL | Request,
-    init?: RequestOpts
+    init?: FetchOpts
   ): Promise<Response>;
 }

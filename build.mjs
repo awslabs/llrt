@@ -442,6 +442,27 @@ const AWS_SDK_PLUGIN = {
       return { contents, loader: "js" };
     });
 
+    // The SDK must see response bodies as sent, as on Node: a stored object
+    // with Content-Encoding (e.g. S3 GetObject) is returned undecoded.
+    build.onLoad(
+      {
+        filter: /@smithy\/fetch-http-handler\/dist-es\/fetch-http-handler\.js$/,
+      },
+      async ({ path: filePath }) => {
+        const source = (await fs.readFile(filePath)).toString();
+        const call = "fetch(fetchRequest)";
+        if (source.split(call).length !== 2) {
+          throw new Error(`Failed to patch ${call} in ${filePath}`);
+        }
+        return {
+          contents: source.replace(
+            call,
+            "fetch(fetchRequest, { decompress: false })"
+          ),
+        };
+      }
+    );
+
     build.onLoad(
       { filter: /protocols\/Aws_json1_1\.js$/ },
       async ({ path: filePath }) => {
