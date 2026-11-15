@@ -973,7 +973,7 @@ fn get_fetch_options<'js>(
     // body as sent (Content-Encoding intact) and omits the default
     // Accept-Encoding. Like Bun, it is read from the init object, not from
     // a Request instance.
-    let decompress = get_option::<Value>("decompress", arg_opts.as_ref(), resource_opts.as_ref())?
+    let decompress = get_option::<Value>("decompress", arg_opts.as_ref(), None)?
         .and_then(|v| v.as_bool().or_else(|| v.as_number().map(|n| n != 0.0)))
         .unwrap_or(true);
 

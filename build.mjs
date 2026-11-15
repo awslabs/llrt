@@ -394,6 +394,10 @@ function codeToRegex(fn, includeSignature = false) {
   );
 }
 
+// Set when the SDK's fetch handler is patched; an SDK build that never
+// patches it fails, so a moved handler cannot silently bring back #1907.
+let fetchHandlerPatched = false;
+
 const AWS_SDK_PLUGIN = {
   name: "aws-sdk-plugin",
   setup(build) {
@@ -454,6 +458,7 @@ const AWS_SDK_PLUGIN = {
         if (source.split(call).length !== 2) {
           throw new Error(`Failed to patch ${call} in ${filePath}`);
         }
+        fetchHandlerPatched = true;
         return {
           contents: source.replace(
             call,
@@ -799,6 +804,13 @@ try {
 
   if (SDK_BUNDLE_MODE != "NONE") {
     await buildSdks();
+    if (!fetchHandlerPatched) {
+      throw new Error(
+        "@smithy/fetch-http-handler was never patched with " +
+          "{ decompress: false }: no bundled file matched the filter in " +
+          "AWS_SDK_PLUGIN. Update the filter to the handler's new location."
+      );
+    }
     await writeAwsSdkVersion();
   }
 } catch (e) {
