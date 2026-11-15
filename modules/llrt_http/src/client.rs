@@ -95,6 +95,8 @@ mod openssl_client {
                     llrt_tls::build_client_config(llrt_tls::BuildClientConfigOptions {
                         reject_unauthorized: true,
                         ca: None,
+                        cert: None,
+                        key: None,
                     })?
                 },
                 Err(e) => return Err(e.to_string().into()),

@@ -17,20 +17,38 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use tokio::net::TcpListener;
 
-use self::config::{FileType, MockServerCerts};
+pub use self::config::FileType;
+use self::config::MockServerCerts;
 
 mod api;
 mod config;
 mod server;
 
+/// TLS handshake errors seen by the server, as `Display` strings.
+type HandshakeErrors = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
 pub struct MockServer {
     addr: SocketAddr,
     ca: String,
+    handshake_errors: HandshakeErrors,
     shutdown_tx: tokio::sync::watch::Sender<()>,
 }
 
 impl MockServer {
     pub async fn start() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::start_inner(false).await
+    }
+
+    /// Starts a server that requires a client certificate signed by
+    /// [`FileType::ClientCa`] (mutual TLS), such as [`FileType::ClientCert`].
+    pub async fn start_with_client_auth() -> Result<Self, Box<dyn std::error::Error + Send + Sync>>
+    {
+        Self::start_inner(true).await
+    }
+
+    async fn start_inner(
+        client_auth: bool,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
 
         // Load the certificates for the mock server.
@@ -41,8 +59,19 @@ impl MockServer {
         let incoming = TcpListener::bind(&SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await?;
         let addr = incoming.local_addr()?;
 
+        let handshake_errors = HandshakeErrors::default();
+        let server_handshake_errors = handshake_errors.clone();
+
         tokio::spawn(async move {
-            if let Err(e) = server::run(incoming, certs, shutdown_rx).await {
+            if let Err(e) = server::run(
+                incoming,
+                certs,
+                client_auth,
+                server_handshake_errors,
+                shutdown_rx,
+            )
+            .await
+            {
                 println!("failed to run mock server: {e:#}");
             }
         });
@@ -50,6 +79,7 @@ impl MockServer {
         Ok(Self {
             addr,
             ca,
+            handshake_errors,
             shutdown_tx,
         })
     }
@@ -60,6 +90,12 @@ impl MockServer {
 
     pub fn ca(&self) -> &str {
         &self.ca
+    }
+
+    /// TLS handshake errors the server has seen so far, such as a client that
+    /// sent no certificate to a server started with [`Self::start_with_client_auth`].
+    pub fn handshake_errors(&self) -> Vec<String> {
+        self.handshake_errors.lock().unwrap().clone()
     }
 }
 
