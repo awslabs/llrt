@@ -77,6 +77,50 @@ describe("Hashing", () => {
       "6e9ef29b75fffc5b7abae527d58fdadb2fe42e7219011976917343065f58ed4a"
     );
   });
+
+  it("should hash to sha256 with b64url encoding", () => {
+    let hash = createHash("sha256").update("message").digest("base64url");
+    expect(hash).toEqual("q1MKE-RZFJgrefm34_uplM_R8_si9xzqGvvwK0YMbR0");
+  });
+
+  it("should hash to hmac-sha256 with b64url encoding", () => {
+    let hash = createHmac("sha256", "key")
+      .update("message")
+      .digest("base64url");
+    expect(hash).toEqual("bp7ym3X__Ft6uuUn1Y_a2y_kLnIZARl2kXNDBl9Y7Uo");
+  });
+
+  it("should hash to md5 with latin1 and binary encoding", () => {
+    const expected = Buffer.from("78e731027d8fd50ed642340b7c9a63b3", "hex");
+    let latin1 = createHash("md5")
+      .update("message")
+      .digest("latin1" as any);
+    let binary = createHash("md5").update("message").digest("binary");
+    expect(latin1).toEqual(expected.toString("latin1"));
+    expect(binary).toEqual(expected.toString("latin1"));
+  });
+
+  it("should accept digest encodings case-insensitively", () => {
+    let hash = createHash("sha256")
+      .update("message")
+      .digest("HEX" as any);
+    expect(hash).toEqual(
+      "ab530a13e45914982b79f9b7e3fba994cfd1f3fb22f71cea1afbf02b460c6d1d"
+    );
+  });
+
+  it("should return a Buffer for the buffer and unknown digest encodings", () => {
+    let buffer = createHash("sha256")
+      .update("message")
+      .digest("buffer" as any);
+    let unknown = createHash("sha256")
+      .update("message")
+      .digest("nope" as any);
+    expect(Buffer.isBuffer(buffer)).toBeTruthy();
+    expect(Buffer.isBuffer(unknown)).toBeTruthy();
+    expect(buffer.length).toEqual(32);
+    expect(unknown.length).toEqual(32);
+  });
 });
 
 describe("random", () => {
