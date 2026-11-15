@@ -14,6 +14,7 @@ name = "llrt_process"
 path = "src/lib.rs"
 
 [dependencies]
+llrt_encoding = { version = "0.10.0-beta", path = "../../libs/llrt_encoding" }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", features = ["std"], default-features = false }
 

@@ -1,4 +1,5 @@
 declare module "process" {
+  import { Buffer, BufferEncoding } from "buffer";
   import { EventEmitter } from "events";
 
   global {
@@ -40,6 +41,46 @@ declare module "process" {
   interface ProcessVersions extends Dict<string> {
     "@aws-sdk"?: string;
     llrt: string;
+  }
+  /**
+   * The stream behind `process.stdout` and `process.stderr`. Only `write()`
+   * and `isTTY` are implemented.
+   */
+  interface WriteStream {
+    /**
+     * `true` when the stream is connected to a terminal. Like Node.js, the
+     * property is absent (so reads as `undefined`) when the stream is not a
+     * terminal, for example when output is piped or redirected to a file.
+     */
+    readonly isTTY?: true;
+    /**
+     * Writes `chunk` to the underlying file descriptor. Writes are synchronous
+     * and keep their order relative to `console` output.
+     *
+     * `callback` is called asynchronously, with `null` once the data is written
+     * or with an `Error` if the write failed. When there is no callback, a
+     * failed write throws instead.
+     *
+     * ```js
+     * import { stdout } from 'process';
+     *
+     * stdout.write('Loading...');
+     * stdout.write(' done\n');
+     * ```
+     * @param chunk The data to write.
+     * @param encoding The encoding of `chunk` when it is a string. Default: `'utf8'`.
+     * @param callback Called once the data has been written.
+     * @return `true` if the data was written, `false` if the write failed and a `callback` was given.
+     */
+    write(
+      chunk: string | Buffer | ArrayBufferView,
+      callback?: (err: Error | null) => void
+    ): boolean;
+    write(
+      chunk: string | Buffer | ArrayBufferView,
+      encoding?: BufferEncoding,
+      callback?: (err: Error | null) => void
+    ): boolean;
   }
   interface Process extends EventEmitter {
     hrtime: HRTime;
@@ -501,5 +542,31 @@ declare module "process" {
      * @since v0.1.27
      */
     env: ProcessEnv;
+    /**
+     * The `process.stdout` property returns a stream connected to `stdout`
+     * (fd `1`).
+     *
+     * ```js
+     * import { stdout } from 'process';
+     *
+     * if (stdout.isTTY) {
+     *   stdout.write('\x1b[1mbold\x1b[0m\n');
+     * } else {
+     *   stdout.write('plain\n');
+     * }
+     * ```
+     */
+    readonly stdout: WriteStream;
+    /**
+     * The `process.stderr` property returns a stream connected to `stderr`
+     * (fd `2`).
+     *
+     * ```js
+     * import { stderr } from 'process';
+     *
+     * stderr.write('Something went wrong\n');
+     * ```
+     */
+    readonly stderr: WriteStream;
   }
 }

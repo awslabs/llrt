@@ -461,6 +461,16 @@ _process is available globally_
 
 [setuid](https://nodejs.org/api/process.html#processsetuiduid)
 
+[stderr](https://nodejs.org/api/process.html#processstderr)
+
+[stdout](https://nodejs.org/api/process.html#processstdout)
+
+> [!WARNING]
+> `stdout` and `stderr` support only `write()` and `isTTY`. They are not Node.js streams: there are no events, `end()` or `columns`. `write()` is synchronous, and a write error goes to the callback, or is thrown when there is no callback.
+>
+> - **Lambda:** `write()` sends raw bytes. Unlike `console`, it adds no request ID or JSON log envelope, and `AWS_LAMBDA_LOG_LEVEL` does not filter it. Output without a trailing `"\n"` is joined to the next `console` record on the same stream and corrupts it. With the JSON log format, that record is no longer valid JSON (for example `progress{"time":...}`).
+> - **Windows:** when the stream is a console whose code page is not UTF-8 (the default), `write()` fails on bytes that are not valid UTF-8, where Node.js writes them. Pipes and files are not affected.
+
 [version](https://nodejs.org/api/process.html#processversion)
 
 [versions](https://nodejs.org/api/process.html#processversions)
