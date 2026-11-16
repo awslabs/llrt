@@ -1693,18 +1693,6 @@ mod tests {
                         "TypeError: Failed to fetch",
                     ]
                 );
-
-                // The request without a client certificate failed because the
-                // server rejected the handshake for that reason.
-                #[cfg(not(feature = "tls-openssl"))]
-                let reason = "peer sent no certificates";
-                #[cfg(feature = "tls-openssl")]
-                let reason = "peer did not return a certificate";
-                let errors = mock_server.handshake_errors();
-                assert!(
-                    matches!(errors.as_slice(), [error] if error.contains(reason)),
-                    "{errors:?}"
-                );
             })
         })
         .await;

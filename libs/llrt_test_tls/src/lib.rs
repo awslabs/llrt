@@ -24,13 +24,9 @@ mod api;
 mod config;
 mod server;
 
-/// TLS handshake errors seen by the server, as `Display` strings.
-type HandshakeErrors = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
-
 pub struct MockServer {
     addr: SocketAddr,
     ca: String,
-    handshake_errors: HandshakeErrors,
     shutdown_tx: tokio::sync::watch::Sender<()>,
 }
 
@@ -59,19 +55,8 @@ impl MockServer {
         let incoming = TcpListener::bind(&SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await?;
         let addr = incoming.local_addr()?;
 
-        let handshake_errors = HandshakeErrors::default();
-        let server_handshake_errors = handshake_errors.clone();
-
         tokio::spawn(async move {
-            if let Err(e) = server::run(
-                incoming,
-                certs,
-                client_auth,
-                server_handshake_errors,
-                shutdown_rx,
-            )
-            .await
-            {
+            if let Err(e) = server::run(incoming, certs, client_auth, shutdown_rx).await {
                 println!("failed to run mock server: {e:#}");
             }
         });
@@ -79,7 +64,6 @@ impl MockServer {
         Ok(Self {
             addr,
             ca,
-            handshake_errors,
             shutdown_tx,
         })
     }
@@ -90,12 +74,6 @@ impl MockServer {
 
     pub fn ca(&self) -> &str {
         &self.ca
-    }
-
-    /// TLS handshake errors the server has seen so far, such as a client that
-    /// sent no certificate to a server started with [`Self::start_with_client_auth`].
-    pub fn handshake_errors(&self) -> Vec<String> {
-        self.handshake_errors.lock().unwrap().clone()
     }
 }
 

@@ -8,6 +8,7 @@ use openssl::ssl::{SslConnectorBuilder, SslMethod, SslVerifyMode};
 use openssl::x509::X509;
 
 use crate::client_auth::{is_encrypted_pem_key, ENCRYPTED_KEY, KEY_MISMATCH};
+use crate::BuildClientConfigOptions;
 
 static EXTRA_CA_CERTS: OnceLock<Vec<Vec<u8>>> = OnceLock::new();
 
@@ -35,24 +36,7 @@ pub fn get_tls_version() -> Option<openssl::ssl::SslVersion> {
 }
 
 pub static TLS_CONFIG: Lazy<Result<SslConnectorBuilder, Box<dyn std::error::Error + Send + Sync>>> =
-    Lazy::new(|| {
-        build_client_config(BuildClientConfigOptions {
-            reject_unauthorized: true,
-            ca: None,
-            cert: None,
-            key: None,
-        })
-    });
-
-pub struct BuildClientConfigOptions {
-    pub reject_unauthorized: bool,
-    pub ca: Option<Vec<Vec<u8>>>,
-    /// PEM certificate chain presented to the server for client authentication.
-    /// The first certificate is the leaf. Requires `key`.
-    pub cert: Option<Vec<u8>>,
-    /// PEM private key for `cert`. Requires `cert`.
-    pub key: Option<Vec<u8>>,
-}
+    Lazy::new(|| build_client_config(BuildClientConfigOptions::default()));
 
 pub fn build_client_config(
     options: BuildClientConfigOptions,

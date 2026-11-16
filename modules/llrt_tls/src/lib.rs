@@ -35,6 +35,24 @@ mod openssl_config;
 #[cfg(feature = "tls-openssl")]
 pub use openssl_config::*;
 
+pub struct BuildClientConfigOptions {
+    pub reject_unauthorized: bool,
+    pub ca: Option<Vec<Vec<u8>>>,
+    pub cert: Option<Vec<u8>>,
+    pub key: Option<Vec<u8>>,
+}
+
+impl Default for BuildClientConfigOptions {
+    fn default() -> Self {
+        Self {
+            reject_unauthorized: true,
+            ca: None,
+            cert: None,
+            key: None,
+        }
+    }
+}
+
 #[cfg(any(
     feature = "tls-ring",
     feature = "tls-aws-lc",

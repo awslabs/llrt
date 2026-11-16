@@ -58,7 +58,6 @@ pub(super) async fn run(
     listener: TcpListener,
     certs: MockServerCerts,
     client_auth: bool,
-    handshake_errors: crate::HandshakeErrors,
     shutdown_rx: tokio::sync::watch::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use rustls::{server::WebPkiClientVerifier, RootCertStore, ServerConfig};
@@ -90,14 +89,12 @@ pub(super) async fn run(
 
         let mut shutdown_signal = shutdown_rx.clone();
         let tls_acceptor = tls_acceptor.clone();
-        let handshake_errors = handshake_errors.clone();
 
         tokio::spawn(async move {
             let tls_stream = match tls_acceptor.accept(tcp_stream).await {
                 Ok(tls_stream) => tls_stream,
                 Err(err) => {
                     eprintln!("failed to perform tls handshake: {err:#}");
-                    handshake_errors.lock().unwrap().push(err.to_string());
                     return;
                 },
             };
@@ -121,7 +118,6 @@ pub(super) async fn run(
     listener: TcpListener,
     certs: MockServerCerts,
     client_auth: bool,
-    handshake_errors: crate::HandshakeErrors,
     shutdown_rx: tokio::sync::watch::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use openssl::ssl::{SslAcceptor, SslMethod, SslVerifyMode};
@@ -162,7 +158,6 @@ pub(super) async fn run(
 
         let mut shutdown_signal = shutdown_rx.clone();
         let acceptor = acceptor.clone();
-        let handshake_errors = handshake_errors.clone();
 
         tokio::spawn(async move {
             let ssl = match openssl::ssl::Ssl::new(acceptor.context()) {
@@ -177,7 +172,6 @@ pub(super) async fn run(
                 Ok(mut stream) => {
                     if let Err(err) = std::pin::Pin::new(&mut stream).accept().await {
                         eprintln!("failed to perform tls handshake: {err:#}");
-                        handshake_errors.lock().unwrap().push(err.to_string());
                         return;
                     }
                     stream

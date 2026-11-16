@@ -13,6 +13,7 @@ use webpki_roots::TLS_SERVER_ROOTS;
 
 use crate::client_auth::{is_encrypted_pem_key, ENCRYPTED_KEY, KEY_MISMATCH};
 use crate::no_verification::NoCertificateVerification;
+use crate::BuildClientConfigOptions;
 
 // Select the crypto provider based on feature flags
 #[cfg(feature = "tls-ring")]
@@ -61,24 +62,7 @@ pub fn get_tls_versions() -> Option<Vec<&'static SupportedProtocolVersion>> {
 }
 
 pub static TLS_CONFIG: Lazy<Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>>> =
-    Lazy::new(|| {
-        build_client_config(BuildClientConfigOptions {
-            reject_unauthorized: true,
-            ca: None,
-            cert: None,
-            key: None,
-        })
-    });
-
-pub struct BuildClientConfigOptions {
-    pub reject_unauthorized: bool,
-    pub ca: Option<Vec<Vec<u8>>>,
-    /// PEM certificate chain presented to the server for client authentication.
-    /// The first certificate is the leaf. Requires `key`.
-    pub cert: Option<Vec<u8>>,
-    /// PEM private key for `cert`. Requires `cert`.
-    pub key: Option<Vec<u8>>,
-}
+    Lazy::new(|| build_client_config(BuildClientConfigOptions::default()));
 
 pub fn build_client_config(
     options: BuildClientConfigOptions,
