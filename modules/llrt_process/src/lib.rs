@@ -418,21 +418,6 @@ mod tests {
                         import { stdout, stderr } from 'process';
 
                         export async function test() {
-                            const errors = [
-                                1,
-                                null,
-                                undefined,
-                                {},
-                                new ArrayBuffer(1),
-                                { buffer: new Uint8Array([65, 66]).buffer },
-                            ].map((chunk) => {
-                                try {
-                                    stdout.write(chunk);
-                                    return "none";
-                                } catch (e) {
-                                    return e.constructor.name;
-                                }
-                            });
                             const encodingErrors = ["nope", 123, false, 0].map((encoding) => {
                                 try {
                                     stdout.write("", encoding);
@@ -453,7 +438,6 @@ mod tests {
                                 callbackArg === null,
                                 "isTTY" in stdout ? stdout.isTTY : "absent",
                                 "isTTY" in stderr ? stderr.isTTY : "absent",
-                                errors.join(),
                                 encodingError,
                             ].join("|");
                         }
@@ -470,7 +454,6 @@ mod tests {
                     "true",
                     tty(stdout().is_terminal()),
                     tty(stderr().is_terminal()),
-                    "TypeError,TypeError,TypeError,TypeError,TypeError,TypeError",
                     "Unknown encoding: nope,Unknown encoding: 123,none,none",
                 ]
                 .join("|");

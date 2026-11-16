@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 
 use hex_simd::AsciiCase;
+use rquickjs::{Coerced, Ctx, Exception, Value};
 
 #[derive(Clone, PartialEq)]
 pub enum Encoder {
@@ -108,6 +109,28 @@ impl Encoder {
         encoding.map_or(Ok(Self::Utf8), Self::for_buffer)
     }
 
+    /// The `encoding` argument of Node.js `writable.write()`. Any falsy value
+    /// (`undefined`, `null`, `""`, `false`, `0`, `NaN`, ...) means UTF-8.
+    /// Anything else must be a string naming a Buffer encoding (see
+    /// `for_buffer`), or it throws Node.js's `TypeError: Unknown encoding: ...`.
+    pub fn for_writable<'js>(
+        ctx: &Ctx<'js>,
+        encoding: Option<Value<'js>>,
+    ) -> rquickjs::Result<Self> {
+        let name = match encoding {
+            Some(value) if value.get::<Coerced<bool>>()?.0 => {
+                let Some(string) = value.as_string() else {
+                    let Coerced(name) = value.get::<Coerced<String>>()?;
+                    return Err(unknown_encoding(ctx, &name));
+                };
+                Some(string.to_string()?)
+            },
+            _ => None,
+        };
+        Self::for_buffer_optional(name.as_deref())
+            .map_err(|_| unknown_encoding(ctx, name.as_deref().unwrap_or_default()))
+    }
+
     pub fn encode_to_string(&self, bytes: &[u8], lossy: bool) -> Result<String, String> {
         match self {
             Self::Hex => Ok(bytes_to_hex_string(bytes)),
@@ -183,6 +206,11 @@ impl Encoder {
             Self::Ascii => "ascii",
         }
     }
+}
+
+/// Node.js's `ERR_UNKNOWN_ENCODING`.
+fn unknown_encoding(ctx: &Ctx<'_>, name: &str) -> rquickjs::Error {
+    Exception::throw_type(ctx, &["Unknown encoding: ", name].concat())
 }
 
 pub fn bytes_to_hex(bytes: &[u8]) -> Vec<u8> {

@@ -12,10 +12,9 @@ use std::io::{self, IsTerminal, Write};
 use llrt_encoding::Encoder;
 use llrt_utils::{
     bytes::{get_lossy_string, ObjectBytes},
-    primordials::{BasePrimordials, Primordial},
     result::ResultExt,
 };
-use rquickjs::{prelude::Opt, Coerced, Ctx, Exception, Function, Object, Result, Value};
+use rquickjs::{prelude::Opt, Ctx, Exception, Function, Object, Result, Value};
 
 pub fn init<'js>(ctx: &Ctx<'js>, process: &Object<'js>) -> Result<()> {
     let write = Function::new(ctx.clone(), write_stdout)?;
@@ -65,7 +64,7 @@ fn write<'js>(
     encoding: Option<Value<'js>>,
     callback: Option<Value<'js>>,
 ) -> Result<bool> {
-    // A missing chunk is rejected like `undefined`.
+    // A missing chunk writes nothing, like `undefined`.
     let chunk = chunk.unwrap_or_else(|| Value::new_undefined(ctx.clone()));
     // write(chunk, callback)
     let (encoding, callback) = match encoding {
@@ -73,9 +72,17 @@ fn write<'js>(
         encoding => (encoding, callback),
     };
     let callback = callback.and_then(Value::into_function);
-    let encoder = to_encoder(ctx, encoding)?;
+    let encoder = Encoder::for_writable(ctx, encoding)?;
 
-    let bytes = to_bytes(ctx, chunk, encoder)?;
+    // Strings are decoded with the encoding, with the same error as
+    // `Buffer.from(string, encoding)`. Anything else is converted like other
+    // LLRT writes (`fs.writeFile`, `net.Socket.write`).
+    let bytes = if chunk.is_string() {
+        let string = get_lossy_string(chunk)?;
+        ObjectBytes::Vec(encoder.decode_from_string(string).or_throw(ctx)?)
+    } else {
+        ObjectBytes::from(ctx, &chunk)?
+    };
     let result = output
         .write_all(bytes.as_bytes(ctx)?)
         .and_then(|_| output.flush());
@@ -104,60 +111,4 @@ fn write_error<'js>(ctx: &Ctx<'js>, err: &io::Error) -> Result<Value<'js>> {
     }
     exception.set("syscall", "write")?;
     Ok(exception.into_value())
-}
-
-/// Like Node.js, any falsy value (`undefined`, `null`, `""`, `false`, `0`,
-/// `NaN`, ...) falls back to UTF-8. Any other value must name a Buffer encoding.
-fn to_encoder<'js>(ctx: &Ctx<'js>, encoding: Option<Value<'js>>) -> Result<Encoder> {
-    let Some(encoding) = encoding else {
-        return Ok(Encoder::Utf8);
-    };
-    let Coerced(is_truthy) = encoding.get::<Coerced<bool>>()?;
-    if !is_truthy {
-        return Ok(Encoder::Utf8);
-    }
-    if let Some(string) = encoding.as_string() {
-        if let Ok(encoder) = Encoder::for_buffer(&string.to_string()?) {
-            return Ok(encoder);
-        }
-    }
-    let Coerced(name) = encoding.get::<Coerced<String>>()?;
-    Err(Exception::throw_type(
-        ctx,
-        &["Unknown encoding: ", &name].concat(),
-    ))
-}
-
-fn to_bytes<'js>(ctx: &Ctx<'js>, chunk: Value<'js>, encoder: Encoder) -> Result<ObjectBytes<'js>> {
-    if chunk.is_string() {
-        let string = get_lossy_string(chunk)?;
-        // Same error as `Buffer.from(string, encoding)`.
-        let bytes = encoder.decode_from_string(string).or_throw(ctx)?;
-        return Ok(ObjectBytes::Vec(bytes));
-    }
-
-    if chunk.is_null() {
-        return Err(Exception::throw_type(
-            ctx,
-            "May not write null values to stream",
-        ));
-    }
-
-    // Only a real ArrayBufferView (Buffer, TypedArray or DataView). Node.js
-    // rejects a bare ArrayBuffer and objects that merely have a `buffer`.
-    if let Some(obj) = chunk.as_object() {
-        let is_view = BasePrimordials::get(ctx)?
-            .function_array_buffer_is_view
-            .clone();
-        if is_view.call::<_, bool>((obj.clone(),))? {
-            if let Some(bytes) = ObjectBytes::from_array_buffer(obj)? {
-                return Ok(bytes);
-            }
-        }
-    }
-
-    Err(Exception::throw_type(
-        ctx,
-        "The \"chunk\" argument must be of type string or an instance of Buffer, TypedArray, or DataView",
-    ))
 }

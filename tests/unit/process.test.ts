@@ -146,27 +146,6 @@ describe("process.stdout and process.stderr", () => {
     expect(stdout).toEqual("partial");
   });
 
-  it("should reject chunks that are not strings or ArrayBufferViews", () => {
-    const message =
-      'The "chunk" argument must be of type string or an instance of Buffer, TypedArray, or DataView';
-    const chunks = [
-      1,
-      undefined,
-      {},
-      [1],
-      new ArrayBuffer(1),
-      // Not an ArrayBufferView, even though it has an ArrayBuffer `buffer`.
-      { buffer: new Uint8Array([65, 66]).buffer },
-    ];
-    for (const chunk of chunks) {
-      expect(() => process.stdout.write(chunk as any)).toThrow(message);
-    }
-    expect(() => (process.stdout.write as any)()).toThrow(message);
-    expect(() => process.stdout.write(null as any)).toThrow(
-      "May not write null values to stream"
-    );
-  });
-
   it("should reject unknown encodings", () => {
     expect(() => process.stdout.write("", "nope" as any)).toThrow(
       "Unknown encoding: nope"
