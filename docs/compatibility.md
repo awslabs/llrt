@@ -85,13 +85,14 @@
 
 ## Other features
 
-| Other features | LLRT    |
-| -------------- | ------- |
-| async/await    | Yes     |
-| esm            | Yes     |
-| cjs            | Yes     |
-| Intl           | Partial |
-| Temporal       | Partial |
+| Other features            | LLRT    |
+| ------------------------- | ------- |
+| async/await               | Yes     |
+| esm                       | Yes     |
+| cjs                       | Yes     |
+| Intl                      | Partial |
+| Temporal                  | Partial |
+| Lambda response streaming | Partial |
 
 - Partial: partially supported in LLRT
 - Planned: planned partial support

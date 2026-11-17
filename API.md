@@ -935,3 +935,41 @@ following redirects. With `redirect: "manual"`, the response retains its source 
 ## XHR
 
 [FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData)
+
+# AWS Lambda API
+
+When LLRT runs a Lambda function, it defines the `awslambda` global, as the Node.js runtime does.
+
+## awslambda.streamifyResponse
+
+```typescript
+function streamifyResponse<T extends StreamingHandler>(
+  handler: T,
+  options?: { highWaterMark?: number }
+): T;
+
+type StreamingHandler = (
+  event: any,
+  responseStream: ResponseStream,
+  context: any
+) => Promise<void>;
+```
+
+Marks a handler for [response streaming](https://docs.aws.amazon.com/lambda/latest/dg/configuration-response-streaming.html). The handler gets a response stream as its second argument, and what it writes there is streamed to the caller.
+
+```javascript
+export const handler = awslambda.streamifyResponse(
+  async (event, responseStream, context) => {
+    responseStream.setContentType("text/plain");
+    responseStream.write("Hello, ");
+    responseStream.end("world!");
+  }
+);
+```
+
+- The response stream is a `stream.Writable`, so it works with `pipeline()`. A write completes once the runtime's connection to Lambda has taken the data, so `write()` returning `false` and the `'drain'` event apply backpressure. `highWaterMark` sets the stream's buffer size, 16 KiB by default.
+- `setContentType(contentType)` sets the response's `Content-Type`, `application/octet-stream` by default. It throws once the first chunk has been written.
+- `write()` sends values other than strings and `Uint8Array`s (including `Buffer`s) as JSON, as in the Node.js runtime. `end(chunk)` doesn't.
+- The handler must be `async`. The invocation ends once its promise has settled and the stream has ended.
+- If the handler throws, or the stream is destroyed with an error, the error is sent to Lambda in the `Lambda-Runtime-Function-Error-Type` and `Lambda-Runtime-Function-Error-Body` trailers, after whatever was already written. The error body has the same fields as for other handlers: `errorType`, `errorMessage`, `stackTrace` and `requestId`.
+- `awslambda.HttpResponseStream`, which sets the status code and headers of a Lambda function URL response, isn't supported yet.
