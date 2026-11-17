@@ -31,7 +31,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Checkout submodules
-        run: git submodule update --init --checkout
+        run: git submodule update --init --checkout zstd
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
