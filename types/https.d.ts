@@ -12,6 +12,20 @@ declare module "https" {
      */
     ca?: string | Buffer | Array<string | Buffer> | undefined;
     /**
+     * Client certificate chain in PEM format, sent to servers that request
+     * client authentication (mutual TLS). The chain is the certificate for
+     * `key`, followed by any intermediate certificates, in order, without
+     * the root CA. Must be set together with `key`. Only one chain is
+     * supported, so an array must have a single element.
+     */
+    cert?: string | Buffer | Array<string | Buffer> | undefined;
+    /**
+     * Private key for `cert`, in PEM format. Must be set together with
+     * `cert`. Encrypted keys are not supported. Only one key is supported,
+     * so an array must have a single element.
+     */
+    key?: string | Buffer | Array<string | Buffer> | undefined;
+    /**
      * Whether to reject unauthorized certificates. Default is `true`.
      */
     rejectUnauthorized?: boolean | undefined;

@@ -35,5 +35,41 @@ mod openssl_config;
 #[cfg(feature = "tls-openssl")]
 pub use openssl_config::*;
 
+pub struct BuildClientConfigOptions {
+    pub reject_unauthorized: bool,
+    pub ca: Option<Vec<Vec<u8>>>,
+    pub cert: Option<Vec<u8>>,
+    pub key: Option<Vec<u8>>,
+}
+
+impl Default for BuildClientConfigOptions {
+    fn default() -> Self {
+        Self {
+            reject_unauthorized: true,
+            ca: None,
+            cert: None,
+            key: None,
+        }
+    }
+}
+
+#[cfg(any(
+    feature = "tls-ring",
+    feature = "tls-aws-lc",
+    feature = "tls-graviola",
+    feature = "tls-openssl"
+))]
+mod client_auth {
+    pub const ENCRYPTED_KEY: &str = "Invalid key: encrypted keys are not supported";
+    pub const KEY_MISMATCH: &str = "Invalid key: does not match cert";
+
+    /// Whether a PEM private key is encrypted: PKCS#8 `ENCRYPTED PRIVATE KEY`,
+    /// or a legacy OpenSSL key with a `Proc-Type: 4,ENCRYPTED` header.
+    pub fn is_encrypted_pem_key(pem: &[u8]) -> bool {
+        let contains = |needle: &[u8]| pem.windows(needle.len()).any(|w| w == needle);
+        contains(b"-----BEGIN ENCRYPTED PRIVATE KEY-----") || contains(b"Proc-Type: 4,ENCRYPTED")
+    }
+}
+
 // Once we are ready to add the node TLS module, it should be here.
 // Right now this module is supporting the https/fetch modules.

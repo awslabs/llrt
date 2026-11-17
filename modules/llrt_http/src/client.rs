@@ -92,10 +92,7 @@ mod openssl_client {
             match TLS_CONFIG.as_ref() {
                 Ok(_builder) => {
                     // Clone the builder by creating a new one with same settings
-                    llrt_tls::build_client_config(llrt_tls::BuildClientConfigOptions {
-                        reject_unauthorized: true,
-                        ca: None,
-                    })?
+                    llrt_tls::build_client_config(llrt_tls::BuildClientConfigOptions::default())?
                 },
                 Err(e) => return Err(e.to_string().into()),
             }

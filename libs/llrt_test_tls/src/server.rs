@@ -57,16 +57,28 @@ fn get_crypto_provider() -> Arc<rustls::crypto::CryptoProvider> {
 pub(super) async fn run(
     listener: TcpListener,
     certs: MockServerCerts,
+    client_auth: bool,
     shutdown_rx: tokio::sync::watch::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use rustls::ServerConfig;
+    use rustls::{server::WebPkiClientVerifier, RootCertStore, ServerConfig};
     use tokio_rustls::TlsAcceptor;
 
+    let provider = get_crypto_provider();
+    let builder = ServerConfig::builder_with_provider(provider.clone())
+        .with_safe_default_protocol_versions()?;
+    let builder = if client_auth {
+        let mut client_roots = RootCertStore::empty();
+        client_roots.add(certs.client_ca)?;
+        let verifier =
+            WebPkiClientVerifier::builder_with_provider(Arc::new(client_roots), provider)
+                .build()?;
+        builder.with_client_cert_verifier(verifier)
+    } else {
+        builder.with_no_client_auth()
+    };
+
     let cert_chain = vec![certs.server_cert, certs.root_cert];
-    let mut server_config = ServerConfig::builder_with_provider(get_crypto_provider())
-        .with_safe_default_protocol_versions()?
-        .with_no_client_auth()
-        .with_single_cert(cert_chain, certs.server_key)?;
+    let mut server_config = builder.with_single_cert(cert_chain, certs.server_key)?;
     server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
     let tls_acceptor = TlsAcceptor::from(Arc::new(server_config));
 
@@ -105,9 +117,10 @@ pub(super) async fn run(
 pub(super) async fn run(
     listener: TcpListener,
     certs: MockServerCerts,
+    client_auth: bool,
     shutdown_rx: tokio::sync::watch::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use openssl::ssl::{SslAcceptor, SslMethod};
+    use openssl::ssl::{SslAcceptor, SslMethod, SslVerifyMode};
 
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
 
@@ -128,6 +141,12 @@ pub(super) async fn run(
 
     let root_cert = openssl::x509::X509::from_der(certs.root_cert.as_ref())?;
     builder.add_extra_chain_cert(root_cert)?;
+
+    if client_auth {
+        let client_ca = openssl::x509::X509::from_der(certs.client_ca.as_ref())?;
+        builder.cert_store_mut().add_cert(client_ca)?;
+        builder.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);
+    }
 
     builder.set_alpn_protos(b"\x02h2\x08http/1.1\x08http/1.0")?;
 

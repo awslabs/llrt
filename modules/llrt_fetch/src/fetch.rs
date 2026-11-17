@@ -998,14 +998,16 @@ mod tests {
     #[cfg(any(
         feature = "tls-ring",
         feature = "tls-aws-lc",
-        all(feature = "tls-graviola", target_arch = "x86_64")
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
     ))]
     use llrt_http::HttpsModule;
     use llrt_test::test_async_with;
     #[cfg(any(
         feature = "tls-ring",
         feature = "tls-aws-lc",
-        all(feature = "tls-graviola", target_arch = "x86_64")
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
     ))]
     use llrt_test::{call_test, ModuleEvaluator};
     use rquickjs::{prelude::Promise, CatchResultExt};
@@ -1606,6 +1608,179 @@ mod tests {
                 let result = call_test::<String, _>(&ctx, &module, (addr,)).await;
 
                 assert_eq!(result, "Hello, LLRT!");
+            })
+        })
+        .await;
+    }
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    fn read_test_pem(file: llrt_test_tls::FileType) -> String {
+        std::fs::read_to_string(file.default_path()).unwrap()
+    }
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    #[tokio::test]
+    async fn test_fetch_client_certificate() {
+        use llrt_test_tls::FileType;
+
+        let mock_server = llrt_test_tls::MockServer::start_with_client_auth()
+            .await
+            .unwrap();
+        let addr = mock_server.address().to_string();
+        let ca = mock_server.ca().to_string();
+        let cert = read_test_pem(FileType::ClientCert);
+        let key = read_test_pem(FileType::ClientKey);
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        async function post(addr, agent) {
+                            try {
+                                const response = await fetch(`https://${addr}/echo`, {
+                                    method: "POST",
+                                    body: "Hello, LLRT!",
+                                    agent,
+                                });
+                                return await response.text();
+                            } catch (e) {
+                                return `${e.name}: ${e.message}`;
+                            }
+                        }
+
+                        const bytes = (pem) => Uint8Array.from(pem, (c) => c.charCodeAt(0));
+
+                        export async function test(addr, ca, cert, key) {
+                            return [
+                                await post(addr, new Agent({ ca, cert, key })),
+                                await post(addr, new Agent({ ca, cert: [cert], key: [key] })),
+                                await post(addr, new Agent({ ca, cert: bytes(cert), key: bytes(key) })),
+                                await post(addr, new Agent({ ca })),
+                            ];
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<String>, _>(&ctx, &module, (addr, ca, cert, key)).await;
+
+                assert_eq!(
+                    result,
+                    [
+                        "Hello, LLRT!",
+                        "Hello, LLRT!",
+                        "Hello, LLRT!",
+                        "TypeError: Failed to fetch",
+                    ]
+                );
+            })
+        })
+        .await;
+    }
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    #[tokio::test]
+    async fn test_agent_client_certificate_errors() {
+        use llrt_test_tls::FileType;
+
+        let cert = read_test_pem(FileType::ClientCert);
+        let key = read_test_pem(FileType::ClientKey);
+        let other_key = read_test_pem(FileType::ServerKey);
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        const encryptedPkcs8 = [
+                            "-----BEGIN ENCRYPTED PRIVATE KEY-----",
+                            "MIIBvTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQI",
+                            "-----END ENCRYPTED PRIVATE KEY-----",
+                        ].join("\n");
+                        const encryptedLegacy = [
+                            "-----BEGIN RSA PRIVATE KEY-----",
+                            "Proc-Type: 4,ENCRYPTED",
+                            "DEK-Info: AES-256-CBC,00000000000000000000000000000000",
+                            "",
+                            "MIIBvTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQI",
+                            "-----END RSA PRIVATE KEY-----",
+                        ].join("\n");
+
+                        export async function test(cert, key, otherKey) {
+                            const options = [
+                                { cert },
+                                { key },
+                                { cert: [cert, cert], key },
+                                { cert, key: otherKey },
+                                { cert, key: encryptedPkcs8 },
+                                { cert, key: encryptedLegacy },
+                                { cert, key: "not a key" },
+                            ];
+                            return options.map((options) => {
+                                try {
+                                    new Agent(options);
+                                    return "no error";
+                                } catch (e) {
+                                    return e.message;
+                                }
+                            });
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<String>, _>(&ctx, &module, (cert, key, other_key)).await;
+
+                assert_eq!(
+                    result[..6],
+                    [
+                        "Failed to build TLS config. cert and key must be provided together",
+                        "Failed to build TLS config. cert and key must be provided together",
+                        "Only one cert is supported",
+                        "Failed to build TLS config. Invalid key: does not match cert",
+                        "Failed to build TLS config. Invalid key: encrypted keys are not supported",
+                        "Failed to build TLS config. Invalid key: encrypted keys are not supported",
+                    ]
+                );
+                assert!(
+                    result[6].starts_with("Failed to build TLS config. Invalid key: "),
+                    "{}",
+                    result[6]
+                );
             })
         })
         .await;
