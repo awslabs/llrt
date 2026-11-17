@@ -52,6 +52,10 @@ jobs:
           echo "OPENSSL_DIR=D:/a/_temp/msys64/mingw64" >> $GITHUB_ENV
           echo "OPENSSL_LIB_DIR=D:/a/_temp/msys64/mingw64/lib" >> $GITHUB_ENV
           echo "OPENSSL_INCLUDE_DIR=D:/a/_temp/msys64/mingw64/include" >> $GITHUB_ENV
+          # OpenSSL is linked statically on Windows (msys2 ships no importable
+          # libssl.dll). OpenSSL 4's libcrypto.a calls BCryptGenRandom, which
+          # openssl-sys 0.9 does not add to the link line, so link bcrypt ourselves.
+          echo "RUSTFLAGS=-Clink-arg=-lbcrypt" >> $GITHUB_ENV
           # Put the MSYS2 mingw64 toolchain first on PATH so the linker driver
           # (x86_64-w64-mingw32-gcc), its crt2.o, and the openssl libs in
           # OPENSSL_LIB_DIR all come from the same mingw-w64 runtime. Otherwise the
@@ -92,7 +96,6 @@ jobs:
       - name: Run build crates
         shell: bash
         env:
-          RUSTFLAGS: ""
           TLS_FEATURE: ${{ steps.features.outputs.tls_feature }}
           CRYPTO_FEATURE: ${{ steps.features.outputs.crypto_feature }}
         run: |
