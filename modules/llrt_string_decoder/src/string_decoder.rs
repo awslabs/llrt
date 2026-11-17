@@ -231,10 +231,7 @@ impl StringDecoder {
     pub fn new(ctx: Ctx<'_>, encoding: Opt<CString<'_>>) -> Result<Self> {
         let encoding = encoding.0.as_ref().map(|e| e.as_str()).unwrap_or("utf-8");
 
-        let encoder = Encoder::from_label(encoding).map_err(|_| {
-            let msg = ["Unknown encoding: ", encoding].concat();
-            Exception::throw_type(&ctx, &msg)
-        })?;
+        let encoder = Encoder::for_string_decoder(&ctx, encoding)?;
 
         Ok(Self {
             encoder,

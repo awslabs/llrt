@@ -97,16 +97,32 @@ impl Encoder {
     /// The encoding set accepted by Node.js `Buffer` methods. Differs from
     /// `from_label`: Node-style "latin1"/"binary"/"ascii" map each byte to one
     /// UTF-16 code unit instead of using the windows-1252 WHATWG table, and
-    /// labels such as "iso-8859-1", "windows-1252" and "utf-16be" are rejected.
-    pub fn for_buffer(encoding: &str) -> Result<Self, String> {
+    /// labels such as "iso-8859-1", "windows-1252" and "utf-16be" are rejected
+    /// with Node.js's `TypeError: Unknown encoding: ...`.
+    pub fn for_buffer(ctx: &Ctx<'_>, encoding: &str) -> rquickjs::Result<Self> {
+        Self::buffer_encoding(encoding).ok_or_else(|| unknown_encoding(ctx, encoding))
+    }
+
+    pub fn for_buffer_optional(ctx: &Ctx<'_>, encoding: Option<&str>) -> rquickjs::Result<Self> {
+        encoding.map_or(Ok(Self::Utf8), |encoding| Self::for_buffer(ctx, encoding))
+    }
+
+    /// `Buffer.isEncoding()`: whether `for_buffer` accepts `encoding`.
+    pub fn is_buffer_encoding(encoding: &str) -> bool {
+        Self::buffer_encoding(encoding).is_some()
+    }
+
+    fn buffer_encoding(encoding: &str) -> Option<Self> {
         BUFFER_ENCODING_MAP
             .get(encoding.to_ascii_lowercase().as_str())
             .cloned()
-            .ok_or_else(|| ["The \"", encoding, "\" encoding is not supported"].concat())
     }
 
-    pub fn for_buffer_optional(encoding: Option<&str>) -> Result<Self, String> {
-        encoding.map_or(Ok(Self::Utf8), Self::for_buffer)
+    /// The `encoding` argument of `new StringDecoder()`. Names are looked up
+    /// with `from_label`, and an unknown name throws Node.js's
+    /// `TypeError: Unknown encoding: ...`.
+    pub fn for_string_decoder(ctx: &Ctx<'_>, encoding: &str) -> rquickjs::Result<Self> {
+        Self::from_label(encoding).map_err(|_| unknown_encoding(ctx, encoding))
     }
 
     /// The `encoding` argument of Node.js `writable.write()`. Any falsy value
@@ -127,8 +143,7 @@ impl Encoder {
             },
             _ => None,
         };
-        Self::for_buffer_optional(name.as_deref())
-            .map_err(|_| unknown_encoding(ctx, name.as_deref().unwrap_or_default()))
+        Self::for_buffer_optional(ctx, name.as_deref())
     }
 
     pub fn encode_to_string(&self, bytes: &[u8], lossy: bool) -> Result<String, String> {
