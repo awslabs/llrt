@@ -74,8 +74,8 @@ impl<'js> Buffer {
     }
 
     pub fn to_string(&self, ctx: &Ctx<'js>, encoding: &str) -> Result<String> {
-        Encoder::for_buffer(encoding)
-            .and_then(|enc| enc.encode_to_string(self.0.as_ref(), true))
+        Encoder::for_buffer(ctx, encoding)?
+            .encode_to_string(self.0.as_ref(), true)
             .or_throw(ctx)
     }
 
@@ -102,7 +102,7 @@ impl<'js> Buffer {
         encoding: Option<String>,
     ) -> Result<Value<'js>> {
         if let Some(encoding) = encoding {
-            let encoder = Encoder::for_buffer(&encoding).or_throw(ctx)?;
+            let encoder = Encoder::for_buffer(ctx, &encoding)?;
             bytes = encoder.decode(bytes).or_throw(ctx)?;
         }
         Buffer(bytes).into_js(ctx)
@@ -114,7 +114,7 @@ impl<'js> Buffer {
         encoding: Option<String>,
     ) -> Result<Value<'js>> {
         let bytes = if let Some(encoding) = encoding {
-            let encoder = Encoder::for_buffer(&encoding).or_throw(ctx)?;
+            let encoder = Encoder::for_buffer(ctx, &encoding)?;
             encoder.decode_from_string(string).or_throw(ctx)?
         } else {
             string.into_bytes()
@@ -135,7 +135,7 @@ fn alloc<'js>(
             let string = value.to_string()?;
 
             if let Some(encoding) = encoding.0 {
-                let encoder = Encoder::for_buffer(&encoding).or_throw(&ctx)?;
+                let encoder = Encoder::for_buffer(&ctx, &encoding)?;
                 let bytes = encoder.decode_from_string(string).or_throw(&ctx)?;
                 return alloc_byte_ref(&ctx, &bytes, length);
             }
@@ -209,7 +209,7 @@ fn alloc_unsafe_slow(ctx: Ctx<'_>, size: usize) -> Result<Value<'_>> {
 fn byte_length<'js>(ctx: Ctx<'js>, value: Value<'js>, encoding: Opt<String>) -> Result<usize> {
     //slow path
     if let Some(encoding) = encoding.0 {
-        let encoder = Encoder::for_buffer(&encoding).or_throw(&ctx)?;
+        let encoder = Encoder::for_buffer(&ctx, &encoding)?;
         let a = ObjectBytes::from(&ctx, &value)?;
         let bytes = a.as_bytes(&ctx)?;
         return Ok(encoder.decode(bytes).or_throw(&ctx)?.len());
@@ -349,7 +349,7 @@ fn is_buffer<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
 fn is_encoding(value: Value) -> Result<bool> {
     if let Some(js_string) = value.as_string() {
         let std_string = js_string.to_string()?;
-        return Ok(Encoder::for_buffer(std_string.as_str()).is_ok());
+        return Ok(Encoder::try_for_buffer(&std_string).is_some());
     }
 
     Ok(false)
@@ -459,7 +459,7 @@ fn to_string(
         .min(bytes.len());
     let bytes = &bytes[start..end];
 
-    let encoder = Encoder::for_buffer_optional(encoding.as_deref()).or_throw(&ctx)?;
+    let encoder = Encoder::for_buffer_optional(&ctx, encoding.as_deref())?;
     encoder.encode_to_string(bytes, true).or_throw(&ctx)
 }
 
@@ -481,7 +481,7 @@ fn write<'js>(
         let target_bytes =
             resolve_view_bytes(&ctx, array_buffer, target_byte_length, target_byte_offset)?;
 
-        let encoder = Encoder::for_buffer(&encoding).or_throw(&ctx)?;
+        let encoder = Encoder::for_buffer(&ctx, &encoding)?;
 
         if encoder.as_label() == "utf-8" {
             let (source_slice, valid_length) = safe_byte_slice(&string, length.min(string.len()));

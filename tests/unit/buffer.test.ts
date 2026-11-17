@@ -448,6 +448,25 @@ describe("Buffer.isEncoding", () => {
     }
   });
 
+  it("should throw Node's TypeError for unknown encodings", () => {
+    const unknown = expect.objectContaining({
+      name: "TypeError",
+      message: "Unknown encoding: nope",
+    });
+    const nope = "nope" as BufferEncoding;
+    expect(() => Buffer.from("aa", nope)).toThrow(unknown);
+    expect(() => Buffer.alloc(2, "a", nope)).toThrow(unknown);
+    expect(() => Buffer.from("aa").toString(nope)).toThrow(unknown);
+    expect(() => Buffer.alloc(2).write("aa", nope)).toThrow(unknown);
+    // WHATWG labels are not Buffer encodings.
+    expect(() => Buffer.from("aa", "UTF-16BE" as BufferEncoding)).toThrow(
+      expect.objectContaining({
+        name: "TypeError",
+        message: "Unknown encoding: UTF-16BE",
+      })
+    );
+  });
+
   it("should encode and decode latin1/binary as one byte per code unit", () => {
     // latin1 write: each UTF-16 code unit contributes its low byte.
     expect(Array.from(Buffer.from("café", "latin1"))).toEqual([99, 97, 102, 233]);

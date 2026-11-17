@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 
 use hex_simd::AsciiCase;
+use rquickjs::{Coerced, Ctx, Exception, Value};
 
 #[derive(Clone, PartialEq)]
 pub enum Encoder {
@@ -96,16 +97,50 @@ impl Encoder {
     /// The encoding set accepted by Node.js `Buffer` methods. Differs from
     /// `from_label`: Node-style "latin1"/"binary"/"ascii" map each byte to one
     /// UTF-16 code unit instead of using the windows-1252 WHATWG table, and
-    /// labels such as "iso-8859-1", "windows-1252" and "utf-16be" are rejected.
-    pub fn for_buffer(encoding: &str) -> Result<Self, String> {
+    /// labels such as "iso-8859-1", "windows-1252" and "utf-16be" are rejected
+    /// with Node.js's `TypeError: Unknown encoding: ...`.
+    pub fn for_buffer(ctx: &Ctx<'_>, encoding: &str) -> rquickjs::Result<Self> {
+        Self::try_for_buffer(encoding).ok_or_else(|| unknown_encoding(ctx, encoding))
+    }
+
+    pub fn for_buffer_optional(ctx: &Ctx<'_>, encoding: Option<&str>) -> rquickjs::Result<Self> {
+        encoding.map_or(Ok(Self::Utf8), |encoding| Self::for_buffer(ctx, encoding))
+    }
+
+    /// Like `for_buffer`, but returns `None` for an unknown name instead of
+    /// throwing.
+    pub fn try_for_buffer(encoding: &str) -> Option<Self> {
         BUFFER_ENCODING_MAP
             .get(encoding.to_ascii_lowercase().as_str())
             .cloned()
-            .ok_or_else(|| ["The \"", encoding, "\" encoding is not supported"].concat())
     }
 
-    pub fn for_buffer_optional(encoding: Option<&str>) -> Result<Self, String> {
-        encoding.map_or(Ok(Self::Utf8), Self::for_buffer)
+    /// The `encoding` argument of `new StringDecoder()`. Names are looked up
+    /// with `from_label`, and an unknown name throws Node.js's
+    /// `TypeError: Unknown encoding: ...`.
+    pub fn for_string_decoder(ctx: &Ctx<'_>, encoding: &str) -> rquickjs::Result<Self> {
+        Self::from_label(encoding).map_err(|_| unknown_encoding(ctx, encoding))
+    }
+
+    /// The `encoding` argument of Node.js `writable.write()`. Any falsy value
+    /// (`undefined`, `null`, `""`, `false`, `0`, `NaN`, ...) means UTF-8.
+    /// Anything else must be a string naming a Buffer encoding (see
+    /// `for_buffer`), or it throws Node.js's `TypeError: Unknown encoding: ...`.
+    pub fn for_writable<'js>(
+        ctx: &Ctx<'js>,
+        encoding: Option<Value<'js>>,
+    ) -> rquickjs::Result<Self> {
+        let name = match encoding {
+            Some(value) if value.get::<Coerced<bool>>()?.0 => {
+                let Some(string) = value.as_string() else {
+                    let Coerced(name) = value.get::<Coerced<String>>()?;
+                    return Err(unknown_encoding(ctx, &name));
+                };
+                Some(string.to_string()?)
+            },
+            _ => None,
+        };
+        Self::for_buffer_optional(ctx, name.as_deref())
     }
 
     pub fn encode_to_string(&self, bytes: &[u8], lossy: bool) -> Result<String, String> {
@@ -183,6 +218,11 @@ impl Encoder {
             Self::Ascii => "ascii",
         }
     }
+}
+
+/// Node.js's `ERR_UNKNOWN_ENCODING`.
+fn unknown_encoding(ctx: &Ctx<'_>, name: &str) -> rquickjs::Error {
+    Exception::throw_type(ctx, &["Unknown encoding: ", name].concat())
 }
 
 pub fn bytes_to_hex(bytes: &[u8]) -> Vec<u8> {

@@ -25,6 +25,8 @@ use rquickjs::{
     Array, BigInt, Ctx, Error, Function, IntoJs, Object, Result, Value,
 };
 
+mod stdio;
+
 pub static EXIT_CODE: AtomicU8 = AtomicU8::new(0);
 
 fn next_tick<'js>(ctx: Ctx<'js>, cb: Function<'js>, args: Rest<Value<'js>>) -> Result<()> {
@@ -232,6 +234,8 @@ pub fn init(ctx: &Ctx<'_>) -> Result<()> {
 
     process.set("nextTick", Func::from(next_tick))?;
 
+    stdio::init(ctx, &process)?;
+
     globals.set("process", process)?;
 
     Ok(())
@@ -256,6 +260,8 @@ impl ModuleDef for ProcessModule {
         declare.declare("exit")?;
         declare.declare("kill")?;
         declare.declare("nextTick")?;
+        declare.declare("stdout")?;
+        declare.declare("stderr")?;
 
         #[cfg(unix)]
         {
@@ -389,6 +395,70 @@ mod tests {
                 .unwrap();
                 let result = call_test::<Coerced<i64>, _>(&ctx, &module, ()).await;
                 assert!(result.0 > 0);
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_stdio_streams() {
+        use std::io::{stderr, stdout, IsTerminal};
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<ProcessModule>(ctx.clone(), "process")
+                    .await
+                    .unwrap();
+
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { stdout, stderr } from 'process';
+
+                        export async function test() {
+                            const encodingErrors = ["nope", 123, false, 0].map((encoding) => {
+                                try {
+                                    stdout.write("", encoding);
+                                    return "none";
+                                } catch (e) {
+                                    return e.message;
+                                }
+                            });
+                            const encodingError = encodingErrors.join();
+                            const callbackArg = await new Promise((resolve) =>
+                                stdout.write("", resolve)
+                            );
+                            return [
+                                stdout === process.stdout && stderr === process.stderr,
+                                typeof stdout.write === "function",
+                                typeof stderr.write === "function",
+                                stdout.write("") && stderr.write(new Uint8Array()),
+                                callbackArg === null,
+                                "isTTY" in stdout ? stdout.isTTY : "absent",
+                                "isTTY" in stderr ? stderr.isTTY : "absent",
+                                encodingError,
+                            ].join("|");
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+                let tty = |is_tty: bool| if is_tty { "true" } else { "absent" };
+                let expected = [
+                    "true",
+                    "true",
+                    "true",
+                    "true",
+                    "true",
+                    tty(stdout().is_terminal()),
+                    tty(stderr().is_terminal()),
+                    "Unknown encoding: nope,Unknown encoding: 123,none,none",
+                ]
+                .join("|");
+                let result = call_test::<String, _>(&ctx, &module, ()).await;
+                assert_eq!(result, expected);
             })
         })
         .await;
