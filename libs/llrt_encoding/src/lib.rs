@@ -100,19 +100,16 @@ impl Encoder {
     /// labels such as "iso-8859-1", "windows-1252" and "utf-16be" are rejected
     /// with Node.js's `TypeError: Unknown encoding: ...`.
     pub fn for_buffer(ctx: &Ctx<'_>, encoding: &str) -> rquickjs::Result<Self> {
-        Self::buffer_encoding(encoding).ok_or_else(|| unknown_encoding(ctx, encoding))
+        Self::try_for_buffer(encoding).ok_or_else(|| unknown_encoding(ctx, encoding))
     }
 
     pub fn for_buffer_optional(ctx: &Ctx<'_>, encoding: Option<&str>) -> rquickjs::Result<Self> {
         encoding.map_or(Ok(Self::Utf8), |encoding| Self::for_buffer(ctx, encoding))
     }
 
-    /// `Buffer.isEncoding()`: whether `for_buffer` accepts `encoding`.
-    pub fn is_buffer_encoding(encoding: &str) -> bool {
-        Self::buffer_encoding(encoding).is_some()
-    }
-
-    fn buffer_encoding(encoding: &str) -> Option<Self> {
+    /// Like `for_buffer`, but returns `None` for an unknown name instead of
+    /// throwing.
+    pub fn try_for_buffer(encoding: &str) -> Option<Self> {
         BUFFER_ENCODING_MAP
             .get(encoding.to_ascii_lowercase().as_str())
             .cloned()

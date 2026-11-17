@@ -72,9 +72,9 @@ fn encoded_bytes<'js>(ctx: &Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Op
         // Like Node.js, "buffer" and unknown encodings return a Buffer, any other
         // Buffer encoding (base64url, latin1, ...) returns a string
         _ if encoding.eq_ignore_ascii_case("buffer") => return Ok(None),
-        _ => match Encoder::for_buffer(encoding) {
-            Ok(encoder) => encoder.encode_to_string(bytes, true).or_throw(ctx)?,
-            Err(_) => return Ok(None),
+        _ => match Encoder::try_for_buffer(encoding) {
+            Some(encoder) => encoder.encode_to_string(bytes, true).or_throw(ctx)?,
+            None => return Ok(None),
         },
     };
     let string = rquickjs::String::from_str(ctx.clone(), &string)?;

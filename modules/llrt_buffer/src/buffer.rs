@@ -349,7 +349,7 @@ fn is_buffer<'js>(ctx: Ctx<'js>, value: Value<'js>) -> Result<bool> {
 fn is_encoding(value: Value) -> Result<bool> {
     if let Some(js_string) = value.as_string() {
         let std_string = js_string.to_string()?;
-        return Ok(Encoder::is_buffer_encoding(&std_string));
+        return Ok(Encoder::try_for_buffer(&std_string).is_some());
     }
 
     Ok(false)
