@@ -5,13 +5,15 @@ use std::sync::{Arc, OnceLock};
 
 use once_cell::sync::Lazy;
 use rustls::{
-    pki_types::{pem::PemObject, CertificateDer},
+    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
     ClientConfig, RootCertStore, SupportedProtocolVersion,
 };
 #[cfg(feature = "webpki-roots")]
 use webpki_roots::TLS_SERVER_ROOTS;
 
+use crate::client_auth::{is_encrypted_pem_key, ENCRYPTED_KEY, KEY_MISMATCH};
 use crate::no_verification::NoCertificateVerification;
+use crate::BuildClientConfigOptions;
 
 // Select the crypto provider based on feature flags
 #[cfg(feature = "tls-ring")]
@@ -60,17 +62,7 @@ pub fn get_tls_versions() -> Option<Vec<&'static SupportedProtocolVersion>> {
 }
 
 pub static TLS_CONFIG: Lazy<Result<ClientConfig, Box<dyn std::error::Error + Send + Sync>>> =
-    Lazy::new(|| {
-        build_client_config(BuildClientConfigOptions {
-            reject_unauthorized: true,
-            ca: None,
-        })
-    });
-
-pub struct BuildClientConfigOptions {
-    pub reject_unauthorized: bool,
-    pub ca: Option<Vec<Vec<u8>>>,
-}
+    Lazy::new(|| build_client_config(BuildClientConfigOptions::default()));
 
 pub fn build_client_config(
     options: BuildClientConfigOptions,
@@ -125,5 +117,29 @@ pub fn build_client_config(
         builder.with_root_certificates(root_certificates)
     };
 
-    Ok(builder.with_no_client_auth())
+    // Client authentication (mutual TLS)
+    match (options.cert, options.key) {
+        (Some(cert), Some(key)) => {
+            let cert_chain = CertificateDer::pem_slice_iter(&cert)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("Invalid cert: {e}"))?;
+            if cert_chain.is_empty() {
+                return Err("Invalid cert: no certificate found".into());
+            }
+            if is_encrypted_pem_key(&key) {
+                return Err(ENCRYPTED_KEY.into());
+            }
+            let key =
+                PrivateKeyDer::from_pem_slice(&key).map_err(|e| format!("Invalid key: {e}"))?;
+            builder
+                .with_client_auth_cert(cert_chain, key)
+                .map_err(|e| match e {
+                    rustls::Error::InconsistentKeys(_) => KEY_MISMATCH.into(),
+                    rustls::Error::InvalidCertificate(_) => format!("Invalid cert: {e}").into(),
+                    e => format!("Invalid key: {e}").into(),
+                })
+        },
+        (None, None) => Ok(builder.with_no_client_auth()),
+        _ => Err("cert and key must be provided together".into()),
+    }
 }
