@@ -5,6 +5,9 @@ pub enum FileType {
     RootCert,
     ServerCert,
     ServerKey,
+    ClientCa,
+    ClientCert,
+    ClientKey,
 }
 
 impl FileType {
@@ -15,6 +18,9 @@ impl FileType {
             Self::RootCert => data_dir.join("root.pem"),
             Self::ServerCert => data_dir.join("server.pem"),
             Self::ServerKey => data_dir.join("server.key"),
+            Self::ClientCa => data_dir.join("client-ca.pem"),
+            Self::ClientCert => data_dir.join("client.pem"),
+            Self::ClientKey => data_dir.join("client.key"),
         }
     }
 }
@@ -23,6 +29,7 @@ pub struct MockServerCerts {
     pub root_cert: CertificateDer<'static>,
     pub server_cert: CertificateDer<'static>,
     pub server_key: PrivateKeyDer<'static>,
+    pub client_ca: CertificateDer<'static>,
 }
 
 impl MockServerCerts {
@@ -36,10 +43,14 @@ impl MockServerCerts {
         let keyfile = tokio::fs::read(FileType::ServerKey.default_path()).await?;
         let server_key = PrivateKeyDer::from_pem_slice(&keyfile)?;
 
+        let certfile = tokio::fs::read(FileType::ClientCa.default_path()).await?;
+        let client_ca = CertificateDer::from_pem_slice(&certfile)?;
+
         Ok(Self {
             root_cert,
             server_cert,
             server_key,
+            client_ca,
         })
     }
 }

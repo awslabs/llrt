@@ -17,7 +17,8 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use tokio::net::TcpListener;
 
-use self::config::{FileType, MockServerCerts};
+pub use self::config::FileType;
+use self::config::MockServerCerts;
 
 mod api;
 mod config;
@@ -31,6 +32,19 @@ pub struct MockServer {
 
 impl MockServer {
     pub async fn start() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::start_inner(false).await
+    }
+
+    /// Starts a server that requires a client certificate signed by
+    /// [`FileType::ClientCa`] (mutual TLS), such as [`FileType::ClientCert`].
+    pub async fn start_with_client_auth() -> Result<Self, Box<dyn std::error::Error + Send + Sync>>
+    {
+        Self::start_inner(true).await
+    }
+
+    async fn start_inner(
+        client_auth: bool,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(());
 
         // Load the certificates for the mock server.
@@ -42,7 +56,7 @@ impl MockServer {
         let addr = incoming.local_addr()?;
 
         tokio::spawn(async move {
-            if let Err(e) = server::run(incoming, certs, shutdown_rx).await {
+            if let Err(e) = server::run(incoming, certs, client_auth, shutdown_rx).await {
                 println!("failed to run mock server: {e:#}");
             }
         });
