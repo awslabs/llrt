@@ -30,7 +30,7 @@ use std::slice;
 
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
-use llrt_encoding::{bytes_to_b64_string, bytes_to_hex_string};
+use llrt_encoding::{bytes_to_b64_string, bytes_to_hex_string, Encoder};
 use llrt_exceptions::DOMException;
 use llrt_utils::{
     bytes::{get_start_end_indexes, ObjectBytes},
@@ -66,19 +66,19 @@ static CRYPTO_PROVIDER: Lazy<provider::DefaultProvider> =
     Lazy::new(|| provider::DefaultProvider {});
 
 fn encoded_bytes<'js>(ctx: &Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Option<Value<'js>>> {
-    match encoding {
-        "hex" => {
-            let hex = bytes_to_hex_string(bytes);
-            let hex = rquickjs::String::from_str(ctx.clone(), &hex)?;
-            Ok(Some(Value::from_string(hex)))
+    let string = match encoding {
+        "hex" => bytes_to_hex_string(bytes),
+        "base64" => bytes_to_b64_string(bytes),
+        // Like Node.js, "buffer" and unknown encodings return a Buffer, any other
+        // Buffer encoding (base64url, latin1, ...) returns a string
+        _ if encoding.eq_ignore_ascii_case("buffer") => return Ok(None),
+        _ => match Encoder::for_buffer(encoding) {
+            Ok(encoder) => encoder.encode_to_string(bytes, true).or_throw(ctx)?,
+            Err(_) => return Ok(None),
         },
-        "base64" => {
-            let b64 = bytes_to_b64_string(bytes);
-            let b64 = rquickjs::String::from_str(ctx.clone(), &b64)?;
-            Ok(Some(Value::from_string(b64)))
-        },
-        _ => Ok(None),
-    }
+    };
+    let string = rquickjs::String::from_str(ctx.clone(), &string)?;
+    Ok(Some(Value::from_string(string)))
 }
 
 #[inline]
