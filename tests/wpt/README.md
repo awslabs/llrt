@@ -83,7 +83,7 @@ Running a single `.test.js` directly (skipping `make`):
 
 ```sh
 JS_MINIFY=0 TEST_SUB_DIR=wpt node build.mjs
-./target/debug/llrt test -d bundle/js/__tests__/wpt <filter>
+./target/debug/llrt test -d llrt_core/bundle/js/__tests__/wpt <filter>
 ```
 
 ## Adding a new WPT category
@@ -174,6 +174,6 @@ commit the updated `wpt_errors.txt` if the changes are expected.
 ## Debugging
 
 - `DEBUG=1 make test-wpt` — enables `testharness.js` debug mode.
-- `./target/debug/llrt test -d bundle/js/__tests__/wpt <substring>` — runs only
+- `./target/debug/llrt test -d llrt_core/bundle/js/__tests__/wpt <substring>` — runs only
   tests whose filename contains `<substring>`.
 - `sed 's/\x1b\[[0-9;]*m//g' wpt_server.log` — strip ANSI from server logs.

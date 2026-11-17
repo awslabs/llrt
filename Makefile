@@ -47,7 +47,7 @@ linux_cargo = \
 	$(if $(LLD), --config 'target.$(1).linker="$(CURDIR)/scripts/lld-link.sh"')
 
 BUILD_DIR = ./target/release
-BUNDLE_DIR = bundle
+BUNDLE_DIR = llrt_core/bundle
 
 TS_SOURCES = $(wildcard llrt_core/src/modules/js/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/test/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
 STD_JS_FILE = $(BUNDLE_DIR)/js/@llrt/std.js
@@ -164,7 +164,7 @@ ifeq ($(DETECTED_OS),linux)
 endif
 
 clean-js:
-	rm -rf ./bundle
+	rm -rf ./$(BUNDLE_DIR)
 
 clean: clean-js
 	rm -rf ./target
@@ -172,7 +172,7 @@ clean: clean-js
 
 js: $(STD_JS_FILE)
 
-bundle/js/%.js: $(TS_SOURCES)
+$(BUNDLE_DIR)/js/%.js: $(TS_SOURCES)
 	node build.mjs
 
 fix:
@@ -215,7 +215,7 @@ test: export JS_MINIFY = 0
 test: export TEST_SUB_DIR = unit
 test: export LLRT_ASYNC_HOOKS = 1
 test: js
-	cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+	cargo run --features intl402 -- test -d $(BUNDLE_DIR)/js/__tests__/$(TEST_SUB_DIR)
 
 setup-wpt:
 	@if [ ! -d wpt/.git ]; then \
@@ -293,7 +293,7 @@ test-wpt: setup-wpt js
 		[ -n "$$ready" ] || { echo " timeout."; cat wpt_server.log; exit 1; }; \
 	done; \
 	npx pretty-quick --pattern "tests/wpt/**/*.{js,ts,json}"; \
-	TEST_REPORT_FILE=wpt_errors.txt cargo run --features intl402 -- test -d bundle/js/__tests__/$(TEST_SUB_DIR); \
+	TEST_REPORT_FILE=wpt_errors.txt cargo run --features intl402 -- test -d $(BUNDLE_DIR)/js/__tests__/$(TEST_SUB_DIR); \
 	kill $$WPT_PID 2>/dev/null
 
 # Run the WPT suite and compare the failing-test list (wpt_errors.txt, written
@@ -347,7 +347,7 @@ test-e2e: export TEST_TIMEOUT = 60000
 test-e2e: export SDK_BUNDLE_MODE = STD
 test-e2e: export TEST_SUB_DIR = e2e
 test-e2e: setup-e2e js
-	eval $$($(MAKE) e2e-env) && cargo run -- test -d bundle/js/__tests__/$(TEST_SUB_DIR) $(TEST_FILTER)
+	eval $$($(MAKE) e2e-env) && cargo run -- test -d $(BUNDLE_DIR)/js/__tests__/$(TEST_SUB_DIR) $(TEST_FILTER)
 
 test-ci: export JS_MINIFY = 0
 test-ci: export RUST_BACKTRACE = 1
@@ -356,10 +356,10 @@ test-ci: export LLRT_ASYNC_HOOKS = 1
 test-ci: clean-js | toolchain js
 ifdef CARGO_FEATURES
 	$(CURRENT_TEST) --target $(CURRENT_TARGET) -Z build-std -Z build-std-features $(CARGO_FEATURES) -- --nocapture --show-output
-	$(CURRENT_RUN) --target $(CURRENT_TARGET) $(CARGO_FEATURES) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+	$(CURRENT_RUN) --target $(CURRENT_TARGET) $(CARGO_FEATURES) -- test -d $(BUNDLE_DIR)/js/__tests__/$(TEST_SUB_DIR)
 else
 	$(CURRENT_TEST) --target $(CURRENT_TARGET) -Z build-std -Z build-std-features --features lambda -- --nocapture --show-output
-	$(CURRENT_RUN) --target $(CURRENT_TARGET) -- test -d bundle/js/__tests__/$(TEST_SUB_DIR)
+	$(CURRENT_RUN) --target $(CURRENT_TARGET) -- test -d $(BUNDLE_DIR)/js/__tests__/$(TEST_SUB_DIR)
 endif
 
 libs-arm64: lib/arm64/libzstd.a lib/zstd.h lib/zstd_errors.h

@@ -5,7 +5,6 @@ version = "0.10.0-beta"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
-readme = "README.md"
 
 [lib]
 name = "llrt_dns_cache"

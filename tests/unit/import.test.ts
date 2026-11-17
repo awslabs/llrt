@@ -49,7 +49,7 @@ describe("import", () => {
     // Normalize path separators for cross-platform compatibility
     const normalizedUrl = url.replaceAll("\\", "/");
     expect(
-      normalizedUrl.endsWith("/bundle/js/__tests__/unit/import.test.js")
+      normalizedUrl.endsWith("/llrt_core/bundle/js/__tests__/unit/import.test.js")
     ).toEqual(true);
   });
 

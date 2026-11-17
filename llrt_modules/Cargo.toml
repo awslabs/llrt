@@ -121,8 +121,8 @@ zlib = ["llrt_zlib"]
 
 [dependencies]
 home = { version = "0.5", default-features = false }
-llrt_hooking = { path = "../libs/llrt_hooking" }
-llrt_json = { path = "../libs/llrt_json" }
+llrt_hooking = { version = "0.10.0-beta", path = "../libs/llrt_hooking" }
+llrt_json = { version = "0.10.0-beta", path = "../libs/llrt_json" }
 llrt_utils = { version = "0.10.0-beta", path = "../libs/llrt_utils" }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.14", features = ["loader"], default-features = false }

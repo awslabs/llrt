@@ -45,5 +45,5 @@ If you prefer to set up manually:
 3. Run a specific test (assuming LLRT is already built):
 
    ```shell
-   make bundle/js/%.js && target/debug/llrt test s3.e2e.test
+   make llrt_core/bundle/js/%.js && target/debug/llrt test s3.e2e.test
    ```

@@ -3,7 +3,7 @@
 
 use std::{env, error::Error, fs, io, result::Result as StdResult};
 
-const AWS_SDK_VERSION_FILE: &str = "../../bundle/js/.aws-sdk-version";
+const AWS_SDK_VERSION_FILE: &str = "../../llrt_core/bundle/js/.aws-sdk-version";
 
 fn main() -> StdResult<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed={AWS_SDK_VERSION_FILE}");

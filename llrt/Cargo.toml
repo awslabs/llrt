@@ -1,8 +1,11 @@
 [package]
 name = "llrt"
+description = "LLRT (Low Latency Runtime) is a lightweight JavaScript runtime"
 version = "0.10.0-beta"
 edition = "2021"
-license-file = "LICENSE"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+readme = "../README.md"
 
 [features]
 default = ["macro", "tls-ring", "crypto-rust", "pqc"]
@@ -39,7 +42,7 @@ crossterm = { version = "0.29", features = [
   "windows",
 ], default-features = false }
 jiff = { version = "1", features = ["std"], default-features = false }
-llrt_core = { path = "../llrt_core", default-features = false }
+llrt_core = { version = "0.10.0-beta", path = "../llrt_core", default-features = false }
 tokio = { version = "1", features = [
   "macros",
   "rt-multi-thread",
