@@ -8,10 +8,7 @@ pub enum FileType {
     ClientCa,
     ClientCert,
     ClientKey,
-    /// [`FileType::ClientKey`] encrypted as PKCS#8 with the passphrase `pässphrase`.
     ClientKeyEncrypted,
-    /// [`FileType::ClientKey`] encrypted in the traditional OpenSSL format
-    /// with the passphrase `pässphrase`.
     ClientKeyEncryptedTraditional,
 }
 

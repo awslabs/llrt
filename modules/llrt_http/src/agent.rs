@@ -45,7 +45,10 @@ impl Agent {
             key,
             passphrase,
         })
-        .map_err(|e| throw_tls_error(&ctx, e))?;
+        .or_else(|error| match error.downcast::<llrt_tls::TlsError>() {
+            Ok(error) => Err(throw_tls_error(&ctx, *error)),
+            Err(error) => Err(error).or_throw_msg(&ctx, "Failed to build TLS config"),
+        })?;
         let client =
             crate::build_client(Some(config)).or_throw_msg(&ctx, "Failed to build HTTP client")?;
 
@@ -62,36 +65,29 @@ pub struct AgentOptions {
     passphrase: Option<Vec<u8>>,
 }
 
-/// Throws an error that Node.js reports with OpenSSL's details as Node does,
-/// and any other error with the "Failed to build TLS config. " prefix.
-fn throw_tls_error(ctx: &Ctx<'_>, error: Box<dyn std::error::Error + Send + Sync>) -> Error {
-    let result = match error.downcast::<llrt_tls::TlsError>() {
-        Ok(error) => tls_exception(ctx, &error),
-        Err(error) => {
-            return Exception::throw_message(ctx, &format!("Failed to build TLS config. {error}"))
-        },
+/// Throws an error that Node.js reports with OpenSSL's details, as Node.js
+/// does.
+fn throw_tls_error(ctx: &Ctx<'_>, error: llrt_tls::TlsError) -> Error {
+    let exception = || -> Result<Value<'_>> {
+        let exception = Exception::from_message(ctx.clone(), &error.message)?;
+        if !error.openssl_error_stack.is_empty() {
+            exception.set("opensslErrorStack", error.openssl_error_stack)?;
+        }
+        for (name, value) in [
+            ("library", error.library),
+            ("reason", error.reason),
+            ("code", error.code.as_deref()),
+        ] {
+            if let Some(value) = value {
+                exception.set(name, value)?;
+            }
+        }
+        Ok(exception.into_value())
     };
-    match result {
+    match exception() {
         Ok(exception) => ctx.throw(exception),
         Err(e) => e,
     }
-}
-
-fn tls_exception<'js>(ctx: &Ctx<'js>, error: &llrt_tls::TlsError) -> Result<Value<'js>> {
-    let exception = Exception::from_message(ctx.clone(), &error.message)?;
-    if !error.openssl_error_stack.is_empty() {
-        exception.set("opensslErrorStack", error.openssl_error_stack.clone())?;
-    }
-    for (name, value) in [
-        ("library", &error.library),
-        ("reason", &error.reason),
-        ("code", &error.code),
-    ] {
-        if let Some(value) = value {
-            exception.set(name, value.as_ref())?;
-        }
-    }
-    Ok(exception.into_value())
 }
 
 impl<'js> FromJs<'js> for AgentOptions {
@@ -171,10 +167,13 @@ fn get_passphrase<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<Option<Vec<u
 /// Throws Node.js's `ERR_INVALID_ARG_TYPE` for a property.
 fn throw_invalid_arg_type(ctx: &Ctx<'_>, name: &str, expected: &str, value: &Value<'_>) -> Error {
     let error = || -> Result<Value<'_>> {
-        let message = format!(
-            "The \"{name}\" property must be of type {expected}. Received {}",
-            describe_received(value)?
-        );
+        let mut message = String::with_capacity(96);
+        message.push_str("The \"");
+        message.push_str(name);
+        message.push_str("\" property must be of type ");
+        message.push_str(expected);
+        message.push_str(". Received ");
+        push_received(&mut message, value)?;
         let constructor: Constructor = ctx.globals().get(PredefinedAtom::TypeError)?;
         let error: Object = constructor.construct((message,))?;
         error.set("code", "ERR_INVALID_ARG_TYPE")?;
@@ -186,48 +185,67 @@ fn throw_invalid_arg_type(ctx: &Ctx<'_>, name: &str, expected: &str, value: &Val
     }
 }
 
-/// How Node.js's `ERR_INVALID_ARG_TYPE` describes a value that is neither a
-/// string, `null` nor `undefined`.
-fn describe_received(value: &Value<'_>) -> Result<String> {
-    let to_string = |value: &Value<'_>| value.get::<Coerced<String>>().map(|s| s.0);
-    Ok(match value.type_of() {
-        Type::Bool => format!("type boolean ({})", to_string(value)?),
-        Type::Int | Type::Float => match value.as_number() {
-            Some(n) if n == 0.0 && n.is_sign_negative() => "type number (-0)".into(),
-            _ => format!("type number ({})", to_string(value)?),
+/// Appends how Node.js's `ERR_INVALID_ARG_TYPE` describes a value that is
+/// neither a string, `null` nor `undefined`.
+fn push_received(message: &mut String, value: &Value<'_>) -> Result<()> {
+    match value.type_of() {
+        Type::Bool => message.push_str(match value.as_bool() {
+            Some(true) => "type boolean (true)",
+            _ => "type boolean (false)",
+        }),
+        Type::Int | Type::Float => {
+            message.push_str("type number (");
+            match value.as_number() {
+                Some(n) if n == 0.0 && n.is_sign_negative() => message.push_str("-0"),
+                _ => push_js_string(message, value)?,
+            }
+            message.push(')');
         },
-        Type::BigInt => format!("type bigint ({}n)", to_string(value)?),
+        Type::BigInt => {
+            message.push_str("type bigint (");
+            push_js_string(message, value)?;
+            message.push_str("n)");
+        },
         Type::Symbol => {
-            let description = value.as_symbol().map(|s| s.description()).transpose()?;
-            let description = match description {
-                Some(d) if !d.is_undefined() => to_string(&d)?,
-                _ => String::new(),
-            };
-            format!("type symbol (Symbol({description}))")
+            message.push_str("type symbol (Symbol(");
+            if let Some(symbol) = value.as_symbol() {
+                let description = symbol.description()?;
+                if !description.is_undefined() {
+                    push_js_string(message, &description)?;
+                }
+            }
+            message.push_str("))");
         },
         _ => {
             let Some(object) = value.as_object() else {
-                return to_string(value);
+                return push_js_string(message, value);
             };
             if value.is_function() {
-                let name: Value = object.get("name")?;
-                return Ok(format!("function {}", to_string(&name)?));
+                message.push_str("function ");
+                return push_js_string(message, &object.get("name")?);
             }
             let constructor: Value = object.get("constructor")?;
             match constructor.as_object() {
                 Some(constructor) if constructor.contains_key("name")? => {
-                    let name: Value = constructor.get("name")?;
-                    format!("an instance of {}", to_string(&name)?)
+                    message.push_str("an instance of ");
+                    push_js_string(message, &constructor.get("name")?)?;
                 },
                 _ if object.get_prototype().is_none() => {
+                    message.push_str("[Object: null prototype]");
                     if object.keys::<Value>().next().is_none() {
-                        "[Object: null prototype] {}".into()
-                    } else {
-                        "[Object: null prototype]".into()
+                        message.push_str(" {}");
                     }
                 },
-                _ => "[Object]".into(),
+                _ => message.push_str("[Object]"),
             }
         },
-    })
+    }
+    Ok(())
+}
+
+/// Appends JavaScript's `String(value)`.
+fn push_js_string(message: &mut String, value: &Value<'_>) -> Result<()> {
+    let string = value.get::<Coerced<rquickjs::String>>()?.0;
+    message.push_str(&string.to_cstring()?);
+    Ok(())
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::borrow::Cow;
 use std::ffi::c_int;
+use std::fmt;
 
 use openssl::error::{Error, ErrorStack};
 use openssl::pkey::{PKey, Private};
@@ -12,10 +13,23 @@ use crate::TlsError;
 const INTERRUPTED_OR_CANCELLED: TlsError = TlsError {
     message: Cow::Borrowed("error:07880109:common libcrypto routines::interrupted or cancelled"),
     code: Some(Cow::Borrowed("ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED")),
-    library: Some(Cow::Borrowed("common libcrypto routines")),
-    reason: Some(Cow::Borrowed("interrupted or cancelled")),
+    library: Some("common libcrypto routines"),
+    reason: Some("interrupted or cancelled"),
     openssl_error_stack: Vec::new(),
 };
+
+/// An unencrypted key that OpenSSL can't parse, shown with OpenSSL's errors.
+#[derive(Debug)]
+struct InvalidKey(ErrorStack);
+
+impl fmt::Display for InvalidKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Invalid key: ")?;
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::error::Error for InvalidKey {}
 
 /// Loads a PEM private key as Node.js does. OpenSSL gets the passphrase
 /// through a callback that copies every byte, an absent passphrase is empty,
@@ -40,9 +54,13 @@ pub(crate) fn load_private_key(
     if too_long {
         return Err(INTERRUPTED_OR_CANCELLED.into());
     }
-    key.map_err(|stack| match node_error(&stack) {
-        Some(e) if is_encrypted_pem_key(pem) => e.into(),
-        _ => format!("Invalid key: {stack}").into(),
+    key.map_err(|stack| {
+        if is_encrypted_pem_key(pem) {
+            if let Some(error) = node_error(&stack) {
+                return error.into();
+            }
+        }
+        InvalidKey(stack).into()
     })
 }
 
@@ -51,32 +69,70 @@ pub(crate) fn load_private_key(
 /// `opensslErrorStack`.
 fn node_error(stack: &ErrorStack) -> Option<TlsError> {
     let (first, rest) = stack.errors().split_first()?;
-    let code = first.reason().map(|reason| {
-        let library = node_library_prefix(first.library_code());
-        let ossl = if library == "SSL_" { "" } else { "OSSL_" };
-        format!(
-            "ERR_{ossl}{library}{}",
-            reason.to_uppercase().replace(' ', "_")
-        )
-    });
+    let reason = first.reason();
     Some(TlsError {
         message: error_string(first).into(),
-        code: code.map(Into::into),
-        library: first.library().map(|s| s.to_string().into()),
-        reason: first.reason().map(|s| s.to_string().into()),
+        code: reason.map(|reason| node_code(first.library_code(), reason).into()),
+        library: first.library(),
+        reason,
         openssl_error_stack: rest.iter().rev().map(error_string).collect(),
     })
 }
 
-/// OpenSSL's `ERR_error_string_n`.
+/// Node.js's error code: `ERR_`, then `OSSL_` unless the library is SSL, the
+/// library's prefix, and the reason in upper case with `_` for spaces.
+fn node_code(library: c_int, reason: &str) -> String {
+    let library = node_library_prefix(library);
+    let ossl = if library == "SSL_" { "" } else { "OSSL_" };
+    let mut code = String::with_capacity(4 + ossl.len() + library.len() + reason.len());
+    code.push_str("ERR_");
+    code.push_str(ossl);
+    code.push_str(library);
+    code.extend(reason.chars().map(|c| match c {
+        ' ' => '_',
+        c => c.to_ascii_uppercase(),
+    }));
+    code
+}
+
+/// OpenSSL's `ERR_error_string_n`: `error:<code>:<library>::<reason>`.
 fn error_string(e: &Error) -> String {
-    let library = e
-        .library()
-        .map_or_else(|| format!("lib({})", e.library_code()), str::to_string);
-    let reason = e
-        .reason()
-        .map_or_else(|| format!("reason({})", e.reason_code()), str::to_string);
-    format!("error:{:08X}:{library}::{reason}", e.code())
+    let mut s = String::with_capacity(64);
+    s.push_str("error:");
+    push_number(&mut s, e.code(), 16, 8);
+    s.push(':');
+    match e.library() {
+        Some(library) => s.push_str(library),
+        None => {
+            s.push_str("lib(");
+            push_number(&mut s, e.library_code() as u32, 10, 1);
+            s.push(')');
+        },
+    }
+    s.push_str("::");
+    match e.reason() {
+        Some(reason) => s.push_str(reason),
+        None => {
+            s.push_str("reason(");
+            push_number(&mut s, e.reason_code() as u32, 10, 1);
+            s.push(')');
+        },
+    }
+    s
+}
+
+/// Appends `n` in base `radix` (up to 16), in upper case and zero-padded to
+/// at least `width` digits.
+fn push_number(s: &mut String, n: impl Into<u64>, radix: u64, width: usize) {
+    let mut n = n.into();
+    let mut digits = [0u8; 64];
+    let mut start = digits.len();
+    while n > 0 || digits.len() - start < width {
+        start -= 1;
+        digits[start] = b"0123456789ABCDEF"[(n % radix) as usize];
+        n /= radix;
+    }
+    s.extend(digits[start..].iter().map(|&d| char::from(d)));
 }
 
 /// The libraries that Node.js names in error codes (`OSSL_ERROR_CODES_MAP`).
@@ -149,8 +205,8 @@ mod tests {
         [
             &e.message,
             e.code.as_deref().unwrap_or_default(),
-            e.library.as_deref().unwrap_or_default(),
-            e.reason.as_deref().unwrap_or_default(),
+            e.library.unwrap_or_default(),
+            e.reason.unwrap_or_default(),
         ]
     }
 
@@ -265,6 +321,22 @@ mod tests {
                 "unsupported prf",
             ]
         );
+    }
+
+    #[test]
+    fn push_number_pads_like_printf() {
+        for (n, radix, width, expected) in [
+            (0x1C80_0064, 16, 8, "1C800064"),
+            (0x6B, 16, 8, "0000006B"),
+            (0, 16, 8, "00000000"),
+            (u64::MAX, 16, 8, "FFFFFFFFFFFFFFFF"),
+            (0, 10, 1, "0"),
+            (128, 10, 1, "128"),
+        ] {
+            let mut s = String::from("x");
+            push_number(&mut s, n, radix, width);
+            assert_eq!(s, ["x", expected].concat());
+        }
     }
 
     #[test]

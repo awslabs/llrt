@@ -10,8 +10,8 @@ use std::fmt;
 pub struct TlsError {
     pub message: Cow<'static, str>,
     pub code: Option<Cow<'static, str>>,
-    pub library: Option<Cow<'static, str>>,
-    pub reason: Option<Cow<'static, str>>,
+    pub library: Option<&'static str>,
+    pub reason: Option<&'static str>,
     pub openssl_error_stack: Vec<String>,
 }
 
