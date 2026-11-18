@@ -17,6 +17,11 @@ generate_client() {
   echo "extendedKeyUsage = clientAuth" > client-extensions.cnf
   openssl x509 -req -in client.csr -CA client-ca.pem -CAkey client-ca.key -CAcreateserial -out client.pem -days 3650 -sha256 -extfile client-extensions.cnf
 
+  # The client key encrypted with a passphrase: PKCS#8 with OpenSSL's defaults,
+  # and the traditional OpenSSL format
+  openssl pkcs8 -topk8 -in client.key -passout pass:pässphrase -out client-encrypted.key
+  openssl rsa -in client.key -traditional -aes256 -passout pass:pässphrase -out client-encrypted-traditional.key
+
   # Clean up temporary files
   rm client.csr client-ca.key client-ca.srl client-extensions.cnf
 }

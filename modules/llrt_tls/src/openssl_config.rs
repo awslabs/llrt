@@ -3,11 +3,11 @@
 use std::sync::OnceLock;
 
 use once_cell::sync::Lazy;
-use openssl::pkey::PKey;
 use openssl::ssl::{SslConnectorBuilder, SslMethod, SslVerifyMode};
 use openssl::x509::X509;
 
-use crate::client_auth::{is_encrypted_pem_key, ENCRYPTED_KEY, KEY_MISMATCH};
+use crate::client_auth::KEY_MISMATCH;
+use crate::openssl_key::load_private_key;
 use crate::BuildClientConfigOptions;
 
 static EXTRA_CA_CERTS: OnceLock<Vec<Vec<u8>>> = OnceLock::new();
@@ -80,14 +80,7 @@ pub fn build_client_config(
                 .next()
                 .ok_or("Invalid cert: no certificate found")?;
 
-            if is_encrypted_pem_key(&key) {
-                return Err(ENCRYPTED_KEY.into());
-            }
-            // Without a passphrase, OpenSSL prompts on the terminal for an
-            // encrypted key. An empty one makes it fail instead, for any
-            // encrypted key the check above misses.
-            let key = PKey::private_key_from_pem_passphrase(&key, b"")
-                .map_err(|e| format!("Invalid key: {e}"))?;
+            let key = load_private_key(&key, options.passphrase.as_deref())?;
             if !leaf.public_key()?.public_eq(&key) {
                 return Err(KEY_MISMATCH.into());
             }

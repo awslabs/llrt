@@ -8,6 +8,11 @@ pub enum FileType {
     ClientCa,
     ClientCert,
     ClientKey,
+    /// [`FileType::ClientKey`] encrypted as PKCS#8 with the passphrase `pässphrase`.
+    ClientKeyEncrypted,
+    /// [`FileType::ClientKey`] encrypted in the traditional OpenSSL format
+    /// with the passphrase `pässphrase`.
+    ClientKeyEncryptedTraditional,
 }
 
 impl FileType {
@@ -21,6 +26,10 @@ impl FileType {
             Self::ClientCa => data_dir.join("client-ca.pem"),
             Self::ClientCert => data_dir.join("client.pem"),
             Self::ClientKey => data_dir.join("client.key"),
+            Self::ClientKeyEncrypted => data_dir.join("client-encrypted.key"),
+            Self::ClientKeyEncryptedTraditional => {
+                data_dir.join("client-encrypted-traditional.key")
+            },
         }
     }
 }
