@@ -25,6 +25,8 @@ Install the LLRT runtime from crates.io:
 cargo install llrt
 ```
 
+This build does not include the AWS SDK; bundle your dependencies with your application.
+
 ## Configure Lambda functions to use LLRT
 
 Download the last LLRT release from <https://github.com/awslabs/llrt/releases>

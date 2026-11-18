@@ -25,7 +25,7 @@ jobs:
       - name: Build JS bundle
         run: make js
         env:
-          SDK_BUNDLE_MODE: STD
+          SDK_BUNDLE_MODE: NONE
       - name: Publish crates
         run: ./scripts/publish-crates.sh
         env:
