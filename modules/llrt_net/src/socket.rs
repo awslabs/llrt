@@ -1,6 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::{Arc, RwLock};
+use std::{
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
@@ -347,7 +350,13 @@ impl<'js> Socket<'js> {
         Self::set_addresses(this, ctx, &stream)?;
 
         let (reader, writer) = stream.into_split();
-        Self::process_stream(this, ctx, reader, writer, allow_half_open)
+        Self::process_stream(
+            this,
+            ctx,
+            Box::pin(reader),
+            Box::pin(writer),
+            allow_half_open,
+        )
     }
 
     #[cfg(unix)]
@@ -358,14 +367,22 @@ impl<'js> Socket<'js> {
         allow_half_open: bool,
     ) -> Result<(Receiver<bool>, Receiver<bool>)> {
         let (reader, writer) = stream.into_split();
-        Self::process_stream(this, ctx, reader, writer, allow_half_open)
+        Self::process_stream(
+            this,
+            ctx,
+            Box::pin(reader),
+            Box::pin(writer),
+            allow_half_open,
+        )
     }
 
-    fn process_stream<R: AsyncRead + 'js + Unpin, W: AsyncWrite + 'js + Unpin>(
+    // Takes boxed halves so that TCP and Unix sockets share one copy of the
+    // read and write loops.
+    fn process_stream(
         this: &Class<'js, Self>,
         ctx: &Ctx<'js>,
-        reader: R,
-        writer: W,
+        reader: Pin<Box<dyn AsyncRead + 'js>>,
+        writer: Pin<Box<dyn AsyncWrite + 'js>>,
         allow_half_open: bool,
     ) -> Result<(Receiver<bool>, Receiver<bool>)> {
         let this2 = this.clone();

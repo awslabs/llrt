@@ -22,8 +22,14 @@ use std::{
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{
-    readable::{DefaultReadableStream, ReadableStream},
-    writable::{DefaultWritableStream, WritableStream},
+    readable::{
+        init_default_readable_prototype, process_default_readable, DefaultReadableStream,
+        ReadableStream,
+    },
+    writable::{
+        init_default_writable_prototype, process_default_writable, DefaultWritableStream,
+        WritableStream,
+    },
 };
 use llrt_utils::{
     bytes::ObjectBytes,
@@ -216,7 +222,7 @@ impl<'js> ChildProcess<'js> {
                 instance2.borrow_mut().pid = child.id();
 
                 if let Some(child_stdin) = child.stdin.take() {
-                    DefaultWritableStream::process(stdin_instance.clone(), &ctx, child_stdin)?;
+                    process_default_writable(stdin_instance.clone(), &ctx, Box::pin(child_stdin))?;
                 };
 
                 let stdout_join_receiver =
@@ -657,7 +663,7 @@ where
     T: AsyncRead + Unpin + Send + 'static,
 {
     if let Some(output) = output {
-        let receiver = DefaultReadableStream::process(native_readable_stream, ctx, output)?;
+        let receiver = process_default_readable(native_readable_stream, ctx, Box::pin(output))?;
         return Ok(Some(receiver));
     }
 
@@ -676,10 +682,8 @@ impl ModuleDef for ChildProcessModule {
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> Result<()> {
         ChildProcess::add_event_emitter_prototype(ctx)?;
-        DefaultWritableStream::add_writable_stream_prototype(ctx)?;
-        DefaultWritableStream::add_event_emitter_prototype(ctx)?;
-        DefaultReadableStream::add_readable_stream_prototype(ctx)?;
-        DefaultReadableStream::add_event_emitter_prototype(ctx)?;
+        init_default_writable_prototype(ctx)?;
+        init_default_readable_prototype(ctx)?;
 
         export_default(ctx, exports, |default| {
             default.set("spawn", Func::from(spawn))?;
