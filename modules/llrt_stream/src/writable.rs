@@ -1,6 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::{Arc, RwLock};
+use std::{
+    pin::Pin,
+    sync::{Arc, RwLock},
+};
 
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
@@ -210,10 +213,12 @@ where
         Ok(())
     }
 
-    fn process<T: AsyncWrite + 'js + Unpin>(
+    // The writer is boxed so that each stream class gets one copy of the write
+    // loop, not one per writer type.
+    fn process(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
-        writable: T,
+        writable: Pin<Box<dyn AsyncWrite + 'js>>,
     ) -> Result<Receiver<bool>> {
         let mut borrow = this.borrow_mut();
         let inner = borrow.inner_mut();
@@ -308,4 +313,24 @@ where
             Ok::<_, Error>(had_error)
         })
     }
+}
+
+// The trait methods are generic, so each crate that calls them on
+// `DefaultWritableStream` would compile its own copy. These non-generic entry
+// points are compiled once, here, and shared by every crate.
+
+/// Sets up the `DefaultWritableStream` prototype: stream and EventEmitter methods.
+pub fn init_default_writable_prototype(ctx: &Ctx<'_>) -> Result<()> {
+    DefaultWritableStream::add_writable_stream_prototype(ctx)?;
+    DefaultWritableStream::add_event_emitter_prototype(ctx)?;
+    Ok(())
+}
+
+/// Starts the write loop of a `DefaultWritableStream`.
+pub fn process_default_writable<'js>(
+    this: Class<'js, DefaultWritableStream<'js>>,
+    ctx: &Ctx<'js>,
+    writable: Pin<Box<dyn AsyncWrite + 'js>>,
+) -> Result<Receiver<bool>> {
+    DefaultWritableStream::process(this, ctx, writable)
 }

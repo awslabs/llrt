@@ -1,6 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::sync::{atomic::AtomicUsize, Arc, RwLock};
+use std::{
+    pin::Pin,
+    sync::{atomic::AtomicUsize, Arc, RwLock},
+};
 
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
@@ -209,27 +212,29 @@ where
         Ok(())
     }
 
-    fn process<T: AsyncRead + 'js + Unpin>(
+    // The reader is boxed so that each stream class gets one copy of the read
+    // loop, not one per reader type.
+    fn process(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
-        readable: T,
+        readable: Pin<Box<dyn AsyncRead + 'js>>,
     ) -> Result<Receiver<bool>> {
         Self::do_process(this, ctx, readable, || {})
     }
 
-    fn process_callback<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
+    fn process_callback<C: FnOnce() + Sized + 'js>(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
-        readable: T,
+        readable: Pin<Box<dyn AsyncRead + 'js>>,
         on_end: C,
     ) -> Result<Receiver<bool>> {
         Self::do_process(this, ctx, readable, on_end)
     }
 
-    fn do_process<T: AsyncRead + 'js + Unpin, C: FnOnce() + Sized + 'js>(
+    fn do_process<C: FnOnce() + Sized + 'js>(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
-        readable: T,
+        readable: Pin<Box<dyn AsyncRead + 'js>>,
         on_end: C,
     ) -> Result<Receiver<bool>> {
         let ctx2 = ctx.clone();
@@ -250,7 +255,7 @@ where
             drop(borrow);
 
             let read_function = async move {
-                let mut reader: BufReader<T> = BufReader::new(readable);
+                let mut reader = BufReader::new(readable);
                 let mut buffer = Vec::<u8>::with_capacity(DEFAULT_BUFFER_SIZE);
                 let mut last_state = ReadableState::Init;
                 let mut error_value = None;
@@ -370,4 +375,24 @@ where
             Ok::<_, Error>(had_error)
         })
     }
+}
+
+// The trait methods are generic, so each crate that calls them on
+// `DefaultReadableStream` would compile its own copy. These non-generic entry
+// points are compiled once, here, and shared by every crate.
+
+/// Sets up the `DefaultReadableStream` prototype: stream and EventEmitter methods.
+pub fn init_default_readable_prototype(ctx: &Ctx<'_>) -> Result<()> {
+    DefaultReadableStream::add_readable_stream_prototype(ctx)?;
+    DefaultReadableStream::add_event_emitter_prototype(ctx)?;
+    Ok(())
+}
+
+/// Starts the read loop of a `DefaultReadableStream`.
+pub fn process_default_readable<'js>(
+    this: Class<'js, DefaultReadableStream<'js>>,
+    ctx: &Ctx<'js>,
+    readable: Pin<Box<dyn AsyncRead + 'js>>,
+) -> Result<Receiver<bool>> {
+    DefaultReadableStream::process(this, ctx, readable)
 }
