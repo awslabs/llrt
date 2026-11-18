@@ -1,7 +1,7 @@
 [package]
 name = "llrt_modules"
 description = "LLRT Modules for rquickjs"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -121,9 +121,9 @@ zlib = ["llrt_zlib"]
 
 [dependencies]
 home = { version = "0.5", default-features = false }
-llrt_hooking = { version = "0.10.0-beta", path = "../libs/llrt_hooking" }
-llrt_json = { version = "0.10.0-beta", path = "../libs/llrt_json" }
-llrt_utils = { version = "0.10.0-beta", path = "../libs/llrt_utils" }
+llrt_hooking = { workspace = true }
+llrt_json = { workspace = true }
+llrt_utils = { workspace = true, default-features = true }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.14", features = ["loader"], default-features = false }
 simd-json = { version = "0.19", default-features = false }
@@ -131,38 +131,38 @@ tokio = { version = "1", default-features = false }
 tracing = { version = "0.1", default-features = false }
 
 # Optional
-llrt_abort = { version = "0.10.0-beta", path = "../modules/llrt_abort", optional = true }
-llrt_assert = { version = "0.10.0-beta", path = "../modules/llrt_assert", optional = true }
-llrt_async_hooks = { version = "0.10.0-beta", path = "../modules/llrt_async_hooks", optional = true }
-llrt_buffer = { version = "0.10.0-beta", path = "../modules/llrt_buffer", optional = true }
-llrt_child_process = { version = "0.10.0-beta", path = "../modules/llrt_child_process", optional = true }
-llrt_console = { version = "0.10.0-beta", path = "../modules/llrt_console", optional = true }
-llrt_crypto = { version = "0.10.0-beta", path = "../modules/llrt_crypto", default-features = false, optional = true }
-llrt_dgram = { version = "0.10.0-beta", path = "../modules/llrt_dgram", optional = true }
-llrt_dns = { version = "0.10.0-beta", path = "../modules/llrt_dns", optional = true }
-llrt_events = { version = "0.10.0-beta", path = "../modules/llrt_events", optional = true }
-llrt_exceptions = { version = "0.10.0-beta", path = "../modules/llrt_exceptions", optional = true }
-llrt_fetch = { version = "0.10.0-beta", path = "../modules/llrt_fetch", default-features = false, optional = true }
-llrt_fs = { version = "0.10.0-beta", path = "../modules/llrt_fs", optional = true }
-llrt_http = { version = "0.10.0-beta", path = "../modules/llrt_http", default-features = false, optional = true }
-llrt_intl = { version = "0.10.0-beta", path = "../modules/llrt_intl", optional = true }
-llrt_navigator = { version = "0.10.0-beta", path = "../modules/llrt_navigator", optional = true }
-llrt_net = { version = "0.10.0-beta", path = "../modules/llrt_net", optional = true }
-llrt_os = { version = "0.10.0-beta", path = "../modules/llrt_os", default-features = false, optional = true }
-llrt_path = { version = "0.10.0-beta", path = "../modules/llrt_path", optional = true }
-llrt_process = { version = "0.10.0-beta", path = "../modules/llrt_process", optional = true }
-llrt_perf_hooks = { version = "0.10.0-beta", path = "../modules/llrt_perf_hooks", optional = true }
-llrt_stream_web = { version = "0.10.0-beta", path = "../modules/llrt_stream_web", optional = true }
-llrt_string_decoder = { version = "0.10.0-beta", path = "../modules/llrt_string_decoder", optional = true }
-llrt_temporal = { version = "0.10.0-beta", path = "../modules/llrt_temporal", optional = true }
-llrt_timers = { version = "0.10.0-beta", path = "../modules/llrt_timers", optional = true }
-llrt_tls = { version = "0.10.0-beta", path = "../modules/llrt_tls", default-features = false, optional = true }
-llrt_tty = { version = "0.10.0-beta", path = "../modules/llrt_tty", optional = true }
-llrt_url = { version = "0.10.0-beta", path = "../modules/llrt_url", optional = true }
+llrt_abort = { workspace = true, optional = true }
+llrt_assert = { workspace = true, optional = true }
+llrt_async_hooks = { workspace = true, optional = true }
+llrt_buffer = { workspace = true, optional = true }
+llrt_child_process = { workspace = true, optional = true }
+llrt_console = { workspace = true, optional = true }
+llrt_crypto = { workspace = true, default-features = false, optional = true }
+llrt_dgram = { workspace = true, optional = true }
+llrt_dns = { workspace = true, optional = true }
+llrt_events = { workspace = true, optional = true }
+llrt_exceptions = { workspace = true, optional = true }
+llrt_fetch = { workspace = true, default-features = false, optional = true }
+llrt_fs = { workspace = true, optional = true }
+llrt_http = { workspace = true, default-features = false, optional = true }
+llrt_intl = { workspace = true, optional = true }
+llrt_navigator = { workspace = true, optional = true }
+llrt_net = { workspace = true, optional = true }
+llrt_os = { workspace = true, default-features = false, optional = true }
+llrt_path = { workspace = true, optional = true }
+llrt_process = { workspace = true, optional = true }
+llrt_perf_hooks = { workspace = true, optional = true }
+llrt_stream_web = { workspace = true, optional = true }
+llrt_string_decoder = { workspace = true, optional = true }
+llrt_temporal = { workspace = true, optional = true }
+llrt_timers = { workspace = true, optional = true }
+llrt_tls = { workspace = true, default-features = false, optional = true }
+llrt_tty = { workspace = true, optional = true }
+llrt_url = { workspace = true, optional = true }
 openssl = { version = "0.10", optional = true }
-llrt_util = { version = "0.10.0-beta", path = "../modules/llrt_util", optional = true }
-llrt_zlib = { version = "0.10.0-beta", path = "../modules/llrt_zlib", optional = true }
+llrt_util = { workspace = true, optional = true }
+llrt_zlib = { workspace = true, optional = true }
 
 [dev-dependencies]
-llrt_test = { path = "../libs/llrt_test" }
+llrt_test = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt"] }

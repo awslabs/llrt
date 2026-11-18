@@ -1,7 +1,7 @@
 [package]
 name = "llrt_os"
 description = "LLRT Module OS"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -15,7 +15,7 @@ system = ["sysinfo/system"]
 
 [dependencies]
 home = { version = "0.5", default-features = false }
-llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_utils = { workspace = true, default-features = false }
 num_cpus = { version = "1", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.14", features = ["std"], default-features = false }
@@ -38,5 +38,5 @@ windows-result = { version = "0.100", features = [
 windows-version = { version = "0.100", default-features = false }
 
 [dev-dependencies]
-llrt_test = { path = "../../libs/llrt_test" }
+llrt_test = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt", "test-util"], default-features = false }

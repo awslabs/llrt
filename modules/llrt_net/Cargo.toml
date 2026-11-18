@@ -1,7 +1,7 @@
 [package]
 name = "llrt_net"
 description = "LLRT Module net"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -11,16 +11,16 @@ name = "llrt_net"
 path = "src/lib.rs"
 
 [dependencies]
-llrt_buffer = { version = "0.10.0-beta", path = "../llrt_buffer" }
-llrt_context = { version = "0.10.0-beta", path = "../../libs/llrt_context" }
-llrt_events = { version = "0.10.0-beta", path = "../llrt_events" }
-llrt_net_policy = { version = "0.10.0-beta", path = "../../libs/llrt_net_policy" }
-llrt_stream = { version = "0.10.0-beta", path = "../llrt_stream" }
-llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_buffer = { workspace = true }
+llrt_context = { workspace = true }
+llrt_events = { workspace = true }
+llrt_net_policy = { workspace = true }
+llrt_stream = { workspace = true }
+llrt_utils = { workspace = true, default-features = false }
 rquickjs = { version = "0.14", default-features = false }
 tokio = { version = "1", features = ["net"], default-features = false }
 tracing = { version = "0.1", default-features = false }
 
 [dev-dependencies]
-llrt_test = { path = "../../libs/llrt_test" }
+llrt_test = { workspace = true }
 rand = { version = "0.10", features = ["alloc"], default-features = false }
