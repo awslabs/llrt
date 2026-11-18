@@ -42,15 +42,12 @@ use rquickjs::{
     convert::Coerced,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
-    Class, Ctx, Error, Exception, Function, IntoJs, Null, Result, Value,
+    Class, Ctx, Exception, Function, IntoJs, Null, Object, Result, Value,
 };
 use tokio::{
     io::AsyncRead,
     process::{Child, Command},
-    sync::{
-        broadcast::{channel as broadcast_channel, Receiver, Sender},
-        oneshot::Receiver as OneshotReceiver,
-    },
+    sync::broadcast::{channel as broadcast_channel, Receiver, Sender},
 };
 
 #[cfg(unix)]
@@ -118,6 +115,12 @@ pub struct ChildProcess<'js> {
     command: String,
     kill_tx: Option<Sender<()>>,
     pid: Option<u32>,
+    // Node's maybeClose: 'close' follows the exit and the end of every piped
+    // stdout/stderr stream. A stream whose data is never read never ends, so
+    // nothing waits for it.
+    stdio_open: u8,
+    exit: Option<(Option<i32>, Option<i32>)>,
+    close_emitted: bool,
 }
 
 impl<'js> Trace<'js> for ChildProcess<'js> {
@@ -188,6 +191,27 @@ impl<'js> ChildProcess<'js> {
 }
 
 impl<'js> ChildProcess<'js> {
+    /// A piped stdout/stderr has finished (see `FinishFn`).
+    fn stdio_finished(ctx: &Ctx<'js>, _stream: &Object<'js>, child: &Value<'js>) -> Result<()> {
+        let child = Class::<Self>::from_value(child)?;
+        child.borrow_mut().stdio_open -= 1;
+        Self::maybe_close(child, ctx)
+    }
+
+    fn maybe_close(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
+        let mut borrow = this.borrow_mut();
+        let Some((exit_code, exit_signal)) = borrow.exit else {
+            return Ok(());
+        };
+        if borrow.stdio_open > 0 || borrow.close_emitted {
+            return Ok(());
+        }
+        borrow.close_emitted = true;
+        drop(borrow);
+        let args = exit_args(ctx, exit_code, exit_signal)?;
+        Self::emit_str(this, ctx, "close", args, false)
+    }
+
     fn new(
         ctx: Ctx<'js>,
         command: String,
@@ -202,6 +226,9 @@ impl<'js> ChildProcess<'js> {
             args,
             pid: None,
             kill_tx: Some(kill_tx),
+            stdio_open: 0,
+            exit: None,
+            close_emitted: false,
         };
 
         let stdout_instance = DefaultReadableStream::new(ctx.clone())?;
@@ -225,11 +252,19 @@ impl<'js> ChildProcess<'js> {
                     process_default_writable(stdin_instance.clone(), &ctx, Box::pin(child_stdin))?;
                 };
 
-                let stdout_join_receiver =
-                    create_output(&ctx, child.stdout.take(), stdout_instance.clone())?;
-
-                let stderr_join_receiver =
-                    create_output(&ctx, child.stderr.take(), stderr_instance.clone())?;
+                let stdio_open = create_output(
+                    &ctx,
+                    child.stdout.take(),
+                    stdout_instance.clone(),
+                    &instance,
+                )? as u8
+                    + create_output(
+                        &ctx,
+                        child.stderr.take(),
+                        stderr_instance.clone(),
+                        &instance,
+                    )? as u8;
+                instance.borrow_mut().stdio_open = stdio_open;
 
                 let ctx2 = ctx.clone();
                 let ctx3 = ctx.clone();
@@ -242,55 +277,27 @@ impl<'js> ChildProcess<'js> {
                         wait_for_process(child, &ctx3, kill_rx, &mut exit_code, &mut exit_signal)
                             .await?;
 
-                        let code = match exit_code {
-                            Some(c) => c.into_js(&ctx3)?,
-                            None => rquickjs::Null.into_value(ctx3.clone()),
-                        };
-                        let signal;
-                        #[cfg(unix)]
-                        {
-                            if let Some(s) = exit_signal {
-                                signal = signal_str_from_i32(s).into_js(&ctx3)?;
-                            } else {
-                                signal = rquickjs::Null.into_value(ctx3.clone());
-                            }
-                        }
-                        #[cfg(not(unix))]
-                        {
-                            signal = "SIGKILL".into_js(&ctx3)?;
-                        }
-
                         ChildProcess::emit_str(
                             instance2.clone(),
                             &ctx3,
                             "exit",
-                            vec![code.clone(), signal.clone()],
+                            exit_args(&ctx3, exit_code, exit_signal)?,
                             false,
                         )?;
 
-                        if let Some(stderr_join_receiver) = stderr_join_receiver {
-                            //ok if sender drops
-                            let _ = stderr_join_receiver.await;
-                        }
-                        if let Some(stdout_join_receiver) = stdout_join_receiver {
-                            //ok if sender drops
-                            let _ = stdout_join_receiver.await;
-                        }
+                        // Wait until the readers stop: EOF, an error or destroy.
+                        let stderr_idle = stderr_instance.borrow().inner().idle();
+                        let stdout_idle = stdout_instance.borrow().inner().idle();
+                        stderr_idle.await;
+                        stdout_idle.await;
 
                         WritableStream::end(This(stdin_instance));
 
                         ReadableStream::drain(stdout_instance, &ctx3)?;
                         ReadableStream::drain(stderr_instance, &ctx3)?;
 
-                        ChildProcess::emit_str(
-                            instance2.clone(),
-                            &ctx3,
-                            "close",
-                            vec![code, signal],
-                            false,
-                        )?;
-
-                        Ok::<_, Error>(())
+                        instance2.borrow_mut().exit = Some((exit_code, exit_signal));
+                        ChildProcess::maybe_close(instance2, &ctx3)
                     };
 
                     spawn_proc
@@ -654,20 +661,52 @@ fn str_to_stdio(ctx: &Ctx<'_>, input: &str) -> Result<StdioEnum> {
     }
 }
 
+/// Starts reading a piped stdout/stderr. Returns whether it is piped.
 fn create_output<'js, T>(
     ctx: &Ctx<'js>,
     output: Option<T>,
     native_readable_stream: Class<'js, DefaultReadableStream<'js>>,
-) -> Result<Option<OneshotReceiver<bool>>>
+    child: &Class<'js, ChildProcess<'js>>,
+) -> Result<bool>
 where
     T: AsyncRead + Unpin + Send + 'static,
 {
-    if let Some(output) = output {
-        let receiver = process_default_readable(native_readable_stream, ctx, Box::pin(output))?;
-        return Ok(Some(receiver));
-    }
+    let Some(output) = output else {
+        return Ok(false);
+    };
+    native_readable_stream
+        .borrow()
+        .inner()
+        .set_finish_hook(ChildProcess::stdio_finished, child.clone().into_value());
+    process_default_readable(native_readable_stream, ctx, Box::pin(output))?;
+    Ok(true)
+}
 
-    Ok(None)
+/// The `code` and `signal` arguments of 'exit' and 'close'.
+fn exit_args<'js>(
+    ctx: &Ctx<'js>,
+    exit_code: Option<i32>,
+    exit_signal: Option<i32>,
+) -> Result<Vec<Value<'js>>> {
+    let code = match exit_code {
+        Some(c) => c.into_js(ctx)?,
+        None => Null.into_value(ctx.clone()),
+    };
+    let signal;
+    #[cfg(unix)]
+    {
+        if let Some(s) = exit_signal {
+            signal = signal_str_from_i32(s).into_js(ctx)?;
+        } else {
+            signal = Null.into_value(ctx.clone());
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = exit_signal;
+        signal = "SIGKILL".into_js(ctx)?;
+    }
+    Ok(vec![code, signal])
 }
 
 pub struct ChildProcessModule;

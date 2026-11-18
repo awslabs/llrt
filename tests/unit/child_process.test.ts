@@ -232,6 +232,32 @@ describe("spawn", () => {
   );
 });
 
+// Regression guard: passes before and after the child's 'close' became
+// event-driven, and pins its order.
+describe("close ordering (regression guard)", () => {
+  it("should emit 'close' after 'exit' and after stdout and stderr end", async () => {
+    const child = spawn(process.argv0, [
+      "-e",
+      `process.stdout.write("out"); process.stderr.write("err")`,
+    ]);
+    const events: string[] = [];
+    child.stdout.on("data", () => {});
+    child.stderr.on("data", () => {});
+    child.stdout.on("end", () => events.push("stdout:end"));
+    child.stderr.on("end", () => events.push("stderr:end"));
+    child.on("exit", () => events.push("exit"));
+    child.on("close", () => events.push("close"));
+    await new Promise((resolve) => child.once("close", resolve));
+    expect(events.at(-1)).toEqual("close");
+    expect([...events].sort()).toEqual([
+      "close",
+      "exit",
+      "stderr:end",
+      "stdout:end",
+    ]);
+  });
+});
+
 describe("execFile", () => {
   it("should capture stdout via callback", (done) => {
     const command = "echo";

@@ -1,7 +1,10 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 use std::{
+    cell::{Cell, RefCell},
+    future::Future,
     pin::Pin,
+    rc::Rc,
     sync::{atomic::AtomicUsize, Arc, RwLock},
 };
 
@@ -12,17 +15,44 @@ use llrt_utils::{bytearray_buffer::BytearrayBuffer, result::ResultExt};
 use rquickjs::{
     class::{Trace, Tracer},
     prelude::{Func, Opt, This},
-    Class, Ctx, Error, IntoJs, JsLifetime, Null, Result, Value,
+    Class, Ctx, Error, IntoJs, JsLifetime, Null, Object, Result, Value,
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, BufReader},
     sync::{
         broadcast::{self, Sender},
-        oneshot::Receiver,
+        Notify,
     },
 };
 
 use super::{impl_stream_events, set_destroyed_and_error, SteamEvents, DEFAULT_BUFFER_SIZE};
+
+/// Runs when the source reaches EOF, before `'end'` is emitted. `net.Socket`
+/// uses it to end its writable side when `allowHalfOpen` is false.
+pub type EofFn<'js> = fn(&Ctx<'js>, &Object<'js>) -> Result<()>;
+
+/// Runs once, when the readable side finishes: right after `'end'`, or after
+/// `'error'` or `destroy()`, and before `'close'`. Owners such as
+/// `ChildProcess` react to it instead of waiting for it. Gets the stream object
+/// and the owner value given to [`ReadableStreamInner::set_finish_hook`].
+pub type FinishFn<'js> = fn(&Ctx<'js>, &Object<'js>, &Value<'js>) -> Result<()>;
+
+/// Whether the read loop runs, for [`ReadableStreamInner::idle`].
+#[derive(Default)]
+struct ReadLoop {
+    running: Cell<bool>,
+    stopped: Notify,
+}
+
+/// Marks the read loop as stopped when dropped, and wakes `idle()`.
+struct ReadLoopGuard(Rc<ReadLoop>);
+
+impl Drop for ReadLoopGuard {
+    fn drop(&mut self) {
+        self.0.running.set(false);
+        self.0.stopped.notify_waiters();
+    }
+}
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum ReadableState {
@@ -44,15 +74,56 @@ pub struct ReadableStreamInner<'js> {
     high_water_mark: AtomicUsize,
     listener: Option<&'static str>,
     data_listener_attached_tx: Sender<()>,
+    finish_hook: RefCell<Option<(FinishFn<'js>, Value<'js>)>>,
+    read_loop: Rc<ReadLoop>,
 }
 
 impl<'js> Trace<'js> for ReadableStreamInner<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.emitter.trace(tracer);
+        self.trace_state(tracer);
     }
 }
 
 impl<'js> ReadableStreamInner<'js> {
+    /// Traces the JS values held by the stream state, but not the emitter.
+    /// For classes that share the emitter and trace it themselves.
+    pub fn trace_state<'a>(&self, tracer: Tracer<'a, 'js>) {
+        // If a GC runs while the hook is borrowed, its owner is not marked,
+        // which only keeps it alive until the next collection.
+        if let Ok(hook) = self.finish_hook.try_borrow() {
+            if let Some((_, owner)) = hook.as_ref() {
+                owner.trace(tracer);
+            }
+        }
+    }
+
+    /// Sets the hook that runs when the readable side finishes (see
+    /// [`FinishFn`]).
+    pub fn set_finish_hook(&self, hook: FinishFn<'js>, owner: Value<'js>) {
+        *self.finish_hook.borrow_mut() = Some((hook, owner));
+    }
+
+    /// Whether the readable side emitted `'error'`.
+    pub fn is_errored(&self) -> bool {
+        self.errored
+    }
+
+    /// Resolves once no read of the source is in flight: the read loop has
+    /// ended, or never started.
+    pub fn idle(&self) -> impl Future<Output = ()> + 'js {
+        let read_loop = self.read_loop.clone();
+        async move {
+            loop {
+                let stopped = read_loop.stopped.notified();
+                if !read_loop.running.get() {
+                    return;
+                }
+                stopped.await;
+            }
+        }
+    }
+
     pub fn on_event_changed(&mut self, event: EventKey<'js>, added: bool) -> Result<()> {
         if let EventKey::String(event) = event {
             match event.as_ref() {
@@ -96,6 +167,8 @@ impl<'js> ReadableStreamInner<'js> {
             is_destroyed: false,
             emit_close,
             errored: false,
+            finish_hook: RefCell::new(None),
+            read_loop: Rc::new(ReadLoop::default()),
         }
     }
 }
@@ -131,7 +204,13 @@ impl<'js> Emitter<'js> for DefaultReadableStream<'js> {
         self.inner.emitter.get_event_list()
     }
 
-    fn on_event_changed(&mut self, event: EventKey<'js>, added: bool) -> Result<()> {
+    fn on_event_changed(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        _this: &Object<'js>,
+        event: EventKey<'js>,
+        added: bool,
+    ) -> Result<()> {
         self.inner.on_event_changed(event, added)
     }
 }
@@ -212,33 +291,39 @@ where
         Ok(())
     }
 
-    // The reader is boxed so that each stream class gets one copy of the read
-    // loop, not one per reader type.
+    /// Starts reading the source. The reader is boxed so that each stream class
+    /// gets one copy of the read loop, not one per reader type.
     fn process(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
         readable: Pin<Box<dyn AsyncRead + 'js>>,
-    ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, || {})
+    ) -> Result<()> {
+        Self::do_process(this, ctx, readable, None)
     }
 
-    fn process_callback<C: FnOnce() + Sized + 'js>(
+    /// Like [`ReadableStream::process`], with a hook that runs at EOF.
+    fn process_callback(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
         readable: Pin<Box<dyn AsyncRead + 'js>>,
-        on_end: C,
-    ) -> Result<Receiver<bool>> {
-        Self::do_process(this, ctx, readable, on_end)
+        on_eof: EofFn<'js>,
+    ) -> Result<()> {
+        Self::do_process(this, ctx, readable, Some(on_eof))
     }
 
-    fn do_process<C: FnOnce() + Sized + 'js>(
+    fn do_process(
         this: Class<'js, Self>,
         ctx: &Ctx<'js>,
         readable: Pin<Box<dyn AsyncRead + 'js>>,
-        on_end: C,
-    ) -> Result<Receiver<bool>> {
+        on_eof: Option<EofFn<'js>>,
+    ) -> Result<()> {
+        let read_loop = this.borrow().inner().read_loop.clone();
+        read_loop.running.set(true);
         let ctx2 = ctx.clone();
         ctx.spawn_exit(async move {
+            // Dropped last, whatever the outcome, so that tasks waiting in
+            // `idle()` run after the events below.
+            let _running = ReadLoopGuard(read_loop);
             let this2 = this.clone();
             let ctx3 = ctx2.clone();
 
@@ -354,7 +439,9 @@ where
                 drop(reader);
 
                 if !is_destroyed {
-                    on_end();
+                    if let Some(on_eof) = on_eof {
+                        on_eof(&ctx3, this2.as_inner())?;
+                    }
                     Self::emit_str(this2.clone(), &ctx3, "end", vec![], false)?;
                 }
 
@@ -368,12 +455,24 @@ where
 
             let had_error = read_function.emit_error("readable",&ctx2, this.clone())?;
 
+            // The readable side is done: run the owner's hook, then emit 'close'.
+            let hook = {
+                let mut borrow = this.borrow_mut();
+                let inner = borrow.inner_mut();
+                inner.errored = had_error;
+                inner.finish_hook.take()
+            };
+            if let Some((hook, owner)) = hook {
+                hook(&ctx2, this.as_inner(), &owner)?;
+            }
+
             if emit_close {
                 Self::emit_close(this,&ctx2,had_error)?;
             }
 
-            Ok::<_, Error>(had_error)
-        })
+            Ok::<_, Error>(())
+        })?;
+        Ok(())
     }
 }
 
@@ -393,6 +492,6 @@ pub fn process_default_readable<'js>(
     this: Class<'js, DefaultReadableStream<'js>>,
     ctx: &Ctx<'js>,
     readable: Pin<Box<dyn AsyncRead + 'js>>,
-) -> Result<Receiver<bool>> {
+) -> Result<()> {
     DefaultReadableStream::process(this, ctx, readable)
 }
