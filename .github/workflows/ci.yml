@@ -88,7 +88,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install make nodejs zstd zip
+          sudo apt-get -y install make nodejs zstd zip lld
           sudo snap install zig --classic --beta
       - name: Install JavaScript dependencies
         run: |
