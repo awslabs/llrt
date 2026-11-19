@@ -90,7 +90,7 @@ fn date_to_locale_string<'js>(
     // Convert epoch to DateTime
     let utc_dt = Timestamp::from_millisecond(epoch_ms as i64)
         .map_err(|_| Exception::throw_range(&ctx, "Invalid timestamp"))?;
-    let local_dt = utc_dt.to_zoned(timezone);
+    let local_dt = utc_dt.to_zoned_datetime(timezone);
 
     // Determine hour12 setting - use locale default if not explicitly set
     let hour12 = if opts.hour12_set {

@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use jiff::{tz::TimeZone, Timestamp, Zoned};
+use jiff::{tz::TimeZone, Timestamp, ZonedDateTime as JiffZonedDateTime};
 use rquickjs::{
     atom::PredefinedAtom,
     prelude::{Func, Opt},
@@ -53,7 +53,7 @@ fn zoned_datetime_iso(ctx: Ctx<'_>, timezone: Opt<String>) -> Result<ZonedDateTi
 }
 
 fn parts_of_zoned_now(timezone: Opt<String>) -> (Timestamp, String) {
-    let zoned = Zoned::now();
+    let zoned = JiffZonedDateTime::now();
     let ts = zoned.timestamp();
     let tz = zoned.time_zone().iana_name().unwrap_or("UTC");
     let tz = timezone.0.unwrap_or(tz.to_string());

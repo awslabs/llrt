@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{Timestamp, Zoned};
+use jiff::{Span, Timestamp, ZonedDateTime as JiffZonedDateTime};
 use llrt_utils::result::ResultExt;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, prelude::Opt, BigInt, Class, Ctx, Exception, JsLifetime,
@@ -84,8 +84,9 @@ impl Instant {
         Ok(Self { inner: ts })
     }
 
-    fn since(&self, other: Self) -> Duration {
-        Duration::new_object(self.inner - other.inner)
+    fn since(&self, ctx: Ctx<'_>, other: Self) -> Result<Duration> {
+        let span = Span::try_from(self.inner - other.inner).or_throw_range(&ctx, "")?;
+        Ok(Duration::new_object(span))
     }
 
     fn subtract(&self, ctx: Ctx<'_>, duration: Value<'_>) -> Result<Self> {
@@ -113,8 +114,9 @@ impl Instant {
         ZonedDateTime::from_ts_tz(&ctx, &self.inner, tz)
     }
 
-    fn until(&self, other: Self) -> Duration {
-        Duration::new_object(other.inner - self.inner)
+    fn until(&self, ctx: Ctx<'_>, other: Self) -> Result<Duration> {
+        let span = Span::try_from(other.inner - self.inner).or_throw_range(&ctx, "")?;
+        Ok(Duration::new_object(span))
     }
 
     fn value_of(&self, ctx: Ctx<'_>) -> Result<()> {
@@ -153,7 +155,7 @@ impl Instant {
         Ok(Self { inner: ts })
     }
 
-    pub(crate) fn from_zoned(zoned: &Zoned) -> Self {
+    pub(crate) fn from_zoned(zoned: &JiffZonedDateTime) -> Self {
         let ts = zoned.timestamp();
         Self { inner: ts }
     }

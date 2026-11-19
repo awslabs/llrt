@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{Timestamp, Zoned, ZonedDifference};
+use jiff::{
+    Timestamp, ZonedDateTime as JiffZonedDateTime,
+    ZonedDateTimeDifference as JiffZonedDateTimeDifference,
+};
 use llrt_utils::result::ResultExt;
 use rquickjs::Object;
 use rquickjs::{
@@ -25,7 +28,7 @@ use super::extract_bigint_or_number;
 #[rquickjs::class]
 pub(crate) struct ZonedDateTime {
     #[qjs(skip_trace)]
-    inner: Zoned,
+    inner: JiffZonedDateTime,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
@@ -82,7 +85,7 @@ impl ZonedDateTime {
         let Some(tzt) = tzt else {
             return Ok(Value::new_null(ctx.clone()));
         };
-        let zoned = tzt.timestamp().to_zoned(tz.clone());
+        let zoned = tzt.timestamp().to_zoned_datetime(tz.clone());
         Self::new_instance(&ctx, zoned)
     }
 
@@ -95,7 +98,7 @@ impl ZonedDateTime {
 
     fn since(&self, ctx: Ctx<'_>, other: &Self, opt: Opt<Value<'_>>) -> Result<Duration> {
         let span = if let Some(ref opt) = opt.0 {
-            let diff = ZonedDifference::from_value(&ctx, &other.inner, opt)?;
+            let diff = JiffZonedDateTimeDifference::from_value(&ctx, &other.inner, opt)?;
             self.inner.since(diff).or_throw_range(&ctx, "")?
         } else {
             self.inner.clone() - other.inner.clone()
@@ -143,7 +146,7 @@ impl ZonedDateTime {
 
     fn until(&self, ctx: Ctx<'_>, other: &Self, opt: Opt<Value<'_>>) -> Result<Duration> {
         let span = if let Some(ref opt) = opt.0 {
-            let diff = ZonedDifference::from_value(&ctx, &other.inner, opt)?;
+            let diff = JiffZonedDateTimeDifference::from_value(&ctx, &other.inner, opt)?;
             self.inner.until(diff).or_throw_range(&ctx, "")?
         } else {
             other.inner.clone() - self.inner.clone()
@@ -282,7 +285,7 @@ impl ZonedDateTime {
     }
 
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
-        let zoned = Zoned::from_object(ctx, obj)?;
+        let zoned = JiffZonedDateTime::from_object(ctx, obj)?;
         Ok(Self { inner: zoned })
     }
 
@@ -292,20 +295,20 @@ impl ZonedDateTime {
     }
 
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let zoned = Zoned::from_str(str).or_throw_range(ctx, "")?;
+        let zoned = JiffZonedDateTime::from_str(str).or_throw_range(ctx, "")?;
         Ok(Self { inner: zoned })
     }
 
-    pub(crate) fn into_inner(self) -> Zoned {
+    pub(crate) fn into_inner(self) -> JiffZonedDateTime {
         self.inner
     }
 
-    fn new_instance<'js>(ctx: &Ctx<'js>, zoned: Zoned) -> Result<Value<'js>> {
+    fn new_instance<'js>(ctx: &Ctx<'js>, zoned: JiffZonedDateTime) -> Result<Value<'js>> {
         let zdt = Class::instance(ctx.clone(), Self { inner: zoned })?;
         Ok(zdt.into_value())
     }
 
-    pub(crate) fn new_object(zoned: Zoned) -> Self {
+    pub(crate) fn new_object(zoned: JiffZonedDateTime) -> Self {
         Self { inner: zoned }
     }
 }

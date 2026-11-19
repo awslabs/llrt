@@ -4,7 +4,7 @@
 //! Minimal Intl.DateTimeFormat implementation for timezone support.
 //! This provides just enough functionality to support dayjs and similar libraries.
 
-use jiff::{tz::TimeZone, Timestamp, Zoned};
+use jiff::{tz::TimeZone, Timestamp, ZonedDateTime as JiffZonedDateTime};
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, Exception, Object, Result, Value,
 };
@@ -88,8 +88,11 @@ fn format_component(value: i16, style: Option<&str>) -> String {
     format_number(value, two_digit)
 }
 
-/// Build format parts from a Zoned datetime in pure Rust
-fn build_format_parts(local_dt: &Zoned, options: &DateTimeFormatOptions) -> Vec<FormatPart> {
+/// Build format parts from a zoned datetime in pure Rust
+fn build_format_parts(
+    local_dt: &JiffZonedDateTime,
+    options: &DateTimeFormatOptions,
+) -> Vec<FormatPart> {
     let mut parts = Vec::with_capacity(16);
 
     // Month
@@ -193,7 +196,7 @@ fn build_format_parts(local_dt: &Zoned, options: &DateTimeFormatOptions) -> Vec<
 }
 
 /// Format timezone name based on style option
-fn format_timezone_name(local_dt: &Zoned, timezone: &TimeZone, style: &str) -> String {
+fn format_timezone_name(local_dt: &JiffZonedDateTime, timezone: &TimeZone, style: &str) -> String {
     match style {
         "short" | "shortOffset" => {
             let offset = local_dt.offset();
@@ -266,11 +269,15 @@ fn parse_epoch_ms<'js>(ctx: &Ctx<'js>, date: Opt<Value<'js>>) -> Result<f64> {
     }
 }
 
-/// Convert epoch milliseconds to Zoned datetime in the specified timezone
-fn epoch_to_datetime(ctx: &Ctx<'_>, epoch_ms: f64, timezone: &TimeZone) -> Result<Zoned> {
+/// Convert epoch milliseconds to JiffZonedDateTime datetime in the specified timezone
+fn epoch_to_datetime(
+    ctx: &Ctx<'_>,
+    epoch_ms: f64,
+    timezone: &TimeZone,
+) -> Result<JiffZonedDateTime> {
     let utc_dt = Timestamp::from_millisecond(epoch_ms as i64)
         .map_err(|_| Exception::throw_range(ctx, "Invalid timestamp"))?;
-    Ok(utc_dt.to_zoned(timezone.clone()))
+    Ok(utc_dt.to_zoned_datetime(timezone.clone()))
 }
 
 /// Minimal Intl.DateTimeFormat implementation
@@ -424,7 +431,7 @@ pub fn format_date_in_timezone(
     options: &ToLocaleStringOptions,
 ) -> String {
     let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
-    let local_dt = utc_dt.to_zoned(timezone.clone());
+    let local_dt = utc_dt.to_zoned_datetime(timezone.clone());
 
     // Format as MM/DD/YYYY, HH:MM:SS AM/PM (en-US style)
     let month = local_dt.month();
@@ -579,7 +586,7 @@ mod tests {
         // 2024-03-15 10:30:45 UTC
         let epoch_ms = 1710499845000.0;
         let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
-        let local_dt = utc_dt.to_zoned(tz);
+        let local_dt = utc_dt.to_zoned_datetime(tz);
 
         let options = DateTimeFormatOptions {
             year: Some("numeric".to_string()),
@@ -607,7 +614,7 @@ mod tests {
         // 2024-03-15 10:30:45 UTC
         let epoch_ms = 1710498645000.0;
         let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
-        let local_dt = utc_dt.to_zoned(tz);
+        let local_dt = utc_dt.to_zoned_datetime(tz);
 
         let options = DateTimeFormatOptions {
             hour: Some("2-digit".to_string()),
@@ -632,7 +639,7 @@ mod tests {
         // 2024-03-15 14:30:00 UTC (2 PM)
         let epoch_ms = 1710514200000.0;
         let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
-        let local_dt = utc_dt.to_zoned(tz);
+        let local_dt = utc_dt.to_zoned_datetime(tz);
 
         let options = DateTimeFormatOptions {
             hour: Some("numeric".to_string()),
@@ -654,7 +661,7 @@ mod tests {
         // 2024-03-15 00:30:00 UTC (12:30 AM)
         let epoch_ms = 1710463800000.0;
         let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
-        let local_dt = utc_dt.to_zoned(tz);
+        let local_dt = utc_dt.to_zoned_datetime(tz);
 
         let options = DateTimeFormatOptions {
             hour: Some("numeric".to_string()),
@@ -676,7 +683,7 @@ mod tests {
         // Summer time (EDT = UTC-4)
         let epoch_ms = 1720000000000.0; // July 2024
         let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
-        let local_dt = utc_dt.to_zoned(tz.clone());
+        let local_dt = utc_dt.to_zoned_datetime(tz.clone());
 
         let result = format_timezone_name(&local_dt, &tz, "short");
         assert_eq!(result, "GMT-4");
@@ -687,7 +694,7 @@ mod tests {
         let tz = TimeZone::get("America/New_York").unwrap();
         let epoch_ms = 1720000000000.0;
         let utc_dt = Timestamp::from_millisecond(epoch_ms as i64).unwrap();
-        let local_dt = utc_dt.to_zoned(tz.clone());
+        let local_dt = utc_dt.to_zoned_datetime(tz.clone());
 
         let result = format_timezone_name(&local_dt, &tz, "long");
         assert_eq!(result, "America/New_York");
