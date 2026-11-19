@@ -38,7 +38,7 @@ crossterm = { version = "0.29", features = [
   "events",
   "windows",
 ], default-features = false }
-jiff = { version = "1.0" }
+jiff = { version = "1" }
 llrt_core = { path = "../llrt_core", default-features = false }
 tokio = { version = "1", features = [
   "macros",
