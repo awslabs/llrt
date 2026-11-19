@@ -33,6 +33,23 @@ it("should format strings correctly", () => {
   console.log("%s:%s", "foo", "bar");
 });
 
+it("should format a symbol without a description", () => {
+  expect(util.format(Symbol())).toEqual("Symbol()");
+  expect(util.format(Symbol(""))).toEqual("Symbol()");
+  expect(util.format([Symbol(), Symbol("a")])).toEqual(
+    "[ Symbol(), Symbol(a) ]"
+  );
+});
+
+it("should format bigints outside the 64-bit range", () => {
+  expect(util.format(2n ** 64n)).toEqual("18446744073709551616n");
+  expect(util.format(2n ** 63n)).toEqual("9223372036854775808n");
+  expect(util.format(-(10n ** 30n))).toEqual(
+    "-1000000000000000000000000000000n"
+  );
+  expect(util.format(1n, -5n, 0n)).toEqual("1n -5n 0n");
+});
+
 it("should log module", () => {
   let module = util.format(timers);
 
