@@ -277,7 +277,7 @@ impl CryptoProvider for RustCryptoProvider {
         salt_length: usize,
         hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
         let private_key = PrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
@@ -332,7 +332,7 @@ impl CryptoProvider for RustCryptoProvider {
         digest: &[u8],
         hash_alg: HashAlgorithm,
     ) -> Result<Vec<u8>, CryptoError> {
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
         let private_key = PrivateKey::from_pkcs1_der(private_key_der)
             .map_err(|_| CryptoError::InvalidKey(None))?;
 
@@ -387,7 +387,7 @@ impl CryptoProvider for RustCryptoProvider {
         hash_alg: HashAlgorithm,
         label: Option<&[u8]>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
         let public_key =
             PublicKey::from_pkcs1_der(public_key_der).map_err(|_| CryptoError::InvalidKey(None))?;
 
@@ -897,7 +897,7 @@ impl CryptoProvider for RustCryptoProvider {
     }
 
     fn generate_ec_key(&self, curve: EllipticCurve) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
 
         match curve {
             EllipticCurve::P256 => {
@@ -934,7 +934,7 @@ impl CryptoProvider for RustCryptoProvider {
     }
 
     fn generate_ed25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
         let private_key = ed25519_dalek::SigningKey::generate(&mut rng)
             .to_pkcs8_der()
             .map_err(|_| CryptoError::OperationFailed(None))?
@@ -947,7 +947,7 @@ impl CryptoProvider for RustCryptoProvider {
     }
 
     fn generate_x25519_key(&self) -> Result<(Vec<u8>, Vec<u8>), CryptoError> {
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
         let secret_key = x25519_dalek::StaticSecret::random_from_rng(&mut rng);
         let private_key = secret_key.as_bytes().to_vec();
         let public_key = x25519_dalek::PublicKey::from(&secret_key)
@@ -964,7 +964,7 @@ impl CryptoProvider for RustCryptoProvider {
         let exponent = parse_rsa_public_exponent(public_exponent)?;
 
         let exp = BoxedUint::from(exponent);
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
         let rsa_private_key = PrivateKey::new_with_exp(&mut rng, modulus_length as usize, exp)
             .map_err(|_| CryptoError::OperationFailed(None))?;
 

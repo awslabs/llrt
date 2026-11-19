@@ -149,7 +149,7 @@ mod pqc {
         context: &[u8],
     ) -> Result<Vec<u8>, CryptoError> {
         let signing_key = ml_dsa_signing_key::<P>(seed)?;
-        let mut rng = rand::rng();
+        let mut rng = crate::os_rng();
         signing_key
             .expanded_key()
             .sign_randomized(data, context, &mut rng)

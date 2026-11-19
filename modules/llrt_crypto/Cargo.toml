@@ -69,6 +69,10 @@ crypto-openssl = ["openssl-sys", "openssl", "_subtle-full", "_modern-webcrypto"]
 crc32c = { version = "0.6", default-features = false }
 crc32fast = { version = "1", default-features = false }
 ctutils = { version = "0.4", default-features = false }
+getrandom = { version = "0.4", features = [
+  "std",
+  "sys_rng",
+], default-features = false }
 llrt_buffer = { version = "0.10.0-beta", path = "../llrt_buffer" }
 llrt_context = { version = "0.10.0-beta", path = "../../libs/llrt_context" }
 llrt_encoding = { version = "0.10.0-beta", path = "../../libs/llrt_encoding" }
@@ -76,11 +80,6 @@ llrt_exceptions = { version = "0.10.0-beta", path = "../llrt_exceptions" }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
 md-5 = { version = "0.11", default-features = false, optional = true }
 once_cell = { version = "1", features = ["std"], default-features = false }
-rand = { version = "0.10", features = [
-  "std",
-  "std_rng",
-  "thread_rng",
-], default-features = false }
 rquickjs = { version = "0.14", default-features = false }
 
 

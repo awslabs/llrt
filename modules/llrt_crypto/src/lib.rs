@@ -28,6 +28,8 @@ mod provider;
 
 use std::slice;
 
+#[cfg(any(feature = "_rustcrypto", feature = "pqc"))]
+use getrandom::{rand_core::UnwrapErr, SysRng};
 use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
 use llrt_encoding::{bytes_to_b64_string, bytes_to_hex_string};
@@ -40,7 +42,6 @@ use llrt_utils::{
     result::ResultExt,
 };
 use once_cell::sync::Lazy;
-use rand::Rng;
 use rquickjs::prelude::Async;
 use rquickjs::{
     atom::PredefinedAtom,
@@ -81,10 +82,22 @@ fn encoded_bytes<'js>(ctx: &Ctx<'js>, bytes: &[u8], encoding: &str) -> Result<Op
     }
 }
 
+#[cfg(any(feature = "_rustcrypto", feature = "pqc"))]
+#[inline]
+pub(crate) fn os_rng() -> UnwrapErr<SysRng> {
+    UnwrapErr(SysRng)
+}
+
+#[inline]
+fn fill_random(bytes: &mut [u8]) {
+    // OS entropy is required for correctness; there is no safe way to continue without it.
+    getrandom::fill(bytes).expect("failed to read from the OS random number generator");
+}
+
 #[inline]
 pub fn random_byte_array(length: usize) -> Vec<u8> {
     let mut vec = vec![0u8; length];
-    rand::rng().fill_bytes(&mut vec[..]);
+    fill_random(&mut vec);
     vec
 }
 
@@ -93,14 +106,39 @@ fn get_random_bytes(ctx: Ctx, length: usize) -> Result<Value> {
     Buffer(random_bytes).into_js(&ctx)
 }
 
-fn get_random_int(first: i64, second: Opt<i64>) -> Result<i64> {
-    let mut rng = rand::rng();
-    let random_number = match second.0 {
-        Some(max) => rng.gen_range(first..max),
-        None => rng.gen_range(0..first),
+fn random_below(bound: u64) -> u64 {
+    debug_assert!(bound > 0);
+
+    // Rejection sampling keeps the result uniform instead of favouring the low
+    // values the way `value % bound` alone would.
+    let zone = u64::MAX - (u64::MAX % bound);
+    loop {
+        let mut bytes = [0u8; 8];
+        fill_random(&mut bytes);
+        let value = u64::from_le_bytes(bytes);
+        if value < zone {
+            return value % bound;
+        }
+    }
+}
+
+fn get_random_int(ctx: Ctx<'_>, first: i64, second: Opt<i64>) -> Result<i64> {
+    let (min, max) = match second.0 {
+        Some(max) => (first, max),
+        None => (0, first),
     };
 
-    Ok(random_number)
+    if min >= max {
+        return Err(Exception::throw_range(
+            &ctx,
+            "The value of \"min\" must be less than \"max\"",
+        ));
+    }
+
+    let bound = (max as i128 - min as i128) as u64;
+    let value = random_below(bound);
+
+    Ok((min as i128 + value as i128) as i64)
 }
 
 fn random_fill<'js>(ctx: Ctx<'js>, obj: Object<'js>, args: Rest<Value<'js>>) -> Result<()> {
@@ -173,7 +211,7 @@ fn random_fill_sync<'js>(
             slice::from_raw_parts_mut(raw.cast::<u8>().as_ptr().add(source_offset), source_length)
         };
 
-        rand::rng().fill_bytes(&mut bytes[start..end]);
+        fill_random(&mut bytes[start..end]);
     }
 
     Ok(obj)
@@ -216,7 +254,7 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
             )
         };
 
-        rand::rng().fill_bytes(bytes)
+        fill_random(bytes)
     }
 
     Ok(obj)
@@ -224,7 +262,7 @@ fn get_random_values<'js>(ctx: Ctx<'js>, obj: Object<'js>) -> Result<Object<'js>
 
 fn uuidv4() -> String {
     let mut bytes = [0u8; 16];
-    rand::rng().fill_bytes(&mut bytes);
+    fill_random(&mut bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
@@ -394,6 +432,37 @@ impl From<CryptoModule> for ModuleInfo<CryptoModule> {
         ModuleInfo {
             name: "crypto",
             module: val,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uuid_v4_has_valid_version_and_variant() {
+        for _ in 0..1000 {
+            let uuid = uuidv4();
+            let bytes = uuid.as_bytes();
+
+            assert_eq!(bytes.len(), 36);
+            assert!(bytes.iter().all(|b| b.is_ascii_hexdigit() || *b == b'-'));
+            assert_eq!(&uuid[8..9], "-");
+            assert_eq!(&uuid[13..14], "-");
+            assert_eq!(&uuid[18..19], "-");
+            assert_eq!(&uuid[23..24], "-");
+            assert_eq!(&uuid[14..15], "4");
+            assert!(matches!(&uuid[19..20], "8" | "9" | "a" | "b"));
+        }
+    }
+
+    #[test]
+    fn random_below_stays_within_bound() {
+        for bound in [1u64, 2, 3, 10, 1 << 32, u64::MAX] {
+            for _ in 0..1000 {
+                assert!(random_below(bound) < bound);
+            }
         }
     }
 }
