@@ -12,6 +12,6 @@ name = "llrt_temporal"
 path = "src/lib.rs"
 
 [dependencies]
-jiff = { version = "0.2" }
+jiff = { version = "1.0" }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
 rquickjs = { version = "0.14", features = ["macro"], default-features = false }
