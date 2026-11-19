@@ -261,18 +261,18 @@ dependencies = [
 
 [[package]]
 name = "brotlic"
-version = "0.8.2"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f552f56f302af0006c32b50bfa2bdb4696fd6ba33c3ab9f6225fefdb1efdc680"
+checksum = "2191d58e061de06588bbed469453b84b6f732c1040a4ea76ae0551ea1c203958"
 dependencies = [
  "brotlic-sys",
 ]
 
 [[package]]
 name = "brotlic-sys"
-version = "0.2.2"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afdec5c62bc97b56349053cf66ba503af5c2448591be61c3ad70a5f11b57e574"
+checksum = "44564126338ef14526ee5eddb56795cde7fc432ced4f3cfc39f1ec4fe74929c8"
 dependencies = [
  "cc",
 ]
