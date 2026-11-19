@@ -64,6 +64,20 @@ describe("basename", () => {
     expect(basename("/")).toEqual("");
     expect(basename("")).toEqual("");
   });
+
+  it("should ignore every trailing separator", () => {
+    expect(basename("/foo/bar//")).toEqual("bar");
+    expect(basename("foo///")).toEqual("foo");
+  });
+
+  it("should only remove the suffix from the end of the name", () => {
+    expect(basename("/tmp/app.js.map", ".js")).toEqual("app.js.map");
+    expect(basename("/tmp/file.txt", "file")).toEqual("file.txt");
+    expect(basename("/tmp/file.txt", "e.txt")).toEqual("fil");
+    expect(basename("/tmp/a.txt/", ".txt")).toEqual("a");
+    expect(basename("/tmp/.txt", ".txt")).toEqual(".txt");
+    expect(basename("aaa", "aaa")).toEqual("");
+  });
 });
 
 describe("dirname", () => {
@@ -100,6 +114,19 @@ describe("extname", () => {
     expect(extname("baz")).toEqual("");
     expect(extname(".baz")).toEqual("");
     expect(extname("")).toEqual("");
+  });
+
+  it("should find the extension of a name that starts with a dot", () => {
+    expect(extname(".eslintrc.json")).toEqual(".json");
+    expect(extname("/home/user/.config.js")).toEqual(".js");
+    expect(extname("..txt")).toEqual(".txt");
+    expect(extname("...")).toEqual(".");
+    expect(extname("..")).toEqual("");
+    expect(extname(".")).toEqual("");
+  });
+
+  it("should ignore every trailing separator", () => {
+    expect(extname("/foo/bar.txt//")).toEqual(".txt");
   });
 });
 
@@ -169,6 +196,18 @@ describe("parse", () => {
     expect(parse(pathStr2)).toStrictEqual(pathObj2);
     expect(parse(pathStr3)).toStrictEqual(pathObj3);
     expect(parse(pathStr4)).toStrictEqual(pathObj4);
+  });
+
+  it("should split a name that starts with a dot", () => {
+    expect(
+      parse(normalizeSeparator("/home/user/.eslintrc.json"))
+    ).toStrictEqual({
+      root: path.sep,
+      dir: normalizeSeparator("/home/user"),
+      base: ".eslintrc.json",
+      ext: ".json",
+      name: ".eslintrc",
+    });
   });
 });
 
