@@ -13,15 +13,12 @@ path = "src/lib.rs"
 
 [dependencies]
 either = { version = "1", default-features = false }
+getrandom = { version = "0.4", features = ["std"], default-features = false }
 llrt_buffer = { version = "0.10.0-beta", path = "../llrt_buffer" }
 llrt_encoding = { version = "0.10.0-beta", path = "../../libs/llrt_encoding" }
 llrt_path = { version = "0.10.0-beta", path = "../llrt_path" }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", features = [
   "fs",
-], default-features = false }
-rand = { version = "0.10", features = [
-  "alloc",
-  "thread_rng",
 ], default-features = false }
 rquickjs = { version = "0.14", features = ["either"], default-features = false }
 tokio = { version = "1", features = [

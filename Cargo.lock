@@ -1976,6 +1976,7 @@ version = "0.10.0-beta"
 dependencies = [
  "bytes",
  "either",
+ "getrandom 0.4.2",
  "http-body",
  "http-body-util",
  "hyper",
@@ -1997,7 +1998,6 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rand",
  "rquickjs",
  "sha2",
  "simdutf8",
@@ -2012,13 +2012,13 @@ name = "llrt_fs"
 version = "0.10.0-beta"
 dependencies = [
  "either",
+ "getrandom 0.4.2",
  "junction",
  "llrt_buffer",
  "llrt_encoding",
  "llrt_path",
  "llrt_test",
  "llrt_utils",
- "rand",
  "rquickjs",
  "tokio",
 ]

@@ -8,7 +8,6 @@ use llrt_utils::{
     class::{iterator_result, live_iterator, CustomInspect, IterKind},
     result::ResultExt,
 };
-use rand::RngExt;
 use rquickjs::{
     atom::PredefinedAtom,
     class::{Trace, Tracer},
@@ -297,7 +296,7 @@ impl<'js> FormData<'js> {
     }
 
     pub fn to_multipart_bytes(&self, ctx: &Ctx<'js>) -> Result<(Vec<u8>, String)> {
-        let boundary = generate_boundary();
+        let boundary = generate_boundary(ctx)?;
         let mut body = Vec::new();
         let entries = self.entries.borrow();
         if entries.is_empty() {
@@ -431,14 +430,17 @@ fn extract_boundary(content_type: &str) -> Option<String> {
     })
 }
 
-fn generate_boundary() -> String {
-    let rand_string: String = rand::rng()
-        .sample_iter(&rand::distr::Alphanumeric)
-        .take(24)
-        .map(char::from)
+const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+fn generate_boundary(ctx: &Ctx) -> Result<String> {
+    let mut bytes = [0u8; 24];
+    getrandom::fill(&mut bytes).or_throw(ctx)?;
+    let suffix: String = bytes
+        .iter()
+        .map(|&byte| CHARS[(byte as usize) % CHARS.len()] as char)
         .collect();
 
-    ["----WebKitFormBoundary", &rand_string].concat()
+    Ok(["----WebKitFormBoundary", &suffix].concat())
 }
 
 fn starts_with_ignore_case(haystack: &str, needle: &str) -> bool {
@@ -461,6 +463,8 @@ impl<'js> CustomInspect<'js> for FormData<'js> {
 mod tests {
     use llrt_test::test_async_with;
     use rquickjs::CatchResultExt;
+
+    use super::*;
 
     async fn assert_eval(src: &'static str, expected: &'static str) {
         test_async_with(|ctx| {
@@ -568,6 +572,21 @@ mod tests {
         "#,
             "foo,baz,BAR,quux,X-yZ",
         )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_multipart_boundary_format() {
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                let boundary = generate_boundary(&ctx).unwrap();
+                let suffix = boundary
+                    .strip_prefix("----WebKitFormBoundary")
+                    .expect("boundary prefix");
+                assert_eq!(suffix.len(), 24);
+                assert!(suffix.bytes().all(|b| b.is_ascii_alphanumeric()));
+            })
+        })
         .await;
     }
 }

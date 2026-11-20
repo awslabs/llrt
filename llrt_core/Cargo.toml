@@ -55,10 +55,6 @@ llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
 phf = { version = "0.14", default-features = false }
 quick-xml = { version = "0.42", default-features = false }
-rand = { version = "0.10", features = [
-  "alloc",
-  "thread_rng",
-], default-features = false }
 rquickjs = { version = "0.14", features = [
   "futures",
   "parallel",
@@ -89,6 +85,10 @@ walkdir = { version = "2", default-features = false }
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
 llrt_test = { path = "../libs/llrt_test" }
+rand = { version = "0.10", features = [
+  "alloc",
+  "thread_rng",
+], default-features = false }
 rquickjs = { version = "0.14", default-features = false }
 wiremock = { version = "0.6", default-features = false }
 
