@@ -23,15 +23,12 @@ ifeq ($(ARCH),aarch64)
 	ARCH = arm64
 endif
 
-# ELF release links fold duplicate functions with lld's --icf=all. zig's cc
-# driver validates linker arguments and rejects --icf, so the final link goes
-# through lld directly. Set LLRT_ICF=0 to keep zig's linker (needed on hosts
-# without lld); darwin and windows targets are unaffected either way.
+# zig's cc driver rejects --icf, so ELF releases link with lld directly.
+# LLRT_ICF=0 opts out; darwin and windows targets are unaffected.
 LLRT_ICF ?= 1
 LLRT_LLD ?=
 
-# macOS rust-lld needs a libLLVM.dylib that rustup does not ship; ld.lld from
-# LLVM/Homebrew is the usable lld there.
+# macOS rust-lld needs an unbundled libLLVM.dylib.
 _find_lld = $(shell \
 	for l in $(if $(LLRT_LLD),"$(LLRT_LLD)") ld.lld; do \
 		"$$l" --version >/dev/null 2>&1 && { echo "$$l"; exit 0; }; \
@@ -44,7 +41,6 @@ _find_lld = $(shell \
 	fi)
 LLD = $(if $(filter 1,$(LLRT_ICF)),$(eval LLD := $(_find_lld))$(LLD))
 
-# zig has no "unknown" vendor component in its target triples.
 linux_cargo = \
 	$(if $(LLD),LLRT_LLD='$(LLD)' LLRT_ZIG_TARGET=$(subst -unknown,,$(1)) LLRT_ZIG_SYSROOT='$(CURDIR)/target/$(1)/zig-sysroot' )\
 	cargo $(ZIGBUILD_ARG) --target $(1)\

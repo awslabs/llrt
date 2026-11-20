@@ -1,15 +1,13 @@
 #!/bin/bash
-# Link ELF release binaries with lld so --icf=all can fold duplicate functions.
-# zig's cc driver rejects --icf, and rustc's musl sysroot has no C++ runtime for
-# snmalloc. The Makefile sets LLRT_LLD, LLRT_ZIG_TARGET and LLRT_ZIG_SYSROOT.
+# Link with lld for --icf=all and borrow zig's C++ runtime for snmalloc.
+# Env: LLRT_LLD, LLRT_ZIG_TARGET, LLRT_ZIG_SYSROOT (set by the Makefile).
 set -euo pipefail
 
 sysroot=$LLRT_ZIG_SYSROOT
 mkdir -p "$sysroot"
 
-# Ask zig which runtime archives it would link. Their content-addressed paths
-# change with the zig version and cache contents, so hashing them plus the
-# version gives a marker that invalidates itself when the runtime changes.
+# zig's archive paths are content-addressed; hashing them plus the version
+# invalidates the marker when zig changes.
 printf 'int main(void) { return 0; }\n' >"$sysroot/probe.cc"
 link_line=$(zig c++ -target "$LLRT_ZIG_TARGET" -static -v \
 	-o "$sysroot/probe" "$sysroot/probe.cc" 2>&1 | grep '^ld\.lld ' | tail -1)
@@ -30,9 +28,7 @@ ready="$sysroot/.ready-$signature"
 if [ ! -f "$ready" ]; then
 	rm -f "$sysroot"/.ready-*
 
-	# zig keeps the C++ runtime in content-addressed cache dirs. Expose them
-	# under the library names rustc asks for (-lstdc++, -latomic, ...) so lld
-	# can resolve them from a single -L path.
+	# Expose zig's archives under the -l names rustc asks for.
 	for dir in $(echo "$link_line" | tr ' ' '\n' | grep -E '^/.*\.a$' | sed 's|/[^/]*$||' | sort -u); do
 		for lib in "$dir"/*.a; do
 			ln -sf "$lib" "$sysroot/$(basename "$lib")"
@@ -67,6 +63,6 @@ for arg in "$@"; do
 	esac
 done
 
-# -L goes last so rustc's self-contained musl libc still wins for -lc.
+# -L last so rustc's libc wins for -lc.
 args+=(-L"$sysroot" -lc++abi)
 exec "$LLRT_LLD" "${args[@]}"
