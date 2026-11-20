@@ -11,34 +11,44 @@ ZIGBUILD_ARG = $(TOOLCHAIN) zigbuild -r
 ZIGBUILD_RUN = RUSTUP_TOOLCHAIN=$(RUST_VERSION) cargo-zigbuild run -r
 ZIGBUILD_TEST = RUSTUP_TOOLCHAIN=$(RUST_VERSION) cargo-zigbuild test
 
+ifeq ($(OS),Windows_NT)
+	DETECTED_OS := windows
+	ARCH = x86_64
+else
+	DETECTED_OS := $(shell uname | tr A-Z a-z)
+	ARCH = $(shell uname -m)
+endif
+
+ifeq ($(ARCH),aarch64)
+	ARCH = arm64
+endif
+
 # ELF release links fold duplicate functions with lld's --icf=all. zig's cc
 # driver validates linker arguments and rejects --icf, so the final link goes
 # through lld directly. Set LLRT_ICF=0 to keep zig's linker (needed on hosts
 # without lld); darwin and windows targets are unaffected either way.
 LLRT_ICF ?= 1
 LLRT_LLD ?=
-RUST_HOST := $(shell rustc $(TOOLCHAIN) -vV | sed -n 's/^host: //p')
-RUST_SYSROOT := $(shell rustc $(TOOLCHAIN) --print sysroot)
+
 # macOS rust-lld needs a libLLVM.dylib that rustup does not ship; ld.lld from
 # LLVM/Homebrew is the usable lld there.
-LLD_CANDIDATES = $(LLRT_LLD) ld.lld $(if $(filter Darwin,$(shell uname)),,$(RUST_SYSROOT)/lib/rustlib/$(RUST_HOST)/bin/rust-lld)
-LLD := $(firstword $(foreach l,$(LLD_CANDIDATES),$(if $(shell $(l) --version >/dev/null 2>&1 && echo ok),$(l),)))
-USE_ICF = $(and $(filter 1,$(LLRT_ICF)),$(LLD))
+_find_lld = $(shell \
+	for l in $(if $(LLRT_LLD),"$(LLRT_LLD)") ld.lld; do \
+		"$$l" --version >/dev/null 2>&1 && { echo "$$l"; exit 0; }; \
+	done; \
+	if [ "$(DETECTED_OS)" != "darwin" ]; then \
+		host=$$(rustc $(TOOLCHAIN) -vV 2>/dev/null | sed -n 's/^host: //p'); \
+		sysroot=$$(rustc $(TOOLCHAIN) --print sysroot 2>/dev/null); \
+		lld="$$sysroot/lib/rustlib/$$host/bin/rust-lld"; \
+		"$$lld" --version >/dev/null 2>&1 && echo "$$lld"; \
+	fi)
+LLD = $(if $(filter 1,$(LLRT_ICF)),$(eval LLD := $(_find_lld))$(LLD))
 
 # zig has no "unknown" vendor component in its target triples.
-zig_target = $(subst -unknown,,$(1))
-
-define linux_ld_env
-LLRT_LLD=$(LLD) LLRT_ZIG_TARGET=$(call zig_target,$(1)) LLRT_ZIG_SYSROOT='$(CURDIR)/target/$(1)/zig-sysroot'
-endef
-
-define linux_ld_config
---config 'target.$(1).linker="$(CURDIR)/scripts/lld-link.sh"'
-endef
-
-define linux_cargo
-$(if $(USE_ICF),$(call linux_ld_env,$(1)) )cargo $$(ZIGBUILD_ARG)$(if $(USE_ICF), $(call linux_ld_config,$(1)))
-endef
+linux_cargo = \
+	$(if $(LLD),LLRT_LLD='$(LLD)' LLRT_ZIG_TARGET=$(subst -unknown,,$(1)) LLRT_ZIG_SYSROOT='$(CURDIR)/target/$(1)/zig-sysroot' )\
+	cargo $(ZIGBUILD_ARG) --target $(1)\
+	$(if $(LLD), --config 'target.$(1).linker="$(CURDIR)/scripts/lld-link.sh"')
 
 BUILD_DIR = ./target/release
 BUNDLE_DIR = bundle
@@ -52,18 +62,6 @@ RELEASE_ARCH_NAME_arm64 = arm64
 LAMBDA_PREFIX = llrt-lambda
 RELEASE_TARGETS = arm64 x64
 RELEASE_ZIPS = $(addprefix $(LAMBDA_PREFIX)-,$(RELEASE_TARGETS))
-
-ifeq ($(OS),Windows_NT)
-	DETECTED_OS := windows
-	ARCH = x86_64
-else
-	DETECTED_OS := $(shell uname | tr A-Z a-z)
-	ARCH = $(shell uname -m)
-endif
-
-ifeq ($(ARCH),aarch64)
-	ARCH = arm64
-endif
 
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0 AR="zig ar"
@@ -105,19 +103,19 @@ release-aws-${1}${2}: | llrt-lambda-${1}${2}.zip llrt-container-${1}${2} llrt-li
 
 llrt-lambda-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-lambda-${1}${2}.zip: | clean-js js
-	$(call linux_cargo,$(TARGET_linux_$(RELEASE_ARCH_NAME_${1}))) --target $(TARGET_linux_$(RELEASE_ARCH_NAME_${1})) --features lambda
+	$$(call linux_cargo,$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-container-${1}${2}: export SDK_BUNDLE_MODE = ${3}
 llrt-container-${1}${2}: | clean-js js
-	$(call linux_cargo,$(TARGET_linux_$(RELEASE_ARCH_NAME_${1}))) --target $(TARGET_linux_$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
+	$$(call linux_cargo,$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))) --features lambda,uncompressed
 	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt $$@
 
 llrt-linux-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-linux-${1}${2}.zip: | clean-js js
-	$(call linux_cargo,$(TARGET_linux_$(RELEASE_ARCH_NAME_${1}))) --target $(TARGET_linux_$(RELEASE_ARCH_NAME_${1}))
+	$$(call linux_cargo,$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})))
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 
