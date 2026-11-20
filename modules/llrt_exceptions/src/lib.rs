@@ -20,6 +20,10 @@ use rquickjs::{
     qjs, Class, Coerced, Ctx, Error, Exception, FromJs, IntoJs, JsLifetime, Object, Result, Value,
 };
 
+mod invalid_arg_type;
+
+pub use invalid_arg_type::throw_invalid_arg_type;
+
 #[derive(JsLifetime)]
 struct ExceptionPrimordials<'js> {
     constructor_dom_exception: Constructor<'js>,

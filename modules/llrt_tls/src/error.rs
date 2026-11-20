@@ -3,9 +3,6 @@
 use std::borrow::Cow;
 use std::fmt;
 
-/// An error that Node.js reports with OpenSSL's details. `https.Agent`
-/// throws it as is: `message`, plus `code`, `library`, `reason` and
-/// `opensslErrorStack` when they are set.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TlsError {
     pub message: Cow<'static, str>,

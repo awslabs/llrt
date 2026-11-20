@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::ffi::c_int;
 use std::fmt;
 
+use hex_simd::AsciiCase;
 use openssl::error::{Error, ErrorStack};
 use openssl::pkey::{PKey, Private};
 
@@ -18,7 +19,6 @@ const INTERRUPTED_OR_CANCELLED: TlsError = TlsError {
     openssl_error_stack: Vec::new(),
 };
 
-/// An unencrypted key that OpenSSL can't parse, shown with OpenSSL's errors.
 #[derive(Debug)]
 struct InvalidKey(ErrorStack);
 
@@ -31,13 +31,11 @@ impl fmt::Display for InvalidKey {
 
 impl std::error::Error for InvalidKey {}
 
-/// Loads a PEM private key as Node.js does. OpenSSL gets the passphrase
-/// through a callback that copies every byte, an absent passphrase is empty,
-/// and one longer than OpenSSL's buffer fails.
 pub(crate) fn load_private_key(
     pem: &[u8],
     passphrase: Option<&[u8]>,
 ) -> Result<PKey<Private>, Box<dyn std::error::Error + Send + Sync>> {
+    // An empty passphrase stops OpenSSL from prompting on the terminal.
     let passphrase = passphrase.unwrap_or_default();
     let mut too_long = false;
     let key =
@@ -64,9 +62,7 @@ pub(crate) fn load_private_key(
     })
 }
 
-/// Node.js's `ThrowCryptoError`: the earliest error gives `message`,
-/// `library`, `reason` and `code`, and the others, newest first, give
-/// `opensslErrorStack`.
+/// Node.js's `ThrowCryptoError`.
 fn node_error(stack: &ErrorStack) -> Option<TlsError> {
     let (first, rest) = stack.errors().split_first()?;
     let reason = first.reason();
@@ -79,8 +75,6 @@ fn node_error(stack: &ErrorStack) -> Option<TlsError> {
     })
 }
 
-/// Node.js's error code: `ERR_`, then `OSSL_` unless the library is SSL, the
-/// library's prefix, and the reason in upper case with `_` for spaces.
 fn node_code(library: c_int, reason: &str) -> String {
     let library = node_library_prefix(library);
     let ossl = if library == "SSL_" { "" } else { "OSSL_" };
@@ -95,17 +89,19 @@ fn node_code(library: c_int, reason: &str) -> String {
     code
 }
 
-/// OpenSSL's `ERR_error_string_n`: `error:<code>:<library>::<reason>`.
+/// OpenSSL's `ERR_error_string_n`.
 fn error_string(e: &Error) -> String {
     let mut s = String::with_capacity(64);
     s.push_str("error:");
-    push_number(&mut s, e.code(), 16, 8);
+    // `%08lX` of a code that fits in 32 bits
+    let code = e.code().to_be_bytes();
+    hex_simd::encode_append(&code[code.len() - 4..], &mut s, AsciiCase::Upper);
     s.push(':');
     match e.library() {
         Some(library) => s.push_str(library),
         None => {
             s.push_str("lib(");
-            push_number(&mut s, e.library_code() as u32, 10, 1);
+            s.push_str(itoa::Buffer::new().format(e.library_code()));
             s.push(')');
         },
     }
@@ -114,28 +110,14 @@ fn error_string(e: &Error) -> String {
         Some(reason) => s.push_str(reason),
         None => {
             s.push_str("reason(");
-            push_number(&mut s, e.reason_code() as u32, 10, 1);
+            s.push_str(itoa::Buffer::new().format(e.reason_code()));
             s.push(')');
         },
     }
     s
 }
 
-/// Appends `n` in base `radix` (up to 16), in upper case and zero-padded to
-/// at least `width` digits.
-fn push_number(s: &mut String, n: impl Into<u64>, radix: u64, width: usize) {
-    let mut n = n.into();
-    let mut digits = [0u8; 64];
-    let mut start = digits.len();
-    while n > 0 || digits.len() - start < width {
-        start -= 1;
-        digits[start] = b"0123456789ABCDEF"[(n % radix) as usize];
-        n /= radix;
-    }
-    s.extend(digits[start..].iter().map(|&d| char::from(d)));
-}
-
-/// The libraries that Node.js names in error codes (`OSSL_ERROR_CODES_MAP`).
+/// Node.js's `OSSL_ERROR_CODES_MAP`.
 fn node_library_prefix(library: c_int) -> &'static str {
     match library {
         2 => "SYS_",
@@ -321,22 +303,6 @@ mod tests {
                 "unsupported prf",
             ]
         );
-    }
-
-    #[test]
-    fn push_number_pads_like_printf() {
-        for (n, radix, width, expected) in [
-            (0x1C80_0064, 16, 8, "1C800064"),
-            (0x6B, 16, 8, "0000006B"),
-            (0, 16, 8, "00000000"),
-            (u64::MAX, 16, 8, "FFFFFFFFFFFFFFFF"),
-            (0, 10, 1, "0"),
-            (128, 10, 1, "128"),
-        ] {
-            let mut s = String::from("x");
-            push_number(&mut s, n, radix, width);
-            assert_eq!(s, ["x", expected].concat());
-        }
     }
 
     #[test]
