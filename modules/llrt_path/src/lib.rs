@@ -200,28 +200,25 @@ fn find_dirname_end(bytes: &[u8], offset: usize) -> Option<usize> {
 }
 
 pub fn name_extname(path: &str) -> (&str, &str) {
-    let path = strip_last_sep(path);
+    let path = strip_trailing_seps(path);
     let sep_pos = find_last_sep(path);
 
     let path = match sep_pos {
         Some(idx) => &path[idx + 1..],
         None => path,
     };
-    if path.starts_with('.') {
-        return (path, "");
-    }
+    // A leading dot doesn't start an extension (".bashrc"), and ".." has none
     match path.rfind('.') {
-        Some(idx) => path.split_at(idx),
-        None => (path, ""),
+        Some(idx) if idx > 0 && path != ".." => path.split_at(idx),
+        _ => (path, ""),
     }
 }
 
-fn strip_last_sep(path: &str) -> &str {
-    if ends_with_sep(path) {
-        &path[..path.len() - 1]
-    } else {
-        path
+fn strip_trailing_seps(mut path: &str) -> &str {
+    while ends_with_sep(path) {
+        path = &path[..path.len() - 1];
     }
+    path
 }
 
 pub fn basename(path: String, suffix: Opt<String>) -> String {
@@ -241,9 +238,12 @@ pub fn basename(path: String, suffix: Opt<String>) -> String {
     let (base, ext) = name_extname(&path);
     let mut name = [base, ext].concat();
     if let Some(suffix) = suffix.0 {
-        if let Some(location) = name.rfind(&suffix) {
-            name.truncate(location);
-            return name;
+        if path == suffix {
+            return String::new();
+        }
+        // Only remove the suffix from the end, and never the whole name
+        if name.len() > suffix.len() && name.ends_with(&suffix) {
+            name.truncate(name.len() - suffix.len());
         }
     }
     name
@@ -733,6 +733,22 @@ mod tests {
         );
         assert_eq!(basename("".to_string(), Opt(None)), "");
         assert_eq!(basename("/".to_string(), Opt(None)), "");
+        assert_eq!(basename("/usr/local//".to_string(), Opt(None)), "local");
+        assert_eq!(basename("dir///".to_string(), Opt(None)), "dir");
+    }
+
+    #[test]
+    fn test_basename_suffix() {
+        let with_suffix =
+            |path: &str, suffix: &str| basename(path.to_string(), Opt(Some(suffix.to_string())));
+        // The suffix is only removed from the end of the name
+        assert_eq!(with_suffix("/tmp/app.js.map", ".js"), "app.js.map");
+        assert_eq!(with_suffix("/tmp/file.txt", "file"), "file.txt");
+        assert_eq!(with_suffix("/tmp/file.txt", "e.txt"), "fil");
+        assert_eq!(with_suffix("/tmp/a.txt/", ".txt"), "a");
+        // A name equal to the suffix is kept, unless the whole path is the suffix
+        assert_eq!(with_suffix("/tmp/.txt", ".txt"), ".txt");
+        assert_eq!(with_suffix("aaa", "aaa"), "");
     }
 
     #[test]
@@ -742,6 +758,13 @@ mod tests {
         assert_eq!(extname("file.tar.gz".to_string()), ".gz");
         assert_eq!(extname(".bashrc".to_string()), "");
         assert_eq!(extname("".to_string()), "");
+        assert_eq!(extname(".eslintrc.json".to_string()), ".json");
+        assert_eq!(extname("/home/user/.config.js".to_string()), ".js");
+        assert_eq!(extname("..txt".to_string()), ".txt");
+        assert_eq!(extname("...".to_string()), ".");
+        assert_eq!(extname("..".to_string()), "");
+        assert_eq!(extname(".".to_string()), "");
+        assert_eq!(extname("file.txt//".to_string()), ".txt");
     }
 
     #[test]
