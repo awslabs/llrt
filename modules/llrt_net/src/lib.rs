@@ -12,12 +12,9 @@ use rquickjs::{
     prelude::{Func, This},
     Class, Ctx, IntoJs, Result,
 };
+use tokio::net::{TcpListener, TcpStream};
 #[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::oneshot::Receiver,
-};
 
 mod server;
 mod socket;
@@ -55,23 +52,13 @@ enum NetStream {
 }
 
 impl NetStream {
-    async fn process<'js>(
-        self,
-        socket: &Class<'js, Socket<'js>>,
-        ctx: &Ctx<'js>,
-        allow_half_open: bool,
-    ) -> Result<bool> {
-        let (readable_done, writable_done) = match self {
-            NetStream::Tcp((stream, _)) => {
-                Socket::process_tcp_stream(socket, ctx, stream, allow_half_open)
-            },
+    async fn process<'js>(self, socket: &Class<'js, Socket<'js>>, ctx: &Ctx<'js>) -> Result<bool> {
+        let writable_done = match self {
+            NetStream::Tcp((stream, _)) => Socket::process_tcp_stream(socket, ctx, stream),
             #[cfg(unix)]
-            NetStream::Unix((stream, _)) => {
-                Socket::process_unix_stream(socket, ctx, stream, allow_half_open)
-            },
+            NetStream::Unix((stream, _)) => Socket::process_unix_stream(socket, ctx, stream),
         }?;
-        let had_error = rw_join(ctx, readable_done, writable_done).await?;
-        Ok(had_error)
+        Socket::rw_join(socket, ctx, writable_done).await
     }
 }
 
@@ -109,17 +96,6 @@ fn get_address_parts(
         addr.port(),
         String::from(if addr.is_ipv4() { "IPv4" } else { "IPv6" }),
     ))
-}
-
-async fn rw_join(
-    ctx: &Ctx<'_>,
-    readable_done: Receiver<bool>,
-    writable_done: Receiver<bool>,
-) -> Result<bool> {
-    let (readable_res, writable_res) = tokio::join!(readable_done, writable_done);
-    let had_error = readable_res.or_throw_msg(ctx, "Readable sender dropped")?
-        || writable_res.or_throw_msg(ctx, "Writable sender dropped")?;
-    Ok(had_error)
 }
 
 pub struct NetModule;

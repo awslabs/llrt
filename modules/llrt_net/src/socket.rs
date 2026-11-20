@@ -28,7 +28,7 @@ use tokio::{
 };
 use tracing::trace;
 
-use super::{get_address_parts, rw_join, ReadyState, LOCALHOST};
+use super::{get_address_parts, server::Server, ReadyState, LOCALHOST};
 
 impl_stream_events!(Socket);
 
@@ -49,6 +49,14 @@ pub struct Socket<'js> {
     remote_port: Option<u16>,
     ready_state: ReadyState,
     allow_half_open: bool,
+    // 'close' needs both sides done. The writer finishes in its own task; the
+    // readable side finishes once 'end' is emitted, or on error or destroy.
+    // Whichever is last emits 'close'.
+    writable_done: Option<bool>,
+    readable_done: bool,
+    close_emitted: bool,
+    // The server that accepted this socket, and the socket's index in it.
+    server: Option<(Class<'js, Server<'js>>, usize)>,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
@@ -58,6 +66,10 @@ unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
 impl<'js> Trace<'js> for Socket<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
         self.emitter.trace(tracer);
+        self.readable_stream_inner.trace_state(tracer);
+        if let Some((server, _)) = &self.server {
+            server.trace(tracer);
+        }
     }
 }
 
@@ -66,7 +78,13 @@ impl<'js> Emitter<'js> for Socket<'js> {
         self.emitter.get_event_list()
     }
 
-    fn on_event_changed(&mut self, event: EventKey<'js>, added: bool) -> Result<()> {
+    fn on_event_changed(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        _this: &Object<'js>,
+        event: EventKey<'js>,
+        added: bool,
+    ) -> Result<()> {
         self.readable_stream_inner.on_event_changed(event, added)
     }
 }
@@ -197,12 +215,9 @@ impl<'js> Socket<'js> {
     ) -> Result<Class<'js, Self>> {
         let args = args.0;
 
-        let borrow = this.borrow();
-        let allow_half_open = borrow.allow_half_open;
-        if borrow.destroyed {
+        if this.borrow().destroyed {
             return Err(Exception::throw_message(&ctx, "Socket destroyed"));
         }
-        drop(borrow);
 
         let mut port = None;
         let mut host = String::from(LOCALHOST);
@@ -271,11 +286,11 @@ impl<'js> Socket<'js> {
                 return Ok(());
             }
             let connect = async move {
-                let (readable_done, writable_done) = if let Some(path) = path {
+                let writable_done = if let Some(path) = path {
                     #[cfg(unix)]
                     {
                         let stream = UnixStream::connect(path).await.or_throw(&ctx3)?;
-                        Self::process_unix_stream(&this2, &ctx3, stream, allow_half_open)
+                        Self::process_unix_stream(&this2, &ctx3, stream)
                     }
                     #[cfg(not(unix))]
                     {
@@ -289,16 +304,16 @@ impl<'js> Socket<'js> {
                     let stream = TcpStream::connect((host.as_str(), port))
                         .await
                         .or_throw(&ctx3)?;
-                    Self::process_tcp_stream(&this2, &ctx3, stream, allow_half_open)
+                    Self::process_tcp_stream(&this2, &ctx3, stream)
                 } else {
                     unreachable!()
                 }?;
 
                 Socket::emit_str(this2.clone(), &ctx3, "connect", vec![], false)?;
 
-                let had_error = rw_join(&ctx3, readable_done, writable_done).await?;
+                let had_error = Self::rw_join(&this2, &ctx3, writable_done).await?;
 
-                Socket::emit_close(this2, &ctx3, had_error)?;
+                Socket::writable_finished(this2, &ctx3, had_error)?;
 
                 Ok::<_, Error>(())
             }
@@ -317,6 +332,8 @@ impl<'js> Socket<'js> {
         let emitter = EventEmitter::new();
 
         let readable_stream_inner = ReadableStreamInner::new(emitter.clone(), false);
+        readable_stream_inner
+            .set_finish_hook(Self::readable_finished, Value::new_undefined(ctx.clone()));
         let writable_stream_inner = WritableStreamInner::new(emitter.clone(), false);
 
         let instance = Class::instance(
@@ -336,27 +353,68 @@ impl<'js> Socket<'js> {
                 readable_stream_inner,
                 writable_stream_inner,
                 allow_half_open,
+                writable_done: None,
+                readable_done: false,
+                close_emitted: false,
+                server: None,
             },
         )?;
         Ok(instance)
+    }
+
+    /// Records the server that accepted this socket, so that it can count
+    /// the socket as closed once both sides are done.
+    pub fn set_server(&mut self, server: Class<'js, Server<'js>>, index: usize) {
+        self.server = Some((server, index));
+    }
+
+    /// The write loop has finished.
+    pub fn writable_finished(
+        this: Class<'js, Self>,
+        ctx: &Ctx<'js>,
+        had_error: bool,
+    ) -> Result<()> {
+        this.borrow_mut().writable_done = Some(had_error);
+        Self::maybe_close(this, ctx)
+    }
+
+    /// The readable side has finished (see `FinishFn`).
+    fn readable_finished(ctx: &Ctx<'js>, this: &Object<'js>, _owner: &Value<'js>) -> Result<()> {
+        let this = Class::<Self>::from_object(this).or_throw(ctx)?;
+        this.borrow_mut().readable_done = true;
+        Self::maybe_close(this, ctx)
+    }
+
+    fn maybe_close(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
+        let mut borrow = this.borrow_mut();
+        let Some(writable_had_error) = borrow.writable_done else {
+            return Ok(());
+        };
+        if !borrow.readable_done || borrow.close_emitted {
+            return Ok(());
+        }
+        borrow.close_emitted = true;
+        let had_error = writable_had_error || borrow.readable_stream_inner.is_errored();
+        let server = borrow.server.clone();
+        drop(borrow);
+
+        // As in Node's Socket._destroy, the server drops the connection, and
+        // may emit its own 'close', before the socket emits 'close'.
+        if let Some((server, index)) = server {
+            Server::socket_closed(server, ctx, index)?;
+        }
+        Self::emit_close(this, ctx, had_error)
     }
 
     pub fn process_tcp_stream(
         this: &Class<'js, Self>,
         ctx: &Ctx<'js>,
         stream: TcpStream,
-        allow_half_open: bool,
-    ) -> Result<(Receiver<bool>, Receiver<bool>)> {
+    ) -> Result<Receiver<bool>> {
         Self::set_addresses(this, ctx, &stream)?;
 
         let (reader, writer) = stream.into_split();
-        Self::process_stream(
-            this,
-            ctx,
-            Box::pin(reader),
-            Box::pin(writer),
-            allow_half_open,
-        )
+        Self::process_stream(this, ctx, Box::pin(reader), Box::pin(writer))
     }
 
     #[cfg(unix)]
@@ -364,34 +422,21 @@ impl<'js> Socket<'js> {
         this: &Class<'js, Self>,
         ctx: &Ctx<'js>,
         stream: UnixStream,
-        allow_half_open: bool,
-    ) -> Result<(Receiver<bool>, Receiver<bool>)> {
+    ) -> Result<Receiver<bool>> {
         let (reader, writer) = stream.into_split();
-        Self::process_stream(
-            this,
-            ctx,
-            Box::pin(reader),
-            Box::pin(writer),
-            allow_half_open,
-        )
+        Self::process_stream(this, ctx, Box::pin(reader), Box::pin(writer))
     }
 
     // Takes boxed halves so that TCP and Unix sockets share one copy of the
-    // read and write loops.
+    // read and write loops. Returns the write loop's receiver; the readable
+    // side reports through `readable_finished`.
     fn process_stream(
         this: &Class<'js, Self>,
         ctx: &Ctx<'js>,
         reader: Pin<Box<dyn AsyncRead + 'js>>,
         writer: Pin<Box<dyn AsyncWrite + 'js>>,
-        allow_half_open: bool,
-    ) -> Result<(Receiver<bool>, Receiver<bool>)> {
-        let this2 = this.clone();
-        let readable_done =
-            ReadableStream::process_callback(this.clone(), ctx, reader, move || {
-                if !allow_half_open {
-                    WritableStream::end(This(this2));
-                }
-            })?;
+    ) -> Result<Receiver<bool>> {
+        ReadableStream::process_callback(this.clone(), ctx, reader, Self::on_eof)?;
         let writable_done = WritableStream::process(this.clone(), ctx, writer)?;
 
         trace!("Connected to stream");
@@ -401,7 +446,28 @@ impl<'js> Socket<'js> {
         borrow.ready_state = ReadyState::Open;
         drop(borrow);
 
-        Ok((readable_done, writable_done))
+        Ok(writable_done)
+    }
+
+    /// Waits for the write loop to finish and for the read loop to stop. The
+    /// readable side reports its own end through `readable_finished`.
+    pub async fn rw_join(
+        this: &Class<'js, Self>,
+        ctx: &Ctx<'js>,
+        writable_done: Receiver<bool>,
+    ) -> Result<bool> {
+        let readable_idle = this.borrow().readable_stream_inner.idle();
+        let (writable_res, ()) = tokio::join!(writable_done, readable_idle);
+        writable_res.or_throw_msg(ctx, "Writable sender dropped")
+    }
+
+    /// At EOF, a socket that is not half-open ends its writable side.
+    fn on_eof(ctx: &Ctx<'js>, this: &Object<'js>) -> Result<()> {
+        let this = Class::<Self>::from_object(this).or_throw(ctx)?;
+        if !this.borrow().allow_half_open {
+            WritableStream::end(This(this));
+        }
+        Ok(())
     }
 
     pub fn set_addresses<'a>(

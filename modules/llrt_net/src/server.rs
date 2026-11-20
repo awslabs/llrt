@@ -9,7 +9,7 @@ use std::sync::{
 
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
-use llrt_stream::{impl_stream_events, SteamEvents};
+use llrt_stream::impl_stream_events;
 use llrt_utils::{object::ObjectExt, result::ResultExt, reuse_list::ReuseList};
 #[cfg(unix)]
 use rquickjs::IntoJs;
@@ -23,10 +23,7 @@ use tokio::net::UnixListener;
 use tokio::{
     net::TcpListener,
     select,
-    sync::{
-        broadcast::{self, Sender},
-        Notify,
-    },
+    sync::broadcast::{self, Sender},
 };
 use tracing::trace;
 
@@ -43,6 +40,10 @@ pub struct Server<'js> {
     already_listen: Arc<AtomicBool>,
     sockets: ReuseList<Class<'js, Socket<'js>>>,
     should_close: Arc<AtomicBool>,
+    // The server stopped listening while connections were open: the last one
+    // to close emits 'close'. A connection whose data is never read never
+    // closes, so nothing waits for it, as in Node.
+    close_when_drained: bool,
 }
 
 impl<'js> Trace<'js> for Server<'js> {
@@ -99,6 +100,7 @@ impl<'js> Server<'js> {
                 already_listen: Arc::new(AtomicBool::new(false)),
                 sockets: ReuseList::with_capacity(8),
                 should_close: Arc::new(AtomicBool::new(false)),
+                close_when_drained: false,
             },
         )?;
 
@@ -146,7 +148,6 @@ impl<'js> Server<'js> {
         let mut close_rx = borrow.close_tx.subscribe();
         let allow_half_open = borrow.allow_half_open;
         let already_running = borrow.already_listen.clone();
-        let should_close = borrow.should_close.clone();
         drop(borrow);
 
         if already_running.load(Ordering::Relaxed) {
@@ -229,9 +230,6 @@ impl<'js> Server<'js> {
 
             Self::emit_str(this.clone(), &ctx2, "listening", vec![], false)?;
 
-            let notify = Arc::new(Notify::new());
-            let close_notify = notify.notified();
-
             loop {
                 let ctx3 = ctx2.clone();
                 let this2 = this.clone();
@@ -242,7 +240,6 @@ impl<'js> Server<'js> {
                             this2.clone(),
                             ctx3.clone(),
                             socket,
-                            notify.clone(),
                             allow_half_open,
                         ).emit_error("handle_socket_connection",&ctx3, this2)?;
                     },
@@ -254,18 +251,12 @@ impl<'js> Server<'js> {
 
             if !this.borrow().sockets.is_empty() {
                 trace!("Waiting for sockets to finish");
-                close_notify.await;
-                trace!("Sockets finished");
-            } else {
-                trace!("No sockets to wait for, closing");
+                this.borrow_mut().close_when_drained = true;
+                return Ok(());
             }
 
-            already_running.store(false, Ordering::Relaxed);
-            should_close.store(false, Ordering::Relaxed);
-
-            Self::emit_str(this.0, &ctx2, "close", vec![], false)?;
-
-            Ok(())
+            trace!("No sockets to wait for, closing");
+            Self::emit_closed(this.0, &ctx2)
         })?;
 
         Ok(())
@@ -332,18 +323,16 @@ impl<'js> Server<'js> {
         this: Class<'js, Self>,
         ctx: Ctx<'js>,
         stream_result: Result<NetStream>,
-        notify_close: Arc<Notify>,
         allow_half_open: bool,
     ) -> Result<()> {
         let net_stream = stream_result.or_throw(&ctx)?;
 
         ctx.clone().spawn_exit(async move {
             let socket_instance = Socket::new(ctx.clone(), allow_half_open)?;
-            let socket_index;
-            {
-                let mut sever_borrow = this.borrow_mut();
-                socket_index = sever_borrow.sockets.append(socket_instance.clone());
-            }
+            let socket_index = this.borrow_mut().sockets.append(socket_instance.clone());
+            socket_instance
+                .borrow_mut()
+                .set_server(this.clone(), socket_index);
 
             let socket_instance2 = socket_instance.clone().into_value();
             Self::emit_str(
@@ -354,27 +343,34 @@ impl<'js> Server<'js> {
                 false,
             )?;
 
-            let had_error = net_stream
-                .process(&socket_instance, &ctx, allow_half_open)
-                .await?;
+            let had_error = net_stream.process(&socket_instance, &ctx).await?;
 
-            Socket::emit_close(socket_instance, &ctx, had_error)?;
-            {
-                let mut sever_borrow = this.borrow_mut();
-                sever_borrow.sockets.remove(socket_index);
-
-                if sever_borrow.sockets.is_empty()
-                    && sever_borrow.should_close.load(Ordering::Relaxed)
-                {
-                    trace!("Sockets empty, notify close");
-                    notify_close.notify_one();
-                }
-            }
-
-            Ok(())
+            Socket::writable_finished(socket_instance, &ctx, had_error)
         })?;
 
         Ok(())
+    }
+
+    /// A connection has closed: both of its sides are done. As in Node, this
+    /// runs before the socket emits 'close'.
+    pub fn socket_closed(this: Class<'js, Self>, ctx: &Ctx<'js>, index: usize) -> Result<()> {
+        let mut borrow = this.borrow_mut();
+        borrow.sockets.remove(index);
+        if borrow.sockets.is_empty() && borrow.close_when_drained {
+            trace!("Sockets finished");
+            drop(borrow);
+            return Self::emit_closed(this, ctx);
+        }
+        Ok(())
+    }
+
+    fn emit_closed(this: Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
+        let mut borrow = this.borrow_mut();
+        borrow.close_when_drained = false;
+        borrow.already_listen.store(false, Ordering::Relaxed);
+        borrow.should_close.store(false, Ordering::Relaxed);
+        drop(borrow);
+        Self::emit_str(this, ctx, "close", vec![], false)
     }
 }
 

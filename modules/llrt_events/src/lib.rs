@@ -165,7 +165,17 @@ where
 {
     fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>>;
 
-    fn on_event_changed(&mut self, _event: EventKey<'js>, _added: bool) -> Result<()> {
+    /// Called when the first listener for `event` is added, or when an emit
+    /// removes its last (`once`) listener. `ctx` and `this` (the emitter's own
+    /// object) let implementations schedule work; the event list is locked
+    /// during the call, so they must not emit from here.
+    fn on_event_changed(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        _this: &Object<'js>,
+        _event: EventKey<'js>,
+        _added: bool,
+    ) -> Result<()> {
         Ok(())
     }
 
@@ -368,7 +378,9 @@ where
         }
         if is_new {
             if let Some(class) = Class::<Self>::from_object(&this.0) {
-                class.borrow_mut().on_event_changed(key, true)?;
+                class
+                    .borrow_mut()
+                    .on_event_changed(&ctx, &this.0, key, true)?;
             }
         }
         Ok(this.0)
@@ -417,7 +429,9 @@ where
             if items.is_empty() {
                 events.remove(index);
                 if let Some(class) = Class::<Self>::from_object(&this.0) {
-                    class.borrow_mut().on_event_changed(key, false)?;
+                    class
+                        .borrow_mut()
+                        .on_event_changed(ctx, &this.0, key, false)?;
                 }
             }
             drop(events);
