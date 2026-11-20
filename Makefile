@@ -10,18 +10,6 @@ BUILD_ARG = $(TOOLCHAIN) build -r
 ZIGBUILD_ARG = $(TOOLCHAIN) zigbuild -r
 ZIGBUILD_RUN = RUSTUP_TOOLCHAIN=$(RUST_VERSION) cargo-zigbuild run -r
 ZIGBUILD_TEST = RUSTUP_TOOLCHAIN=$(RUST_VERSION) cargo-zigbuild test
-BUILD_DIR = ./target/release
-BUNDLE_DIR = bundle
-
-TS_SOURCES = $(wildcard llrt_core/src/modules/js/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/test/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
-STD_JS_FILE = $(BUNDLE_DIR)/js/@llrt/std.js
-
-RELEASE_ARCH_NAME_x64 = x86_64
-RELEASE_ARCH_NAME_arm64 = arm64
-
-LAMBDA_PREFIX = llrt-lambda
-RELEASE_TARGETS = arm64 x64
-RELEASE_ZIPS = $(addprefix $(LAMBDA_PREFIX)-,$(RELEASE_TARGETS))
 
 ifeq ($(OS),Windows_NT)
 	DETECTED_OS := windows
@@ -34,6 +22,42 @@ endif
 ifeq ($(ARCH),aarch64)
 	ARCH = arm64
 endif
+
+# zig's cc driver rejects --icf, so ELF releases link with lld directly.
+# LLRT_ICF=0 opts out; darwin and windows targets are unaffected.
+LLRT_ICF ?= 1
+LLRT_LLD ?=
+
+# macOS rust-lld needs an unbundled libLLVM.dylib.
+_find_lld = $(shell \
+	for l in $(if $(LLRT_LLD),"$(LLRT_LLD)") ld.lld; do \
+		"$$l" --version >/dev/null 2>&1 && { echo "$$l"; exit 0; }; \
+	done; \
+	if [ "$(DETECTED_OS)" != "darwin" ]; then \
+		host=$$(rustc $(TOOLCHAIN) -vV 2>/dev/null | sed -n 's/^host: //p'); \
+		sysroot=$$(rustc $(TOOLCHAIN) --print sysroot 2>/dev/null); \
+		lld="$$sysroot/lib/rustlib/$$host/bin/rust-lld"; \
+		"$$lld" --version >/dev/null 2>&1 && echo "$$lld"; \
+	fi)
+LLD = $(if $(filter 1,$(LLRT_ICF)),$(eval LLD := $(_find_lld))$(LLD))
+
+linux_cargo = \
+	$(if $(LLD),LLRT_LLD='$(LLD)' LLRT_ZIG_TARGET=$(subst -unknown,,$(1)) LLRT_ZIG_SYSROOT='$(CURDIR)/target/$(1)/zig-sysroot' )\
+	cargo $(ZIGBUILD_ARG) --target $(1)\
+	$(if $(LLD), --config 'target.$(1).linker="$(CURDIR)/scripts/lld-link.sh"')
+
+BUILD_DIR = ./target/release
+BUNDLE_DIR = bundle
+
+TS_SOURCES = $(wildcard llrt_core/src/modules/js/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/test/*.ts) $(wildcard llrt_core/src/modules/js/@llrt/*.ts) $(wildcard tests/unit/*.ts)
+STD_JS_FILE = $(BUNDLE_DIR)/js/@llrt/std.js
+
+RELEASE_ARCH_NAME_x64 = x86_64
+RELEASE_ARCH_NAME_arm64 = arm64
+
+LAMBDA_PREFIX = llrt-lambda
+RELEASE_TARGETS = arm64 x64
+RELEASE_ZIPS = $(addprefix $(LAMBDA_PREFIX)-,$(RELEASE_TARGETS))
 
 ZSTD_LIB_CC_ARGS = -s -O3 -flto
 ZSTD_LIB_ARGS = -j lib-nomt UNAME=Linux ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0 AR="zig ar"
@@ -75,19 +99,19 @@ release-aws-${1}${2}: | llrt-lambda-${1}${2}.zip llrt-container-${1}${2} llrt-li
 
 llrt-lambda-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-lambda-${1}${2}.zip: | clean-js js
-	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda
+	$$(call linux_cargo,$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))) --features lambda
 	./pack target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/bootstrap
 
 llrt-container-${1}${2}: export SDK_BUNDLE_MODE = ${3}
 llrt-container-${1}${2}: | clean-js js
-	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})) --features lambda,uncompressed
+	$$(call linux_cargo,$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))) --features lambda,uncompressed
 	mv target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt $$@
 
 llrt-linux-${1}${2}.zip: export SDK_BUNDLE_MODE = ${3}
 llrt-linux-${1}${2}.zip: | clean-js js
-	cargo $$(ZIGBUILD_ARG) --target $$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))
+	$$(call linux_cargo,$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1})))
 	@rm -rf $$@
 	zip -j $$@ target/$$(TARGET_linux_$$(RELEASE_ARCH_NAME_${1}))/release/llrt
 

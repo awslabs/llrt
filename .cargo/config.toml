@@ -11,6 +11,7 @@ rustflags = [
     "-Zlocation-detail=none",
     "-Crelocation-model=static",
     "-Alinker_messages",
+    "-Zshare-generics=y",
 ]
 
 [target.x86_64-unknown-linux-musl]
@@ -25,6 +26,7 @@ rustflags = [
     "-Zlocation-detail=none",
     "-Crelocation-model=static",
     "-Alinker_messages",
+    "-Zshare-generics=y",
 ]
 
 [env]
