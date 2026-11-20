@@ -346,9 +346,9 @@ fn format_raw_inner<'js>(
             if color_enabled {
                 Color::YELLOW.push(result);
             }
-            let mut buffer = itoa::Buffer::new();
-            let big_int = unsafe { value.as_big_int().unwrap_unchecked() };
-            result.push_str(buffer.format(big_int.clone().to_i64().unwrap()));
+            // A BigInt can be larger than i64, so print its decimal string
+            let digits = value.get::<Coerced<String>>()?;
+            result.push_str(&digits);
             result.push('n');
         },
         Type::Int => {
@@ -377,7 +377,10 @@ fn format_raw_inner<'js>(
             }
             let description = unsafe { value.as_symbol().unwrap_unchecked() }.description()?;
             result.push_str("Symbol(");
-            result.push_str(&unsafe { description.get::<String>().unwrap_unchecked() });
+            // Symbol() has an undefined description
+            if let Some(description) = description.as_string() {
+                result.push_str(&description.to_string()?);
+            }
             result.push(')');
         },
         Type::Function | Type::Constructor => {
