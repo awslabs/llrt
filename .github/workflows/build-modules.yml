@@ -33,7 +33,6 @@ jobs:
         uses: ./.github/actions/setup
         with:
           toolchain: ${{ inputs.toolchain }}
-          cache-bin: false
       - name: Install Windows OpenSSL
         if: inputs.platform == 'windows' && inputs.crypto == 'openssl'
         uses: msys2/setup-msys2@v2

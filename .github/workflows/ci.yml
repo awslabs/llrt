@@ -45,7 +45,6 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
         with:
-          apt: make nodejs tzdata-legacy
           node: true
           toolchain: stable
       - name: Run WPT
@@ -72,13 +71,11 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
         with:
-          apt: make nodejs zstd zip lld
           zig: true
           node: true
           toolchain: nightly-2026-08-26
           target: ${{ matrix.target }}
           components: rust-src
-          zigbuild: true
       - name: Build binaries
         run: |
           make libs-${{ matrix.release }}

@@ -2,24 +2,9 @@ name: LLRT setup
 description: Shared toolchain setup for the LLRT workflows
 
 inputs:
-  apt:
-    description: Additional Linux packages to install
-    required: false
-    default: ""
-  zig:
-    description: Install the Zig version pinned in .zig-version
-    type: boolean
-    required: false
-    default: false
-  node:
-    description: Set up Node.js and install the JavaScript dependencies
-    type: boolean
-    required: false
-    default: false
   toolchain:
-    description: Rust toolchain to install; empty skips the step
-    required: false
-    default: ""
+    description: Rust toolchain to install
+    required: true
   components:
     description: Rust components to install
     required: false
@@ -28,27 +13,32 @@ inputs:
     description: Rust target to install
     required: false
     default: ""
-  cache-bin:
-    description: Let setup-rust-toolchain cache installed binaries
-    type: boolean
+  node:
+    description: Set up Node.js and install the JavaScript dependencies
     required: false
-    default: true
-  zigbuild:
-    description: Install cargo-zigbuild
-    type: boolean
+    default: "false"
+  zig:
+    description: Install the Zig version pinned in .zig-version
     required: false
-    default: false
+    default: "false"
 
 runs:
   using: composite
   steps:
     - name: Install Linux dependencies
-      if: runner.os == 'Linux' && inputs.apt != ''
+      if: runner.os == 'Linux' && (inputs.node == 'true' || inputs.zig == 'true')
       shell: bash
       run: |
         set -euo pipefail
         sudo apt-get -y update
-        sudo apt-get -y install xz-utils ${{ inputs.apt }}
+        sudo apt-get -y install make nodejs tzdata-legacy
+
+    - name: Install Zig build dependencies
+      if: runner.os == 'Linux' && inputs.zig == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get -y install zstd zip lld xz-utils
 
     - name: Setup Zig
       if: inputs.zig == 'true'
@@ -78,16 +68,15 @@ runs:
         yarn
 
     - name: Setup Rust
-      if: inputs.toolchain != ''
       uses: actions-rust-lang/setup-rust-toolchain@v2
       with:
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
         target: ${{ inputs.target }}
-        cache-bin: ${{ inputs.cache-bin }}
+        cache-bin: false
 
     - name: Install cargo-zigbuild
-      if: inputs.zigbuild == 'true'
+      if: inputs.zig == 'true'
       uses: taiki-e/install-action@v2
       with:
         tool: cargo-zigbuild

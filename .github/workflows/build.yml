@@ -35,12 +35,9 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
         with:
-          apt: make nodejs lld
           zig: ${{ inputs.platform == 'linux' }}
           node: true
           toolchain: ${{ inputs.toolchain }}
-          cache-bin: false
-          zigbuild: ${{ inputs.platform == 'linux' }}
       - name: Install MacOS dependencies
         if: inputs.platform == 'darwin'
         env:
