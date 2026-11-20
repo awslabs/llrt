@@ -798,13 +798,18 @@ impl<'js> Response<'js> {
         redirected: bool,
         abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
         guard: HeadersGuard,
+        decompress: bool,
     ) -> Result<Self> {
         let response_headers = response.headers();
 
+        // The encoding stored here drives every body decoder; leaving it unset
+        // passes the bytes through while the header stays visible to JS.
         let mut content_encoding = None;
-        if let Some(content_encoding_header) = response_headers.get(&CONTENT_ENCODING) {
-            if let Ok(content_encoding_header) = content_encoding_header.to_str() {
-                content_encoding = Some(content_encoding_header.to_owned())
+        if decompress {
+            if let Some(content_encoding_header) = response_headers.get(&CONTENT_ENCODING) {
+                if let Ok(content_encoding_header) = content_encoding_header.to_str() {
+                    content_encoding = Some(content_encoding_header.to_owned())
+                }
             }
         }
 

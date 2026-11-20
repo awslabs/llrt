@@ -394,6 +394,10 @@ function codeToRegex(fn, includeSignature = false) {
   );
 }
 
+// Set when the SDK's fetch handler is patched; an SDK build that never
+// patches it fails, so a moved handler cannot silently bring back #1907.
+let fetchHandlerPatched = false;
+
 const AWS_SDK_PLUGIN = {
   name: "aws-sdk-plugin",
   setup(build) {
@@ -441,6 +445,28 @@ const AWS_SDK_PLUGIN = {
       const contents = await fs.readFile(realPath, "utf8");
       return { contents, loader: "js" };
     });
+
+    // The SDK must see response bodies as sent, as on Node: a stored object
+    // with Content-Encoding (e.g. S3 GetObject) is returned undecoded.
+    build.onLoad(
+      {
+        filter: /@smithy\/fetch-http-handler\/dist-es\/fetch-http-handler\.js$/,
+      },
+      async ({ path: filePath }) => {
+        const source = (await fs.readFile(filePath)).toString();
+        const call = "fetch(fetchRequest)";
+        if (source.split(call).length !== 2) {
+          throw new Error(`Failed to patch ${call} in ${filePath}`);
+        }
+        fetchHandlerPatched = true;
+        return {
+          contents: source.replace(
+            call,
+            "fetch(fetchRequest, { decompress: false })"
+          ),
+        };
+      }
+    );
 
     build.onLoad(
       { filter: /protocols\/Aws_json1_1\.js$/ },
@@ -778,6 +804,13 @@ try {
 
   if (SDK_BUNDLE_MODE != "NONE") {
     await buildSdks();
+    if (!fetchHandlerPatched) {
+      throw new Error(
+        "@smithy/fetch-http-handler was never patched with " +
+          "{ decompress: false }: no bundled file matched the filter in " +
+          "AWS_SDK_PLUGIN. Update the filter to the handler's new location."
+      );
+    }
     await writeAwsSdkVersion();
   }
 } catch (e) {

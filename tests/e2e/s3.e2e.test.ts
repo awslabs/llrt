@@ -2,6 +2,7 @@
 
 import { S3 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
+import zlib from "zlib";
 const Bucket = process?.env?.AWS_SMOKE_TEST_BUCKET;
 const mrapArn = process?.env?.AWS_SMOKE_TEST_MRAP_ARN;
 
@@ -101,6 +102,23 @@ describe("@aws-sdk/client-s3", () => {
 
       let actual = result.$metadata.httpStatusCode;
       expect(actual).toEqual(200);
+    });
+
+    it("should return stored bytes for an object with ContentEncoding", async () => {
+      const stored = zlib.brotliCompressSync(Buffer.from("x".repeat(10000)));
+      await client.putObject({
+        Bucket,
+        Key,
+        Body: stored,
+        ContentEncoding: "br",
+      });
+
+      const result = await client.getObject({ Bucket, Key });
+      const bytes = await result.Body.transformToByteArray();
+      expect(result.ContentEncoding).toEqual("br");
+      expect(result.ContentLength).toEqual(stored.length);
+      expect(bytes.length).toEqual(stored.length);
+      expect(bytes.every((byte, i) => byte === stored[i])).toBe(true);
     });
   });
 
