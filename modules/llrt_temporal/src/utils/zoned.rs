@@ -1,17 +1,18 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use jiff::{civil::DateTime, ZonedDateTime as JiffZonedDateTime};
-use llrt_utils::result::ResultExt;
+use jiff::{civil::DateTime, ZonedDateTime as Zoned};
+use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{Ctx, Object, Result, Value};
 
 use super::date_time::DateTimeExt;
+use super::time_zone::parse_temporal_time_zone;
 
 pub(crate) trait ZonedExt {
-    fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<JiffZonedDateTime>;
-    fn zoned_with(&self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<JiffZonedDateTime>;
+    fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned>;
+    fn zoned_with(&self, ctx: &Ctx<'_>, value: &Value<'_>) -> Result<Zoned>;
 }
 
-impl ZonedExt for JiffZonedDateTime {
+impl ZonedExt for Zoned {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
         from_obj(ctx, obj)
     }
@@ -25,17 +26,14 @@ impl ZonedExt for JiffZonedDateTime {
     }
 }
 
-fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<JiffZonedDateTime> {
+fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned> {
     let dt = DateTime::from_object(ctx, obj)?;
-    let tz = obj.get::<_, String>("timeZone").or_throw_type(ctx, "")?;
-    dt.in_tz(&tz).or_throw_range(ctx, "")
+    let tz = obj.get_optional::<_, String>("timeZone")?;
+    let tz = parse_temporal_time_zone(ctx, tz.as_ref())?;
+    dt.to_zoned_datetime(tz).or_throw_range(ctx, "")
 }
 
-fn into_zoned(
-    ctx: &Ctx<'_>,
-    zoned: &JiffZonedDateTime,
-    obj: &Object<'_>,
-) -> Result<JiffZonedDateTime> {
+fn into_zoned(ctx: &Ctx<'_>, zoned: &Zoned, obj: &Object<'_>) -> Result<Zoned> {
     let mut zoned = zoned.with();
     if let Ok(v) = obj.get::<_, i8>("day") {
         zoned = zoned.day(v);

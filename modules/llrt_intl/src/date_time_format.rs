@@ -4,7 +4,7 @@
 //! Minimal Intl.DateTimeFormat implementation for timezone support.
 //! This provides just enough functionality to support dayjs and similar libraries.
 
-use jiff::{tz::TimeZone, Timestamp, ZonedDateTime as JiffZonedDateTime};
+use jiff::{tz::TimeZone, Timestamp, ZonedDateTime as Zoned};
 use rquickjs::{
     atom::PredefinedAtom, prelude::Opt, Array, Coerced, Ctx, Exception, Object, Result, Value,
 };
@@ -89,10 +89,7 @@ fn format_component(value: i16, style: Option<&str>) -> String {
 }
 
 /// Build format parts from a zoned datetime in pure Rust
-fn build_format_parts(
-    local_dt: &JiffZonedDateTime,
-    options: &DateTimeFormatOptions,
-) -> Vec<FormatPart> {
+fn build_format_parts(local_dt: &Zoned, options: &DateTimeFormatOptions) -> Vec<FormatPart> {
     let mut parts = Vec::with_capacity(16);
 
     // Month
@@ -196,7 +193,7 @@ fn build_format_parts(
 }
 
 /// Format timezone name based on style option
-fn format_timezone_name(local_dt: &JiffZonedDateTime, timezone: &TimeZone, style: &str) -> String {
+fn format_timezone_name(local_dt: &Zoned, timezone: &TimeZone, style: &str) -> String {
     match style {
         "short" | "shortOffset" => {
             let offset = local_dt.offset();
@@ -269,12 +266,8 @@ fn parse_epoch_ms<'js>(ctx: &Ctx<'js>, date: Opt<Value<'js>>) -> Result<f64> {
     }
 }
 
-/// Convert epoch milliseconds to JiffZonedDateTime datetime in the specified timezone
-fn epoch_to_datetime(
-    ctx: &Ctx<'_>,
-    epoch_ms: f64,
-    timezone: &TimeZone,
-) -> Result<JiffZonedDateTime> {
+/// Convert epoch milliseconds to Zoned datetime in the specified timezone
+fn epoch_to_datetime(ctx: &Ctx<'_>, epoch_ms: f64, timezone: &TimeZone) -> Result<Zoned> {
     let utc_dt = Timestamp::from_millisecond(epoch_ms as i64)
         .map_err(|_| Exception::throw_range(ctx, "Invalid timestamp"))?;
     Ok(utc_dt.to_zoned_datetime(timezone.clone()))

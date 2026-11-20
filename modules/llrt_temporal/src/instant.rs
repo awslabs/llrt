@@ -2,18 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{Span, Timestamp, ZonedDateTime as JiffZonedDateTime};
+use jiff::{Span, Timestamp, ZonedDateTime as Zoned};
 use llrt_utils::result::ResultExt;
 use rquickjs::{
     atom::PredefinedAtom, class::Trace, prelude::Opt, BigInt, Class, Ctx, Exception, JsLifetime,
     Result, Value,
 };
 
-use crate::duration::Duration;
+use crate::utils::parse_temporal_calendar;
+use crate::utils::time_zone::parse_temporal_time_zone;
 use crate::utils::timestamp_round::TimestampRoundOption;
-use crate::zoned_date_time::ZonedDateTime;
 
+use super::duration::Duration;
 use super::extract_bigint_or_number;
+use super::zoned_date_time::ZonedDateTime;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
@@ -110,8 +112,9 @@ impl Instant {
 
     #[qjs(rename = "toZonedDateTimeISO")]
     fn to_zoned_dt_iso(&self, ctx: Ctx<'_>, timezone: Opt<String>) -> Result<ZonedDateTime> {
-        let tz = timezone.as_deref().unwrap_or("UTC");
-        ZonedDateTime::from_ts_tz(&ctx, &self.inner, tz)
+        let tz = parse_temporal_time_zone(&ctx, timezone.0.as_ref())?;
+        let ca = parse_temporal_calendar(&ctx, None)?;
+        ZonedDateTime::from_parts(&self.inner, tz, ca)
     }
 
     fn until(&self, ctx: Ctx<'_>, other: Self) -> Result<Duration> {
@@ -155,7 +158,7 @@ impl Instant {
         Ok(Self { inner: ts })
     }
 
-    pub(crate) fn from_zoned(zoned: &JiffZonedDateTime) -> Self {
+    pub(crate) fn from_zoned(zoned: &Zoned) -> Self {
         let ts = zoned.timestamp();
         Self { inner: ts }
     }

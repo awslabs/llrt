@@ -20,26 +20,26 @@ impl<'a> SpanRoundExt<'a> for SpanRound<'a> {
             let smallest_unit = obj.get::<_, String>("smallestUnit").ok();
             return into_span_round(
                 ctx,
-                &largest_unit,
+                largest_unit.as_ref(),
                 &relative_to,
                 &increment,
-                &mode,
-                &smallest_unit,
+                mode.as_ref(),
+                smallest_unit.as_ref(),
             );
         }
 
         let unit = value.as_string().and_then(|s| s.to_string().ok());
-        into_span_round(ctx, &None, &None, &None, &None, &unit)
+        into_span_round(ctx, None, &None, &None, None, unit.as_ref())
     }
 }
 
 fn into_span_round<'a>(
     ctx: &Ctx,
-    largest_unit: &Option<String>,
+    largest_unit: Option<&String>,
     relative_to: &Option<Value<'a>>,
     increment: &Option<i64>,
-    mode: &Option<String>,
-    smallest_unit: &Option<String>,
+    mode: Option<&String>,
+    smallest_unit: Option<&String>,
 ) -> Result<SpanRound<'a>> {
     let largest_unit = get_duration_unit(ctx, largest_unit)?;
     let relative_to = into_span_relative_to(relative_to);

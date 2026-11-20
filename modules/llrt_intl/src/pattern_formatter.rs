@@ -8,11 +8,11 @@
 //! https://unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
 
 use crate::cldr_data::LocaleData;
-use jiff::ZonedDateTime as JiffZonedDateTime;
+use jiff::ZonedDateTime as Zoned;
 
 /// Format a zoned datetime using a CLDR pattern string
 pub fn format_with_pattern(
-    dt: &JiffZonedDateTime,
+    dt: &Zoned,
     pattern: &str,
     locale_data: &LocaleData,
     hour12_override: Option<bool>,
@@ -234,7 +234,7 @@ fn format_number(result: &mut String, value: i8, min_width: usize) {
 }
 
 /// Format timezone
-fn format_timezone(result: &mut String, dt: &JiffZonedDateTime, width: usize) {
+fn format_timezone(result: &mut String, dt: &Zoned, width: usize) {
     let total_secs = dt.offset().seconds();
     let hours = total_secs / 3600;
     let mins = (total_secs % 3600).abs() / 60;
@@ -269,9 +269,9 @@ pub fn combine_datetime(date: &str, time: &str, pattern: &str) -> String {
 mod tests {
     use super::*;
     use crate::cldr_data::get_locale_data;
-    use jiff::{civil, tz::TimeZone, ZonedDateTime as JiffZonedDateTime};
+    use jiff::{civil, tz::TimeZone, ZonedDateTime as Zoned};
 
-    fn make_dt(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8) -> JiffZonedDateTime {
+    fn make_dt(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8) -> Zoned {
         civil::date(year, month, day)
             .at(hour, min, sec, 0)
             .to_zoned_datetime(TimeZone::UTC)

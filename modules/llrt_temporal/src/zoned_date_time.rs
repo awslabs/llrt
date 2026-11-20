@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::{cmp::Ordering, str::FromStr};
 
-use jiff::{
-    Timestamp, ZonedDateTime as JiffZonedDateTime,
-    ZonedDateTimeDifference as JiffZonedDateTimeDifference,
-};
+use jiff::tz::TimeZone;
+use jiff::{Timestamp, ZonedDateTime as Zoned, ZonedDateTimeDifference as ZonedDifference};
 use llrt_utils::result::ResultExt;
 use rquickjs::Object;
 use rquickjs::{
@@ -13,38 +11,45 @@ use rquickjs::{
     Result, Value,
 };
 
-use crate::duration::Duration;
-use crate::instant::Instant;
-use crate::plain_date::PlainDate;
-use crate::plain_date_time::PlainDateTime;
-use crate::plain_time::PlainTime;
+use crate::utils::calendar::{split_calendar_annotation, Calendar};
+use crate::utils::parse_temporal_calendar;
+use crate::utils::time_zone::parse_temporal_time_zone;
 use crate::utils::zoned::ZonedExt;
 use crate::utils::zoned_difference::ZonedDifferenceExt;
 use crate::utils::zoned_round::ZonedRoundOption;
 
+use super::duration::Duration;
 use super::extract_bigint_or_number;
+use super::instant::Instant;
+use super::plain_date::PlainDate;
+use super::plain_date_time::PlainDateTime;
+use super::plain_time::PlainTime;
 
 #[derive(Clone, JsLifetime, Trace)]
 #[rquickjs::class]
 pub(crate) struct ZonedDateTime {
     #[qjs(skip_trace)]
-    inner: JiffZonedDateTime,
+    inner: Zoned,
+    #[qjs(skip_trace)]
+    ca: Calendar,
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl ZonedDateTime {
     #[qjs(constructor)]
-    fn new(ctx: Ctx<'_>, nanos: Value<'_>, tz: Opt<String>) -> Result<Self> {
-        Self::from_epoch_nanoseconds(&ctx, &nanos, &tz)
+    fn new(ctx: Ctx<'_>, nanos: Value<'_>, tz: Opt<String>, ca: Opt<String>) -> Result<Self> {
+        Self::from_epoch_nanoseconds(&ctx, &nanos, tz.0.as_ref(), ca.0.as_ref())
     }
 
     #[qjs(static)]
-    fn compare(datetime1: Self, datetime2: Self) -> i8 {
-        match datetime1.inner.cmp(&datetime2.inner) {
+    fn compare(ctx: Ctx<'_>, datetime1: Value<'_>, datetime2: Value<'_>) -> Result<i8> {
+        let zdt1 = Self::from(ctx.clone(), datetime1)?;
+        let zdt2 = Self::from(ctx.clone(), datetime2)?;
+        Ok(match zdt1.inner.cmp(&zdt2.inner) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,
-        }
+        })
     }
 
     #[qjs(static)]
@@ -68,11 +73,15 @@ impl ZonedDateTime {
         let duration = Duration::from_value(&ctx, &duration)?;
         let span = duration.into_inner();
         let zoned = self.inner.checked_add(span).or_throw_range(&ctx, "")?;
-        Ok(Self { inner: zoned })
+        let ca = self.ca.clone();
+        Ok(Self { inner: zoned, ca })
     }
 
     fn equals(&self, other: Self) -> bool {
-        self.inner == other.inner && self.inner.time_zone() == other.inner.time_zone()
+        self.inner.timestamp() == other.inner.timestamp()
+            && self.inner.time_zone().primary_iana_name()
+                == other.inner.time_zone().primary_iana_name()
+            && self.ca == other.ca
     }
 
     #[qjs(rename = "getTimeZoneTransition")]
@@ -86,19 +95,21 @@ impl ZonedDateTime {
             return Ok(Value::new_null(ctx.clone()));
         };
         let zoned = tzt.timestamp().to_zoned_datetime(tz.clone());
-        Self::new_instance(&ctx, zoned)
+        let ca = self.ca.clone();
+        Self::new_instance(&ctx, zoned, ca)
     }
 
     fn round(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<Self> {
         let round = ZonedRoundOption::from_value(&ctx, &options)?;
         let round = round.into_inner();
         let zoned = self.inner.round(round).or_throw_range(&ctx, "")?;
-        Ok(Self { inner: zoned })
+        let ca = self.ca.clone();
+        Ok(Self { inner: zoned, ca })
     }
 
     fn since(&self, ctx: Ctx<'_>, other: &Self, opt: Opt<Value<'_>>) -> Result<Duration> {
         let span = if let Some(ref opt) = opt.0 {
-            let diff = JiffZonedDateTimeDifference::from_value(&ctx, &other.inner, opt)?;
+            let diff = ZonedDifference::from_value(&ctx, &other.inner, opt)?;
             self.inner.since(diff).or_throw_range(&ctx, "")?
         } else {
             self.inner.clone() - other.inner.clone()
@@ -110,7 +121,8 @@ impl ZonedDateTime {
         let duration = Duration::from_value(&ctx, &duration)?;
         let span = duration.into_inner();
         let zoned = self.inner.checked_sub(span).or_throw_range(&ctx, "")?;
-        Ok(Self { inner: zoned })
+        let ca = self.ca.clone();
+        Ok(Self { inner: zoned, ca })
     }
 
     fn to_instant(&self) -> Instant {
@@ -125,12 +137,14 @@ impl ZonedDateTime {
 
     pub(crate) fn to_plain_date(&self) -> PlainDate {
         let date = self.inner.date();
-        PlainDate::new_object(date)
+        let ca = self.ca.clone();
+        PlainDate::new_object(date, ca)
     }
 
     pub(crate) fn to_plain_date_time(&self) -> PlainDateTime {
         let dt = self.inner.datetime();
-        PlainDateTime::new_object(dt)
+        let ca = self.ca.clone();
+        PlainDateTime::new_object(dt, ca)
     }
 
     pub(crate) fn to_plain_time(&self) -> PlainTime {
@@ -146,7 +160,7 @@ impl ZonedDateTime {
 
     fn until(&self, ctx: Ctx<'_>, other: &Self, opt: Opt<Value<'_>>) -> Result<Duration> {
         let span = if let Some(ref opt) = opt.0 {
-            let diff = JiffZonedDateTimeDifference::from_value(&ctx, &other.inner, opt)?;
+            let diff = ZonedDifference::from_value(&ctx, &other.inner, opt)?;
             self.inner.until(diff).or_throw_range(&ctx, "")?
         } else {
             other.inner.clone() - self.inner.clone()
@@ -163,12 +177,19 @@ impl ZonedDateTime {
 
     fn with(&self, ctx: Ctx<'_>, info: Value<'_>) -> Result<Self> {
         let zoned = self.inner.zoned_with(&ctx, &info)?;
-        Ok(Self { inner: zoned })
+        let ca = self.ca.clone();
+        Ok(Self { inner: zoned, ca })
     }
 
     fn with_time_zone(&self, ctx: Ctx<'_>, tz: String) -> Result<Self> {
         let zoned = self.inner.in_tz(&tz).or_throw_range(&ctx, "")?;
-        Ok(Self { inner: zoned })
+        let ca = self.ca.clone();
+        Ok(Self { inner: zoned, ca })
+    }
+
+    #[qjs(get)]
+    fn calendar_id(&self) -> &'static str {
+        self.ca.id()
     }
 
     #[qjs(get)]
@@ -243,7 +264,7 @@ impl ZonedDateTime {
         let offset = self.inner.offset().to_string();
         match offset.len() {
             3 => [&offset, ":00"].concat(),
-            _ => offset,
+            _ => offset.to_string(),
         }
     }
 
@@ -273,43 +294,57 @@ impl ZonedDateTime {
 }
 
 impl ZonedDateTime {
-    fn from_epoch_nanoseconds(ctx: &Ctx<'_>, ns: &Value<'_>, tz: &Option<String>) -> Result<Self> {
+    fn from_epoch_nanoseconds(
+        ctx: &Ctx<'_>,
+        ns: &Value<'_>,
+        tz: Option<&String>,
+        ca: Option<&String>,
+    ) -> Result<Self> {
         let nanos = extract_bigint_or_number(ctx, ns)?;
-        Self::from_nanosecond(ctx, nanos, tz)
+        Self::from_nanosecond(ctx, nanos, tz, ca)
     }
 
-    fn from_nanosecond(ctx: &Ctx<'_>, ns: i128, tz: &Option<String>) -> Result<Self> {
+    fn from_nanosecond(
+        ctx: &Ctx<'_>,
+        ns: i128,
+        tz: Option<&String>,
+        ca: Option<&String>,
+    ) -> Result<Self> {
         let ts = Timestamp::from_nanosecond(ns).or_throw_range(ctx, "")?;
-        let tz = tz.as_deref().unwrap_or("UTC");
-        Self::from_ts_tz(ctx, &ts, tz)
+        let tz = parse_temporal_time_zone(ctx, tz)?;
+        let ca = parse_temporal_calendar(ctx, ca.cloned())?;
+        Self::from_parts(&ts, tz, ca)
     }
 
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
-        let zoned = JiffZonedDateTime::from_object(ctx, obj)?;
-        Ok(Self { inner: zoned })
+        let zoned = Zoned::from_object(ctx, obj)?;
+        let ca = Calendar::from_object(ctx, obj)?;
+        Ok(Self { inner: zoned, ca })
     }
 
-    pub(crate) fn from_ts_tz(ctx: &Ctx<'_>, ts: &Timestamp, tz: &str) -> Result<Self> {
-        let zoned = ts.in_tz(tz).or_throw_range(ctx, "")?;
-        Ok(Self { inner: zoned })
+    pub(crate) fn from_parts(ts: &Timestamp, tz: TimeZone, ca: Calendar) -> Result<Self> {
+        let zoned = ts.to_zoned_datetime(tz);
+        Ok(Self { inner: zoned, ca })
     }
 
     fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
-        let zoned = JiffZonedDateTime::from_str(str).or_throw_range(ctx, "")?;
-        Ok(Self { inner: zoned })
+        let (str, ca) = split_calendar_annotation(str);
+        let ca = parse_temporal_calendar(ctx, ca)?;
+        let zoned = Zoned::from_str(&str).or_throw_range(ctx, "")?;
+        Ok(Self { inner: zoned, ca })
     }
 
-    pub(crate) fn into_inner(self) -> JiffZonedDateTime {
+    pub(crate) fn into_inner(self) -> Zoned {
         self.inner
     }
 
-    fn new_instance<'js>(ctx: &Ctx<'js>, zoned: JiffZonedDateTime) -> Result<Value<'js>> {
-        let zdt = Class::instance(ctx.clone(), Self { inner: zoned })?;
+    fn new_instance<'js>(ctx: &Ctx<'js>, zoned: Zoned, ca: Calendar) -> Result<Value<'js>> {
+        let zdt = Class::instance(ctx.clone(), Self { inner: zoned, ca })?;
         Ok(zdt.into_value())
     }
 
-    pub(crate) fn new_object(zoned: JiffZonedDateTime) -> Self {
-        Self { inner: zoned }
+    pub(crate) fn new_object(zoned: Zoned, ca: Calendar) -> Self {
+        Self { inner: zoned, ca }
     }
 }
 
