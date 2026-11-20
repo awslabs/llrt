@@ -32,17 +32,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Checkout submodules
         run: git submodule update --init --checkout zstd
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - name: Setup
+        uses: ./.github/actions/setup
         with:
-          cache: yarn
-          node-version: lts/*
-      - name: Install Linux dependencies
-        if: inputs.platform == 'linux'
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install make nodejs lld
-          sudo snap install zig --classic --beta
+          zig: ${{ inputs.platform == 'linux' }}
+          node: true
+          toolchain: ${{ inputs.toolchain }}
       - name: Install MacOS dependencies
         if: inputs.platform == 'darwin'
         env:
@@ -75,20 +70,6 @@ jobs:
             patch
             unzip
 
-      - name: Install JavaScript dependencies
-        run: |
-          corepack enable
-          yarn
-      - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
-          toolchain: ${{ inputs.toolchain }}
-          cache-bin: false
-      - name: Install cargo-zigbuild
-        if: inputs.platform == 'linux'
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-zigbuild
       - name: Map crypto to features
         id: features
         if: inputs.crypto != ''

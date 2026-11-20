@@ -1,0 +1,45 @@
+name: Update Zig
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Open a PR for a new Zig release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest=$(curl -fsSL https://ziglang.org/download/index.json |
+            jq -r 'keys[]' | grep -Ev 'dev|master' | sort -V | tail -1)
+          current=$(cat .zig-version)
+          if [ "$latest" = "$current" ]; then
+            echo "Zig $current is up to date"
+            exit 0
+          fi
+
+          branch="ci/update-zig-$latest"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch already exists"
+            exit 0
+          fi
+
+          echo "$latest" > .zig-version
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add .zig-version
+          git commit -m "build: bump Zig to $latest"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "build: bump Zig to $latest" \
+            --body "Weekly check of https://ziglang.org/download/index.json. CI will validate the new toolchain."

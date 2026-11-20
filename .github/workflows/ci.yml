@@ -19,8 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+      - name: Setup
+        uses: ./.github/actions/setup
         with:
           toolchain: stable
           components: clippy, rustfmt
@@ -42,22 +42,10 @@ jobs:
         uses: actions/checkout@v7
       - name: Checkout WPT submodule
         run: git submodule update --init --checkout --depth 1 --force wpt
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - name: Setup
+        uses: ./.github/actions/setup
         with:
-          cache: yarn
-          node-version: lts/*
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install make nodejs tzdata-legacy
-      - name: Install JavaScript dependencies
-        run: |
-          corepack enable
-          yarn
-      - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
+          node: true
           toolchain: stable
       - name: Run WPT
         run: make check-wpt
@@ -80,30 +68,14 @@ jobs:
         uses: actions/checkout@v7
       - name: Checkout submodules
         run: git submodule update --init --checkout zstd
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - name: Setup
+        uses: ./.github/actions/setup
         with:
-          cache: yarn
-          node-version: lts/*
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install make nodejs zstd zip lld
-          sudo snap install zig --classic --beta
-      - name: Install JavaScript dependencies
-        run: |
-          corepack enable
-          yarn
-      - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
+          zig: true
+          node: true
           toolchain: nightly-2026-08-26
           target: ${{ matrix.target }}
           components: rust-src
-      - name: Install cargo-zigbuild
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-zigbuild
       - name: Build binaries
         run: |
           make libs-${{ matrix.release }}
