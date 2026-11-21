@@ -62,7 +62,7 @@ fn parse_temporal_offset(s: &str) -> Option<Offset> {
     Offset::from_seconds(seconds).ok()
 }
 
-fn parse_two_digits(bytes: &[u8]) -> Option<i32> {
+pub(crate) fn parse_two_digits(bytes: &[u8]) -> Option<i32> {
     let [a, b] = *bytes else {
         return None;
     };
