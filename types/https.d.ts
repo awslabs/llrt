@@ -21,10 +21,15 @@ declare module "https" {
     cert?: string | Buffer | Array<string | Buffer> | undefined;
     /**
      * Private key for `cert`, in PEM format. Must be set together with
-     * `cert`. Encrypted keys are not supported. Only one key is supported,
-     * so an array must have a single element.
+     * `cert`. Only one key is supported, so an array must have a single
+     * element. Encrypted keys, decrypted with `passphrase`, are supported
+     * only by the OpenSSL TLS backend.
      */
     key?: string | Buffer | Array<string | Buffer> | undefined;
+    /**
+     * Passphrase for an encrypted `key`.
+     */
+    passphrase?: string | undefined;
     /**
      * Whether to reject unauthorized certificates. Default is `true`.
      */

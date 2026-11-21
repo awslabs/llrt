@@ -23,7 +23,7 @@ tls-aws-lc = ["dep:rustls", "rustls/aws_lc_rs"]
 tls-graviola = ["dep:rustls", "dep:rustls-graviola"]
 
 # OpenSSL TLS backend
-tls-openssl = ["dep:openssl"]
+tls-openssl = ["dep:openssl", "dep:hex-simd", "dep:itoa"]
 
 [dependencies]
 once_cell = { version = "1", features = ["std"], default-features = false }
@@ -33,6 +33,8 @@ rustls = { version = "0.23", features = [
 ], default-features = false, optional = true }
 rustls-graviola = { version = "0.4", default-features = false, optional = true }
 openssl = { version = "0.10", optional = true }
+hex-simd = { version = "0.8", features = ["alloc"], default-features = false, optional = true }
+itoa = { version = "1", default-features = false, optional = true }
 webpki-roots = { version = "1", default-features = false, optional = true }
 rustls-native-certs = { version = "0.8", default-features = false, optional = true }
 tracing = { version = "0.1", default-features = false, optional = true }

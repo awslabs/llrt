@@ -1704,6 +1704,15 @@ mod tests {
         all(feature = "tls-graviola", target_arch = "x86_64"),
         feature = "tls-openssl"
     ))]
+    const ENCRYPTED_KEY_ERROR: &str =
+        "Failed to build TLS config. Invalid key: encrypted keys are not supported";
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
     #[tokio::test]
     async fn test_agent_client_certificate_errors() {
         use llrt_test_tls::FileType;
@@ -1765,6 +1774,14 @@ mod tests {
                 let result =
                     call_test::<Vec<String>, _>(&ctx, &module, (cert, key, other_key)).await;
 
+                let (encrypted_pkcs8, encrypted_legacy) = if cfg!(feature = "tls-openssl") {
+                    (
+                        "error:1E08010C:DECODER routines::unsupported",
+                        "error:1C80006B:Provider routines::wrong final block length",
+                    )
+                } else {
+                    (ENCRYPTED_KEY_ERROR, ENCRYPTED_KEY_ERROR)
+                };
                 assert_eq!(
                     result[..6],
                     [
@@ -1772,14 +1789,196 @@ mod tests {
                         "Failed to build TLS config. cert and key must be provided together",
                         "Only one cert is supported",
                         "Failed to build TLS config. Invalid key: does not match cert",
-                        "Failed to build TLS config. Invalid key: encrypted keys are not supported",
-                        "Failed to build TLS config. Invalid key: encrypted keys are not supported",
+                        encrypted_pkcs8,
+                        encrypted_legacy,
                     ]
                 );
                 assert!(
                     result[6].starts_with("Failed to build TLS config. Invalid key: "),
                     "{}",
                     result[6]
+                );
+            })
+        })
+        .await;
+    }
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    #[tokio::test]
+    async fn test_fetch_client_certificate_encrypted_key() {
+        use llrt_test_tls::FileType;
+
+        let mock_server = llrt_test_tls::MockServer::start_with_client_auth()
+            .await
+            .unwrap();
+        let addr = mock_server.address().to_string();
+        let ca = mock_server.ca().to_string();
+        let cert = read_test_pem(FileType::ClientCert);
+        let keys = vec![
+            read_test_pem(FileType::ClientKeyEncrypted),
+            read_test_pem(FileType::ClientKeyEncryptedTraditional),
+        ];
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        export async function test(addr, ca, cert, keys) {
+                            const results = [];
+                            for (const key of keys) {
+                                try {
+                                    const agent = new Agent({ ca, cert, key, passphrase: "pässphrase" });
+                                    const response = await fetch(`https://${addr}/echo`, {
+                                        method: "POST",
+                                        body: "Hello, LLRT!",
+                                        agent,
+                                    });
+                                    results.push(await response.text());
+                                } catch (e) {
+                                    results.push(`${e.name}: ${e.message}`);
+                                }
+                            }
+                            return results;
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result =
+                    call_test::<Vec<String>, _>(&ctx, &module, (addr, ca, cert, keys)).await;
+
+                let expected = if cfg!(feature = "tls-openssl") {
+                    "Hello, LLRT!".to_string()
+                } else {
+                    format!("Error: {ENCRYPTED_KEY_ERROR}")
+                };
+                assert_eq!(result, [expected.clone(), expected]);
+            })
+        })
+        .await;
+    }
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    #[tokio::test]
+    async fn test_agent_passphrase() {
+        use llrt_test_tls::FileType;
+
+        let cert = read_test_pem(FileType::ClientCert);
+        let key = read_test_pem(FileType::ClientKey);
+        let encrypted_key = read_test_pem(FileType::ClientKeyEncrypted);
+        let traditional_key = read_test_pem(FileType::ClientKeyEncryptedTraditional);
+
+        test_async_with(|ctx| {
+            Box::pin(async move {
+                crate::init(&ctx).unwrap();
+                ModuleEvaluator::eval_rust::<HttpsModule>(ctx.clone(), "https")
+                    .await
+                    .unwrap();
+                let module = ModuleEvaluator::eval_js(
+                    ctx.clone(),
+                    "test",
+                    r#"
+                        import { Agent } from 'https';
+
+                        const describe = (options) => {
+                            try {
+                                new Agent(options);
+                                return "no error";
+                            } catch (e) {
+                                const stack = Array.isArray(e.opensslErrorStack);
+                                return [e.name, e.message, e.code, e.library, e.reason, stack].join("|");
+                            }
+                        };
+
+                        export async function test(cert, key, encryptedKey, traditionalKey) {
+                            return [
+                                { cert, key, passphrase: 5 },
+                                { cert, key, passphrase: -0 },
+                                { cert, key, passphrase: true },
+                                { cert, key, passphrase: Symbol("x") },
+                                { cert, key, passphrase: function f() {} },
+                                { cert, key, passphrase: new Uint8Array(1) },
+                                { cert, key, passphrase: Object.create(null) },
+                                { cert, key, passphrase: null },
+                                { cert, key, passphrase: "unused" },
+                                { cert, key, passphrase: "lone \ud800 surrogate" },
+                                { passphrase: 5 },
+                                { cert, key: encryptedKey, passphrase: "wrong" },
+                                { cert, key: encryptedKey },
+                                { cert, key: traditionalKey, passphrase: "wrong" },
+                                { cert, key: encryptedKey, passphrase: "x".repeat(1025) },
+                            ].map(describe);
+                        }
+                    "#,
+                )
+                .await
+                .unwrap();
+
+                let result = call_test::<Vec<String>, _>(
+                    &ctx,
+                    &module,
+                    (cert, key, encrypted_key, traditional_key),
+                )
+                .await;
+
+                let type_error = |received: &str| {
+                    format!(
+                        "TypeError|The \"options.passphrase\" property must be of type string. \
+                         Received {received}|ERR_INVALID_ARG_TYPE|||false"
+                    )
+                };
+                let (bad_decrypt, too_long) = if cfg!(feature = "tls-openssl") {
+                    (
+                        "Error|error:1C800064:Provider routines::bad decrypt|ERR_OSSL_BAD_DECRYPT|\
+                         Provider routines|bad decrypt|true"
+                            .to_string(),
+                        "Error|error:07880109:common libcrypto routines::interrupted or cancelled|\
+                         ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED|common libcrypto routines|\
+                         interrupted or cancelled|false"
+                            .to_string(),
+                    )
+                } else {
+                    let error = format!("Error|{ENCRYPTED_KEY_ERROR}||||false");
+                    (error.clone(), error)
+                };
+                assert_eq!(
+                    result,
+                    [
+                        type_error("type number (5)"),
+                        type_error("type number (-0)"),
+                        type_error("type boolean (true)"),
+                        type_error("type symbol (Symbol(x))"),
+                        type_error("function f"),
+                        type_error("an instance of Uint8Array"),
+                        type_error("[Object: null prototype] {}"),
+                        "no error".to_string(),
+                        "no error".to_string(),
+                        "no error".to_string(),
+                        "no error".to_string(),
+                        bad_decrypt.clone(),
+                        bad_decrypt.clone(),
+                        bad_decrypt,
+                        too_long,
+                    ]
                 );
             })
         })

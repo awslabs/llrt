@@ -64,6 +64,7 @@ hyper-openssl = { version = "0.10", features = [
 ], optional = true }
 openssl = { version = "0.10", optional = true }
 llrt_dns_cache = { version = "0.10.0-beta", path = "../../libs/llrt_dns_cache" }
+llrt_exceptions = { version = "0.10.0-beta", path = "../llrt_exceptions" }
 llrt_tls = { version = "0.10.0-beta", default-features = false, path = "../llrt_tls" }
 llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }

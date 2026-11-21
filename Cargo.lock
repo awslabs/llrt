@@ -2044,6 +2044,7 @@ dependencies = [
  "hyper-rustls",
  "hyper-util",
  "llrt_dns_cache",
+ "llrt_exceptions",
  "llrt_tls",
  "llrt_utils",
  "once_cell",
@@ -2321,6 +2322,8 @@ dependencies = [
 name = "llrt_tls"
 version = "0.10.0-beta"
 dependencies = [
+ "hex-simd",
+ "itoa",
  "once_cell",
  "openssl",
  "rustls",

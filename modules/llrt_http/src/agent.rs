@@ -1,8 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
+use llrt_exceptions::throw_invalid_arg_type;
 use llrt_utils::result::ResultExt;
-use llrt_utils::{any_of::AnyOf4, bytes::ObjectBytes, object::ObjectExt};
-use rquickjs::{prelude::Opt, Ctx, Error, Exception, FromJs, Object, Result, Value};
+use llrt_utils::{
+    any_of::AnyOf4,
+    bytes::{get_lossy_string, ObjectBytes},
+    object::ObjectExt,
+};
+use rquickjs::{prelude::Opt, Coerced, Ctx, Error, Exception, FromJs, Object, Result, Value};
 
 use crate::HyperClient;
 
@@ -28,6 +33,7 @@ impl Agent {
             ca,
             cert,
             key,
+            passphrase,
         } = options.0.unwrap_or_default();
 
         let config = llrt_tls::build_client_config(llrt_tls::BuildClientConfigOptions {
@@ -35,8 +41,12 @@ impl Agent {
             ca,
             cert,
             key,
+            passphrase,
         })
-        .or_throw_msg(&ctx, "Failed to build TLS config")?;
+        .or_else(|error| match error.downcast::<llrt_tls::TlsError>() {
+            Ok(error) => Err(throw_tls_error(&ctx, *error)),
+            Err(error) => Err(error).or_throw_msg(&ctx, "Failed to build TLS config"),
+        })?;
         let client =
             crate::build_client(Some(config)).or_throw_msg(&ctx, "Failed to build HTTP client")?;
 
@@ -50,6 +60,30 @@ pub struct AgentOptions {
     ca: Option<Vec<Vec<u8>>>,
     cert: Option<Vec<u8>>,
     key: Option<Vec<u8>>,
+    passphrase: Option<Vec<u8>>,
+}
+
+fn throw_tls_error(ctx: &Ctx<'_>, error: llrt_tls::TlsError) -> Error {
+    let exception = || -> Result<Value<'_>> {
+        let exception = Exception::from_message(ctx.clone(), &error.message)?;
+        if !error.openssl_error_stack.is_empty() {
+            exception.set("opensslErrorStack", error.openssl_error_stack)?;
+        }
+        for (name, value) in [
+            ("library", error.library),
+            ("reason", error.reason),
+            ("code", error.code.as_deref()),
+        ] {
+            if let Some(value) = value {
+                exception.set(name, value)?;
+            }
+        }
+        Ok(exception.into_value())
+    };
+    match exception() {
+        Ok(exception) => ctx.throw(exception),
+        Err(e) => e,
+    }
 }
 
 impl<'js> FromJs<'js> for AgentOptions {
@@ -64,6 +98,7 @@ impl<'js> FromJs<'js> for AgentOptions {
             ca: get_pem_list(ctx, obj, "ca")?,
             cert: get_single_pem(ctx, obj, "cert")?,
             key: get_single_pem(ctx, obj, "key")?,
+            passphrase: get_passphrase(ctx, obj)?,
         })
     }
 }
@@ -100,4 +135,25 @@ fn get_single_pem<'js>(ctx: &Ctx<'js>, obj: &Object<'js>, name: &str) -> Result<
         ));
     }
     Ok(values.pop())
+}
+
+fn get_passphrase<'js>(ctx: &Ctx<'js>, obj: &Object<'js>) -> Result<Option<Vec<u8>>> {
+    let key: Value = obj.get("key")?;
+    let has_key = match key.as_array() {
+        Some(keys) => !keys.is_empty(),
+        None => key.get::<Coerced<bool>>()?.0,
+    };
+    let passphrase: Value = obj.get("passphrase")?;
+    if !has_key || passphrase.is_undefined() || passphrase.is_null() {
+        return Ok(None);
+    }
+    if !passphrase.is_string() {
+        return Err(throw_invalid_arg_type(
+            ctx,
+            "options.passphrase",
+            "string",
+            &passphrase,
+        ));
+    }
+    Ok(Some(get_lossy_string(passphrase)?.into_bytes()))
 }

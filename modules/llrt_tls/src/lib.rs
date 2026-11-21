@@ -35,11 +35,19 @@ mod openssl_config;
 #[cfg(feature = "tls-openssl")]
 pub use openssl_config::*;
 
+#[cfg(feature = "tls-openssl")]
+mod openssl_key;
+
+mod error;
+
+pub use error::TlsError;
+
 pub struct BuildClientConfigOptions {
     pub reject_unauthorized: bool,
     pub ca: Option<Vec<Vec<u8>>>,
     pub cert: Option<Vec<u8>>,
     pub key: Option<Vec<u8>>,
+    pub passphrase: Option<Vec<u8>>,
 }
 
 impl Default for BuildClientConfigOptions {
@@ -49,6 +57,7 @@ impl Default for BuildClientConfigOptions {
             ca: None,
             cert: None,
             key: None,
+            passphrase: None,
         }
     }
 }
@@ -60,6 +69,7 @@ impl Default for BuildClientConfigOptions {
     feature = "tls-openssl"
 ))]
 mod client_auth {
+    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
     pub const ENCRYPTED_KEY: &str = "Invalid key: encrypted keys are not supported";
     pub const KEY_MISMATCH: &str = "Invalid key: does not match cert";
 

@@ -8,6 +8,8 @@ pub enum FileType {
     ClientCa,
     ClientCert,
     ClientKey,
+    ClientKeyEncrypted,
+    ClientKeyEncryptedTraditional,
 }
 
 impl FileType {
@@ -21,6 +23,10 @@ impl FileType {
             Self::ClientCa => data_dir.join("client-ca.pem"),
             Self::ClientCert => data_dir.join("client.pem"),
             Self::ClientKey => data_dir.join("client.key"),
+            Self::ClientKeyEncrypted => data_dir.join("client-encrypted.key"),
+            Self::ClientKeyEncryptedTraditional => {
+                data_dir.join("client-encrypted-traditional.key")
+            },
         }
     }
 }
