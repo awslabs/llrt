@@ -17,10 +17,18 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          cache: yarn
+          node-version: lts/*
+      - name: Install JavaScript dependencies
+        run: |
+          corepack enable
+          yarn
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
-          node: true
           toolchain: stable
       - name: Build JS bundle
         run: make js
