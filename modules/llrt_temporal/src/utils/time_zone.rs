@@ -34,9 +34,14 @@ pub(crate) fn parse_temporal_time_zone(
 }
 
 fn parse_temporal_offset(s: &str) -> Option<Offset> {
-    let bytes = s.as_bytes();
+    Offset::from_seconds(parse_offset_seconds(s, false)?).ok()
+}
 
-    if bytes.len() != 6 {
+pub(crate) fn parse_offset_seconds(s: &str, with_seconds: bool) -> Option<i32> {
+    let bytes = s.as_bytes();
+    let expected_len = if with_seconds { 9 } else { 6 };
+
+    if bytes.len() != expected_len {
         return None;
     }
 
@@ -46,23 +51,26 @@ fn parse_temporal_offset(s: &str) -> Option<Offset> {
         _ => return None,
     };
 
-    if bytes[3] != b':' {
+    if bytes[3] != b':' || (with_seconds && bytes[6] != b':') {
         return None;
     }
 
     let hours = parse_two_digits(&bytes[1..3])?;
     let minutes = parse_two_digits(&bytes[4..6])?;
+    let seconds = if with_seconds {
+        parse_two_digits(&bytes[7..9])?
+    } else {
+        0
+    };
 
-    if hours > 23 || minutes > 59 {
+    if hours > 23 || minutes > 59 || seconds > 59 {
         return None;
     }
 
-    let seconds = sign * (hours * 60 + minutes) * 60;
-
-    Offset::from_seconds(seconds).ok()
+    Some(sign * ((hours * 60 + minutes) * 60 + seconds))
 }
 
-pub(crate) fn parse_two_digits(bytes: &[u8]) -> Option<i32> {
+fn parse_two_digits(bytes: &[u8]) -> Option<i32> {
     let [a, b] = *bytes else {
         return None;
     };

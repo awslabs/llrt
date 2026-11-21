@@ -5,7 +5,7 @@ use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{Ctx, Exception, Object, Result, Value};
 
 use super::date_time::DateTimeExt;
-use super::time_zone::{parse_temporal_time_zone, parse_two_digits};
+use super::time_zone::{parse_offset_seconds, parse_temporal_time_zone};
 
 pub(crate) trait ZonedExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned>;
@@ -33,7 +33,7 @@ fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned> {
     let zoned = dt.to_zoned_datetime(tz).or_throw_range(ctx, "")?;
 
     if let Some(offset) = obj.get_optional::<_, String>("offset")? {
-        let offset_seconds = parse_property_offset_seconds(&offset)
+        let offset_seconds = parse_offset_seconds(&offset, true)
             .or_throw_range(ctx, "Invalid or rounded offset in property bag")?;
 
         if zoned.offset().seconds() != offset_seconds {
@@ -44,33 +44,6 @@ fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned> {
         }
     }
     Ok(zoned)
-}
-
-fn parse_property_offset_seconds(offset: &str) -> Option<i32> {
-    let bytes = offset.as_bytes();
-
-    if bytes.len() == 6 {
-        return None;
-    }
-
-    if bytes.len() != 9 || bytes[3] != b':' || bytes[6] != b':' {
-        return None;
-    }
-
-    let sign = match bytes[0] {
-        b'+' => 1,
-        b'-' => -1,
-        _ => return None,
-    };
-    let hours = parse_two_digits(&bytes[1..3])?;
-    let minutes = parse_two_digits(&bytes[4..6])?;
-    let seconds = parse_two_digits(&bytes[7..9])?;
-
-    if hours > 23 || minutes > 59 || seconds > 59 {
-        return None;
-    }
-
-    Some(sign * ((hours * 60 + minutes) * 60 + seconds))
 }
 
 fn into_zoned(ctx: &Ctx<'_>, zoned: &Zoned, obj: &Object<'_>) -> Result<Zoned> {
