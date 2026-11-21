@@ -226,6 +226,18 @@ describe("Request class", () => {
     expect(await derived.text()).toEqual("transferred");
   });
 
+  it("should keep a locked body on a Request whose body was transferred before being read", async () => {
+    const original = new Request("http://localhost", {
+      method: "POST",
+      body: "transferred",
+    });
+    const derived = new Request(original);
+    expect(original.bodyUsed).toBeTruthy();
+    expect(original.body).toBeInstanceOf(ReadableStream);
+    expect(original.body.locked).toBeTruthy();
+    expect(await derived.text()).toEqual("transferred");
+  });
+
   it("should throw when reading body of a transferred Request", async () => {
     const original = new Request("http://localhost", {
       method: "POST",

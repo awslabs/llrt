@@ -218,7 +218,29 @@ impl<'js> Request<'js> {
         // `body` getter keeps returning the same object it did before.
         if let Some((input_request, init_overrides_body)) = input_request_to_disturb {
             let input_req = input_request.borrow();
-            if let Ok(body_value) = input_req.body(ctx.clone()) {
+            // If the input's `body` getter was never called, the body is still
+            // a plain value (string, bytes, Blob...). Move it to the new
+            // request rather than creating a stream just to tee it: the
+            // unread tee branch is never freed, and QuickJS aborts in
+            // JS_FreeRuntime. The input gets a closed, locked stream, so its
+            // `body` is still non-null and `bodyUsed` is true.
+            let body_is_value = input_req.body_stream.read().unwrap().is_none()
+                && matches!(
+                    &*input_req.body.read().unwrap(),
+                    BodyVariant::Provided(Some(value))
+                        if Class::<ReadableStream>::from_value(value).is_err()
+                );
+            if body_is_value {
+                let body = std::mem::replace(
+                    &mut *input_req.body.write().unwrap(),
+                    BodyVariant::Provided(None),
+                );
+                if !init_overrides_body {
+                    *request.body.write().unwrap() = body;
+                }
+                *input_req.body_stream.write().unwrap() =
+                    Some(crate::body_helpers::create_disturbed_stream(&ctx)?);
+            } else if let Ok(body_value) = input_req.body(ctx.clone()) {
                 if let Some(stream) = body_value
                     .as_object()
                     .and_then(Class::<ReadableStream>::from_object)
@@ -912,4 +934,37 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::test_async_with;
+    use rquickjs::{CatchResultExt, Promise};
+
+    // The runtime is dropped at the end of the test, and QuickJS asserts in
+    // JS_FreeRuntime that every object was freed, so a leak aborts the test.
+    #[tokio::test]
+    async fn test_request_from_request_with_body_frees() {
+        test_async_with(|ctx| {
+            llrt_stream_web::init(&ctx).unwrap();
+            llrt_abort::init(&ctx).unwrap();
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let run = async {
+                    let promise: Promise = ctx.eval(
+                        r#"(async () => {
+                            const original = new Request("http://localhost/", { method: "POST", body: "hello" });
+                            const copy = new Request(original);
+                            return await copy.text();
+                        })()"#,
+                    )?;
+                    let text: String = promise.into_future().await?;
+                    assert_eq!(text, "hello");
+                    Ok(())
+                };
+                run.await.catch(&ctx).unwrap();
+            })
+        })
+        .await;
+    }
 }
