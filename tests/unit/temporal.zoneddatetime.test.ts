@@ -125,6 +125,18 @@ describe("Static methods", () => {
       // });
       // expect(zdt4.toString()).toBe("2024-11-03T01:05:00-05:00[America/New_York]");
     });
+
+    it("Rejects rounded HH:MM offsets in property bags", () => {
+      expect(() =>
+        Temporal.ZonedDateTime.from({
+          year: 1970,
+          month: 1,
+          day: 1,
+          offset: "-00:45",
+          timeZone: "Africa/Monrovia",
+        })
+      ).toThrow(RangeError);
+    });
   });
 });
 
