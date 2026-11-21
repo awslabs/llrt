@@ -12,7 +12,8 @@ jobs:
       - name: Verify tag matches crate version
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          crate="$(grep -m1 '^version' llrt/Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          crate="$(cargo metadata --no-deps --format-version 1 |
+            jq -r '.packages[] | select(.name == "llrt") | .version')"
           echo "Tag version:   $tag"
           echo "Crate version: $crate"
           if [ "$tag" != "$crate" ]; then
