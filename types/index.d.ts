@@ -1,6 +1,7 @@
 /// <reference types="./abort.d.ts" />
 /// <reference types="./assert.d.ts" />
 /// <reference types="./async_hooks.d.ts" />
+/// <reference types="./awslambda.d.ts" />
 /// <reference types="./buffer.d.ts" />
 /// <reference types="./child_process.d.ts" />
 /// <reference types="./console.d.ts" />
