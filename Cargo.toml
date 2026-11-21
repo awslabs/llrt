@@ -46,6 +46,57 @@ members = [
   "llrt",
 ]
 
+[workspace.package]
+version = "0.10.0-beta"
+
+[workspace.dependencies]
+llrt_abort = { version = "0.10.0-beta", path = "modules/llrt_abort" }
+llrt_assert = { version = "0.10.0-beta", path = "modules/llrt_assert" }
+llrt_async_hooks = { version = "0.10.0-beta", path = "modules/llrt_async_hooks" }
+llrt_buffer = { version = "0.10.0-beta", path = "modules/llrt_buffer" }
+llrt_build = { version = "0.10.0-beta", path = "libs/llrt_build" }
+llrt_child_process = { version = "0.10.0-beta", path = "modules/llrt_child_process" }
+llrt_compression = { version = "0.10.0-beta", default-features = false, path = "libs/llrt_compression" }
+llrt_console = { version = "0.10.0-beta", path = "modules/llrt_console" }
+llrt_context = { version = "0.10.0-beta", path = "libs/llrt_context" }
+llrt_core = { version = "0.10.0-beta", default-features = false, path = "llrt_core" }
+llrt_crypto = { version = "0.10.0-beta", default-features = false, path = "modules/llrt_crypto" }
+llrt_dgram = { version = "0.10.0-beta", path = "modules/llrt_dgram" }
+llrt_dns = { version = "0.10.0-beta", path = "modules/llrt_dns" }
+llrt_dns_cache = { version = "0.10.0-beta", path = "libs/llrt_dns_cache" }
+llrt_encoding = { version = "0.10.0-beta", path = "libs/llrt_encoding" }
+llrt_events = { version = "0.10.0-beta", path = "modules/llrt_events" }
+llrt_exceptions = { version = "0.10.0-beta", path = "modules/llrt_exceptions" }
+llrt_fetch = { version = "0.10.0-beta", default-features = false, path = "modules/llrt_fetch" }
+llrt_fs = { version = "0.10.0-beta", path = "modules/llrt_fs" }
+llrt_hooking = { version = "0.10.0-beta", path = "libs/llrt_hooking" }
+llrt_http = { version = "0.10.0-beta", default-features = false, path = "modules/llrt_http" }
+llrt_intl = { version = "0.10.0-beta", path = "modules/llrt_intl" }
+llrt_json = { version = "0.10.0-beta", path = "libs/llrt_json" }
+llrt_logging = { version = "0.10.0-beta", path = "libs/llrt_logging" }
+llrt_modules = { version = "0.10.0-beta", default-features = false, path = "llrt_modules" }
+llrt_navigator = { version = "0.10.0-beta", path = "modules/llrt_navigator" }
+llrt_net = { version = "0.10.0-beta", path = "modules/llrt_net" }
+llrt_net_policy = { version = "0.10.0-beta", path = "libs/llrt_net_policy" }
+llrt_numbers = { version = "0.10.0-beta", path = "libs/llrt_numbers" }
+llrt_os = { version = "0.10.0-beta", default-features = false, path = "modules/llrt_os" }
+llrt_path = { version = "0.10.0-beta", path = "modules/llrt_path" }
+llrt_perf_hooks = { version = "0.10.0-beta", path = "modules/llrt_perf_hooks" }
+llrt_process = { version = "0.10.0-beta", path = "modules/llrt_process" }
+llrt_stream = { version = "0.10.0-beta", path = "modules/llrt_stream" }
+llrt_stream_web = { version = "0.10.0-beta", path = "modules/llrt_stream_web" }
+llrt_string_decoder = { version = "0.10.0-beta", path = "modules/llrt_string_decoder" }
+llrt_temporal = { version = "0.10.0-beta", path = "modules/llrt_temporal" }
+llrt_test = { version = "0.10.0-beta", path = "libs/llrt_test" }
+llrt_test_tls = { version = "0.10.0-beta", default-features = false, path = "libs/llrt_test_tls" }
+llrt_timers = { version = "0.10.0-beta", path = "modules/llrt_timers" }
+llrt_tls = { version = "0.10.0-beta", default-features = false, path = "modules/llrt_tls" }
+llrt_tty = { version = "0.10.0-beta", path = "modules/llrt_tty" }
+llrt_url = { version = "0.10.0-beta", path = "modules/llrt_url" }
+llrt_util = { version = "0.10.0-beta", path = "modules/llrt_util" }
+llrt_utils = { version = "0.10.0-beta", default-features = false, path = "libs/llrt_utils" }
+llrt_zlib = { version = "0.10.0-beta", path = "modules/llrt_zlib" }
+
 [profile.flame]
 inherits = "release"
 strip = false

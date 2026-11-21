@@ -17,6 +17,16 @@ It's built in Rust, utilizing QuickJS as JavaScript engine, ensuring efficient m
 
 HTTP benchmarks measured in **round trip time** for a cold start ([why?](#benchmark-methodology))
 
+## Install locally
+
+Install the LLRT runtime from crates.io:
+
+```sh
+cargo install llrt
+```
+
+This build does not include the AWS SDK; bundle your dependencies with your application.
+
 ## Configure Lambda functions to use LLRT
 
 Download the last LLRT release from <https://github.com/awslabs/llrt/releases>

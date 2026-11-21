@@ -28,9 +28,9 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: | #create mock js files
-          mkdir -p bundle/js
+          mkdir -p llrt_core/bundle/js
           for i in {1..5}; do
-            echo "console.log(123);" > "bundle/js/test$i.js"
+            echo "console.log(123);" > "llrt_core/bundle/js/test$i.js"
           done
           cargo clippy --all-targets -- -D warnings
   wpt:

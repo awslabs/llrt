@@ -1,7 +1,7 @@
 [package]
 name = "llrt_json"
 description = "LLRT json helpers"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 itoa = { version = "1", default-features = false }
-llrt_utils = { version = "0.10.0-beta", path = "../llrt_utils", default-features = false }
+llrt_utils = { workspace = true, default-features = false }
 memchr = { version = "2", default-features = false }
 rquickjs = { version = "0.14", default-features = false }
 ryu = { version = "1", default-features = false }
@@ -22,11 +22,11 @@ simd-json = { version = "0.19", features = [
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
-llrt_test = { version = "0.10.0-beta", path = "../llrt_test" }
+llrt_test = { workspace = true }
 tokio = { version = "1", features = ["test-util", "macros"], default-features = false }
 
 [build-dependencies]
-llrt_build = { version = "0.10.0-beta", path = "../llrt_build" }
+llrt_build = { workspace = true }
 
 [[bench]]
 name = "json"

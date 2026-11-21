@@ -1,8 +1,17 @@
 [package]
 name = "llrt_core"
-version = "0.10.0-beta"
+description = "LLRT runtime core"
+version.workspace = true
 edition = "2021"
-license-file = "LICENSE"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+include = [
+  "src/**",
+  "build.rs",
+  "sdk.cfg",
+  "bundle/js/**",
+  "Cargo.toml",
+]
 
 [features]
 default = ["macro", "tls-ring", "crypto-rust", "pqc"]
@@ -40,18 +49,18 @@ hyper = { version = "1", default-features = false }
 itoa = { version = "1", default-features = false }
 jiff = { version = "1", features = ["std"], default-features = false }
 libc = { version = "0.2", default-features = false }
-llrt_context = { path = "../libs/llrt_context" }
-llrt_encoding = { path = "../libs/llrt_encoding" }
-llrt_hooking = { path = "../libs/llrt_hooking" }
-llrt_json = { path = "../libs/llrt_json" }
-llrt_logging = { path = "../libs/llrt_logging" }
-llrt_modules = { path = "../llrt_modules", default-features = false, features = [
+llrt_context = { workspace = true }
+llrt_encoding = { workspace = true }
+llrt_hooking = { workspace = true }
+llrt_json = { workspace = true }
+llrt_logging = { workspace = true }
+llrt_modules = { workspace = true, default-features = false, features = [
   "base",
   "console",
 ] }
-llrt_net_policy = { path = "../libs/llrt_net_policy" }
-llrt_numbers = { path = "../libs/llrt_numbers" }
-llrt_utils = { path = "../libs/llrt_utils", features = ["all"] }
+llrt_net_policy = { workspace = true }
+llrt_numbers = { workspace = true }
+llrt_utils = { workspace = true, default-features = true, features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
 phf = { version = "0.14", default-features = false }
 quick-xml = { version = "0.42", default-features = false }
@@ -80,15 +89,15 @@ md-5 = { version = "0.11", default-features = false }
 md-5 = { version = "0.11", default-features = false }
 
 [build-dependencies]
-rquickjs = { version = "0.14", default-features = false }
+llrt_build = { workspace = true }
 phf_codegen = { version = "0.14", default-features = false }
-llrt_build = { path = "../libs/llrt_build" }
-uuid = { version = "1", features = ["v4"], default-features = false }
+rquickjs = { version = "0.14", default-features = false }
+zstd = { version = "0.14", default-features = false, features = ["zdict_builder"] }
 walkdir = { version = "2", default-features = false }
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false }
-llrt_test = { path = "../libs/llrt_test" }
+llrt_test = { workspace = true }
 rquickjs = { version = "0.14", default-features = false }
 wiremock = { version = "0.6", default-features = false }
 

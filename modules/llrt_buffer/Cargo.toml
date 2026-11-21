@@ -1,7 +1,7 @@
 [package]
 name = "llrt_buffer"
 description = "LLRT Module buffer"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
@@ -12,14 +12,14 @@ path = "src/lib.rs"
 
 [dependencies]
 itoa = { version = "1", default-features = false }
-llrt_encoding = { version = "0.10.0-beta", path = "../../libs/llrt_encoding" }
-llrt_stream_web = { version = "0.10.0-beta", path = "../llrt_stream_web" }
-llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_encoding = { workspace = true }
+llrt_stream_web = { workspace = true }
+llrt_utils = { workspace = true, default-features = false }
 rquickjs = { version = "0.14", features = [
   "futures",
 ], default-features = false }
 ryu-js = { version = "1", default-features = false }
 
 [dev-dependencies]
-llrt_test = { path = "../../libs/llrt_test" }
+llrt_test = { workspace = true }
 tokio = { version = "1", features = ["full"], default-features = false }
