@@ -58,95 +58,95 @@ sudo apt install tzdata-legacy
 
 1. Clone code and cd to directory
 
-    ```
-    git clone git@github.com:awslabs/llrt.git
-    cd llrt
-    ```
+   ```
+   git clone git@github.com:awslabs/llrt.git
+   cd llrt
+   ```
 
 2. Install git submodules
 
-    ```
-    git submodule update --init --checkout
-    ```
+   ```
+   git submodule update --init --checkout
+   ```
 
 3. Install rust
 
-    ```
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
-    source "$HOME/.cargo/env"
-    ```
+   ```
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+   source "$HOME/.cargo/env"
+   ```
 
 4. Install dependencies
 
-    ```
-    # MacOS
-    brew install zig make cmake zstd node corepack
+   ```
+   # MacOS
+   brew install zig make cmake zstd node corepack
 
-    # Ubuntu
-    sudo apt -y install make zstd
-    sudo snap install zig --classic --beta
+   # Ubuntu
+   sudo apt -y install make zstd
+   sudo snap install zig --classic --beta
 
-    # Windows WSL2 (requires systemd to be enabled*)
-    sudo apt -y install cmake g++ gcc make zip zstd
-    sudo snap install zig --classic --beta
+   # Windows WSL2 (requires systemd to be enabled*)
+   sudo apt -y install cmake g++ gcc make zip zstd
+   sudo snap install zig --classic --beta
 
-    # Windows WSL2 (If Node.js is not yet installed)
-    sudo curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
-    nvm install --lts
-    ```
+   # Windows WSL2 (If Node.js is not yet installed)
+   sudo curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+   nvm install --lts
+   ```
 
-    _\* See [Microsoft Devblogs](https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/#how-can-you-get-systemd-on-your-machine)_
+   _\* See [Microsoft Devblogs](https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/#how-can-you-get-systemd-on-your-machine)_
 
 5. Install Node.js packages
 
-    ```
-    corepack enable
-    yarn
-    ```
+   ```
+   corepack enable
+   yarn
+   ```
 
 6. Install generate libs and setup rust targets & toolchains
 
-    ```
-    make stdlib && make libs
-    ```
+   ```
+   make stdlib && make libs
+   ```
 
-    !!! note
-        If these commands exit with an error that says `can't cd to zstd/lib`,
-        you've not cloned this repository recursively. Run `git submodule update --init` to download the submodules and run the commands above again.
+   !!! note
+   If these commands exit with an error that says `can't cd to zstd/lib`,
+   you've not cloned this repository recursively. Run `git submodule update --init` to download the submodules and run the commands above again.
 
 7. Build binaries for Lambda (Per bundle type and architecture desired)
 
-    ```
-    # for arm64, use
-    make llrt-lambda-arm64.zip
-    make llrt-lambda-arm64-no-sdk.zip
-    make llrt-lambda-arm64-full-sdk.zip
-    # or for x86-64, use
-    make llrt-lambda-x64.zip
-    make llrt-lambda-x64-no-sdk.zip
-    make llrt-lambda-x64-full-sdk.zip
-    ```
+   ```
+   # for arm64, use
+   make llrt-lambda-arm64.zip
+   make llrt-lambda-arm64-no-sdk.zip
+   make llrt-lambda-arm64-full-sdk.zip
+   # or for x86-64, use
+   make llrt-lambda-x64.zip
+   make llrt-lambda-x64-no-sdk.zip
+   make llrt-lambda-x64-full-sdk.zip
+   ```
 
 8. Build binaries for Container (Per bundle type and architecture desired)
 
-    ```
-    # for arm64, use
-    make llrt-container-arm64
-    make llrt-container-arm64-no-sdk
-    make llrt-container-arm64-full-sdk
-    # or for x86-64, use
-    make llrt-container-x64
-    make llrt-container-x64-no-sdk
-    make llrt-container-x64-full-sdk
-    ```
+   ```
+   # for arm64, use
+   make llrt-container-arm64
+   make llrt-container-arm64-no-sdk
+   make llrt-container-arm64-full-sdk
+   # or for x86-64, use
+   make llrt-container-x64
+   make llrt-container-x64-no-sdk
+   make llrt-container-x64-full-sdk
+   ```
 
 9. Optionally build for your local machine (Mac or Linux)
 
-    ```
-    make release
-    make release-no-sdk
-    make release-full-sdk
-    ```
+   ```
+   make release
+   make release-no-sdk
+   make release-full-sdk
+   ```
 
 You should now have a `llrt-lambda-arm64*.zip` or `llrt-lambda-x64*.zip`. You can manually upload this as a Lambda layer or use it via your Infrastructure-as-code pipeline.
 
@@ -169,6 +169,7 @@ LLRT supports multiple cryptographic backends for both the crypto module and TLS
 
 | Feature              | Description                                   |
 | -------------------- | --------------------------------------------- |
+| `tls-rust`           | rustls with RustCrypto                        |
 | `tls-ring` (default) | rustls with ring crypto                       |
 | `tls-aws-lc`         | rustls with AWS-LC crypto (optimized for AWS) |
 | `tls-graviola`       | rustls with graviola crypto                   |
@@ -292,8 +293,8 @@ If you want to enable a hooking mechanism that is mostly compatible with Node.js
 We provide a concrete example in `example/register-hooks`.
 
 !!! note
-    This environment variable is only effective when running on AWS Lambda.
-    When using the LLRT CLI, hook files must be specified using the --import option instead of this environment variable.
+This environment variable is only effective when running on AWS Lambda.
+When using the LLRT CLI, hook files must be specified using the --import option instead of this environment variable.
 
 ### `LLRT_SDK_CONNECTION_WARMUP=1`
 
