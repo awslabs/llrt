@@ -4,9 +4,9 @@ pub use self::libs::*;
 
 #[allow(clippy::module_inception)]
 mod libs {
+    pub use llrt_async_context as hooking;
     pub use llrt_context as context;
     pub use llrt_encoding as encoding;
-    pub use llrt_hooking as hooking;
     pub use llrt_json as json;
     pub use llrt_logging as logging;
     pub use llrt_numbers as numbers;

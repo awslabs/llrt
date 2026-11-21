@@ -128,7 +128,7 @@ async fn main() -> Result<ExitCode, Box<dyn Error + Send + Sync>> {
         start_cli(&vm).await;
     }
 
-    vm.idle().await?;
+    vm.shutdown().await?;
 
     Ok(ExitCode::from(EXIT_CODE.load(Ordering::Relaxed)))
 }
