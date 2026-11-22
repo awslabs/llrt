@@ -19,13 +19,13 @@ it("should require a json file (absolute path)", () => {
 });
 
 it("should require a js file (relative path)", () => {
-  const { hello } = _require("../../../../fixtures/hello.js");
+  const { hello } = _require("../../../../../fixtures/hello.js");
 
   expect(hello).toEqual("hello world!");
 });
 
 it("should require a json file (relative path)", () => {
-  const a = _require("../../../../fixtures/package.json");
+  const a = _require("../../../../../fixtures/package.json");
 
   expect(a.private).toEqual(true);
 });
