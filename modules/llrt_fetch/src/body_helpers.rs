@@ -71,22 +71,19 @@ pub(crate) fn create_body_value_stream<'js>(
     ctx: &Ctx<'js>,
     body_value: Value<'js>,
 ) -> Result<Value<'js>> {
+    // Collect bytes from whatever the body value is.
+    let bytes: Vec<u8> = if let Ok(ta) = TypedArray::<u8>::from_value(body_value.clone()) {
+        unsafe { ta.as_bytes() }.unwrap_or(&[]).to_vec()
+    } else if let Some(blob) = body_value.as_object().and_then(Class::<Blob>::from_object) {
+        blob.borrow().get_bytes()
+    } else {
+        ObjectBytes::from(ctx, &body_value)?.as_bytes(ctx)?.to_vec()
+    };
     let pull = PullAlgorithm::from_fn_once(
         move |ctx: Ctx<'js>, controller: ReadableStreamControllerClass<'js>| {
             let ctrl = match controller {
                 ReadableStreamControllerClass::ReadableStreamByteController(c) => c,
                 _ => return Err(Exception::throw_type(&ctx, "Expected byte controller")),
-            };
-
-            // Collect bytes from whatever the body value is.
-            let bytes: Vec<u8> = if let Ok(ta) = TypedArray::<u8>::from_value(body_value.clone()) {
-                unsafe { ta.as_bytes() }.unwrap_or(&[]).to_vec()
-            } else if let Some(blob) = body_value.as_object().and_then(Class::<Blob>::from_object) {
-                blob.borrow().get_bytes()
-            } else {
-                ObjectBytes::from(&ctx, &body_value)?
-                    .as_bytes(&ctx)?
-                    .to_vec()
             };
 
             if !bytes.is_empty() {

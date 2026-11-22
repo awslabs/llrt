@@ -913,3 +913,37 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use llrt_test::test_async_with;
+    use rquickjs::{CatchResultExt, Promise};
+
+    // The runtime is dropped at the end of the test, and QuickJS asserts in
+    // JS_FreeRuntime that every object was freed, so a leak aborts the test.
+    #[tokio::test]
+    async fn test_unread_body_streams_are_freed() {
+        test_async_with(|ctx| {
+            llrt_stream_web::init(&ctx).unwrap();
+            llrt_abort::init(&ctx).unwrap();
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let run = async {
+                    let promise: Promise = ctx.eval(
+                        r#"(async () => {
+                            new Request("http://localhost/", { method: "POST", body: "hello" }).body;
+                            new Request("http://localhost/", { method: "POST", body: new Uint8Array([1]) }).body;
+                            new Response("hello").body;
+                            return true;
+                        })()"#,
+                    )?;
+                    let done: bool = promise.into_future().await?;
+                    assert!(done);
+                    Ok(())
+                };
+                run.await.catch(&ctx).unwrap();
+            })
+        })
+        .await;
+    }
+}
