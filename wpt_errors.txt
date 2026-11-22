@@ -10,5 +10,6 @@ fetch/api/basic > should pass request-referrer.any.js tests
 third_party/test262/test/intl402/Temporal/ZonedDateTime > should pass construct-non-utc-non-iso.js tests
 third_party/test262/test/intl402/Temporal/ZonedDateTime > should pass links.js tests
 third_party/test262/test/intl402/Temporal/ZonedDateTime/compare > should pass infinity-throws-rangeerror.js tests
+url > should pass IdnaTestV2.any.js tests
 url > should pass url-constructor.any.js tests
 url > should pass url-setters.any.js tests
