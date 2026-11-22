@@ -1,11 +1,10 @@
 [package]
 name = "llrt_http"
 description = "LLRT Module http & https"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
-readme = "README.md"
 
 [lib]
 name = "llrt_http"
@@ -63,10 +62,10 @@ hyper-openssl = { version = "0.10", features = [
   "client-legacy",
 ], optional = true }
 openssl = { version = "0.10", optional = true }
-llrt_dns_cache = { version = "0.10.0-beta", path = "../../libs/llrt_dns_cache" }
-llrt_exceptions = { version = "0.10.0-beta", path = "../llrt_exceptions" }
-llrt_tls = { version = "0.10.0-beta", default-features = false, path = "../llrt_tls" }
-llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_dns_cache = { workspace = true }
+llrt_exceptions = { workspace = true }
+llrt_tls = { workspace = true, default-features = false }
+llrt_utils = { workspace = true, default-features = false }
 once_cell = { version = "1", features = ["std"], default-features = false }
 rquickjs = { version = "0.14", features = [
   "either",

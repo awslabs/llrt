@@ -1,11 +1,10 @@
 [package]
 name = "llrt_tls"
 description = "LLRT Module tls"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
-readme = "README.md"
 
 [lib]
 name = "llrt_tls"

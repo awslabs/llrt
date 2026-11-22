@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const CWD = process.cwd();
 const WPT_DIR = path.join(CWD, "wpt");
-const TEST_DIR = path.join(CWD, "bundle", "js", "__tests__", "wpt");
+const TEST_DIR = path.join(CWD, "llrt_core", "bundle", "js", "__tests__", "wpt");
 
 // Compile a WPT support script into a reusable `(self) => void` function.
 // `with (self)` lets `self.Foo = …; Foo` work (see idlharness.js); the

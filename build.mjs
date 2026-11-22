@@ -11,7 +11,7 @@ const TMP_DIR = `.tmp-llrt-aws-sdk`;
 const SRC_DIR = path.join("llrt_core", "src", "modules", "js");
 const TESTS_DIR = "tests";
 const TESTS_SUB_DIR = process.env.TEST_SUB_DIR || "unit";
-const OUT_DIR = "bundle/js";
+const OUT_DIR = "llrt_core/bundle/js";
 const AWS_SDK_VERSION_FILE = path.join(OUT_DIR, ".aws-sdk-version");
 const SHIMS = new Map();
 const SDK_BUNDLE_MODE = process.env.SDK_BUNDLE_MODE || "NONE"; // "FULL" or "STD" or "NONE"
@@ -177,7 +177,7 @@ Object.keys(SDK_DATA).forEach((sdk) => {
 });
 
 async function parseSdkData() {
-  const cfgData = await fs.readFile("sdk.cfg");
+  const cfgData = await fs.readFile("llrt_core/sdk.cfg");
   const cfgLines = cfgData.toString().split("\n");
 
   const sdkData = {};

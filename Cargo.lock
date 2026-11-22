@@ -1844,7 +1844,6 @@ dependencies = [
  "terminal_size",
  "tokio",
  "tracing",
- "uuid",
  "walkdir",
  "wiremock",
  "zstd",

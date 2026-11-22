@@ -10,27 +10,31 @@ on:
         required: true
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          cache: yarn
+          node-version: lts/*
+      - name: Install JavaScript dependencies
+        run: |
+          corepack enable
+          yarn
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           toolchain: stable
-      - name: Publish utils
-        working-directory: ./llrt_utils
-        run: |
-          cargo publish
-          sleep 10
+      - name: Build JS bundle
+        run: make js
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-      - name: Publish modules
-        working-directory: ./llrt_modules
-        run: |
-          cargo publish
+          SDK_BUNDLE_MODE: NONE
+      - name: Publish crates
+        run: ./scripts/publish-crates.sh
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}

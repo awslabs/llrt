@@ -1,11 +1,10 @@
 [package]
 name = "llrt_temporal"
 description = "LLRT Module temporal"
-version = "0.10.0-beta"
+version.workspace = true
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/awslabs/llrt"
-readme = "README.md"
 
 [lib]
 name = "llrt_temporal"
@@ -20,5 +19,5 @@ jiff = { version = "1", features = [
   "tzdb-zoneinfo",
   "perf-inline",
 ], default-features = false }
-llrt_utils = { version = "0.10.0-beta", path = "../../libs/llrt_utils", default-features = false }
+llrt_utils = { workspace = true, default-features = false }
 rquickjs = { version = "0.14", features = ["macro"], default-features = false }
