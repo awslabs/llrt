@@ -30,10 +30,9 @@ mod stdio;
 pub static EXIT_CODE: AtomicU8 = AtomicU8::new(0);
 
 fn next_tick<'js>(ctx: Ctx<'js>, cb: Function<'js>, args: Rest<Value<'js>>) -> Result<()> {
-    let mut js_args = Args::new(ctx, args.len());
-    for arg in args.0 {
-        js_args.push_arg(arg)?;
-    }
+    // `Args::new(n)` has no room for the `this` and function that `defer_arg` adds.
+    let mut js_args = Args::new_unsized(ctx);
+    js_args.push_args(args.0)?;
     cb.defer_arg(js_args)
 }
 

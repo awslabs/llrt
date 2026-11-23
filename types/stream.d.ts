@@ -1,6 +1,6 @@
 declare module "stream" {
   import { EventEmitter } from "events";
-  import { Buffer } from "buffer";
+  import { Buffer, BufferEncoding } from "buffer";
 
   class ReadableStreamInner
     extends EventEmitter
@@ -341,6 +341,197 @@ declare module "stream" {
     removeListener(event: "close", listener: () => void): this;
     removeListener(event: "error", listener: (err: Error) => void): this;
     removeListener(event: "finish", listener: () => void): this;
+  }
+
+  interface ReadableOptions {
+    highWaterMark?: number | undefined;
+    encoding?: BufferEncoding | undefined;
+    objectMode?: boolean | undefined;
+    emitClose?: boolean | undefined;
+    autoDestroy?: boolean | undefined;
+    signal?: AbortSignal | undefined;
+    read?(this: Readable, size: number): void;
+    destroy?(
+      this: Readable,
+      error: Error | null,
+      callback: (error?: Error | null) => void
+    ): void;
+  }
+
+  interface WritableOptions {
+    highWaterMark?: number | undefined;
+    decodeStrings?: boolean | undefined;
+    defaultEncoding?: BufferEncoding | undefined;
+    objectMode?: boolean | undefined;
+    emitClose?: boolean | undefined;
+    autoDestroy?: boolean | undefined;
+    signal?: AbortSignal | undefined;
+    write?(
+      this: Writable,
+      chunk: any,
+      encoding: BufferEncoding,
+      callback: (error?: Error | null) => void
+    ): void;
+    writev?(
+      this: Writable,
+      chunks: { chunk: any; encoding: BufferEncoding }[],
+      callback: (error?: Error | null) => void
+    ): void;
+    final?(this: Writable, callback: (error?: Error | null) => void): void;
+    destroy?(
+      this: Writable,
+      error: Error | null,
+      callback: (error?: Error | null) => void
+    ): void;
+  }
+
+  interface DuplexOptions
+    extends
+      Omit<ReadableOptions, "read" | "destroy">,
+      Omit<WritableOptions, "write" | "writev" | "final" | "destroy"> {
+    allowHalfOpen?: boolean | undefined;
+    readable?: boolean | undefined;
+    writable?: boolean | undefined;
+    readableHighWaterMark?: number | undefined;
+    writableHighWaterMark?: number | undefined;
+    readableObjectMode?: boolean | undefined;
+    writableObjectMode?: boolean | undefined;
+    read?(this: Duplex, size: number): void;
+    write?(
+      this: Duplex,
+      chunk: any,
+      encoding: BufferEncoding,
+      callback: (error?: Error | null) => void
+    ): void;
+    writev?(
+      this: Duplex,
+      chunks: { chunk: any; encoding: BufferEncoding }[],
+      callback: (error?: Error | null) => void
+    ): void;
+    final?(this: Duplex, callback: (error?: Error | null) => void): void;
+    destroy?(
+      this: Duplex,
+      error: Error | null,
+      callback: (error?: Error | null) => void
+    ): void;
+  }
+
+  /**
+   * The `node:stream` Readable, from the bundled `readable-stream`.
+   */
+  class Readable extends EventEmitter implements AsyncIterable<any> {
+    constructor(options?: ReadableOptions);
+    static from(
+      iterable: Iterable<any> | AsyncIterable<any>,
+      options?: ReadableOptions
+    ): Readable;
+    readable: boolean;
+    readonly readableEncoding: BufferEncoding | null;
+    readonly readableEnded: boolean;
+    readonly readableFlowing: boolean | null;
+    readonly readableHighWaterMark: number;
+    readonly readableLength: number;
+    readonly readableObjectMode: boolean;
+    destroyed: boolean;
+    _read(size: number): void;
+    read(size?: number): any;
+    setEncoding(encoding: BufferEncoding): this;
+    pause(): this;
+    resume(): this;
+    isPaused(): boolean;
+    pipe<T extends Writable>(
+      destination: T,
+      options?: { end?: boolean | undefined }
+    ): T;
+    unpipe(destination?: Writable): this;
+    unshift(chunk: any, encoding?: BufferEncoding): void;
+    push(chunk: any, encoding?: BufferEncoding): boolean;
+    _destroy(
+      error: Error | null,
+      callback: (error?: Error | null) => void
+    ): void;
+    destroy(error?: Error): this;
+    [Symbol.asyncIterator](): AsyncIterableIterator<any>;
+  }
+
+  /**
+   * The `node:stream` Writable, from the bundled `readable-stream`.
+   */
+  class Writable extends EventEmitter {
+    constructor(options?: WritableOptions);
+    writable: boolean;
+    readonly writableEnded: boolean;
+    readonly writableFinished: boolean;
+    readonly writableHighWaterMark: number;
+    readonly writableLength: number;
+    readonly writableObjectMode: boolean;
+    readonly writableCorked: number;
+    destroyed: boolean;
+    _write(
+      chunk: any,
+      encoding: BufferEncoding,
+      callback: (error?: Error | null) => void
+    ): void;
+    _writev?(
+      chunks: { chunk: any; encoding: BufferEncoding }[],
+      callback: (error?: Error | null) => void
+    ): void;
+    _final(callback: (error?: Error | null) => void): void;
+    _destroy(
+      error: Error | null,
+      callback: (error?: Error | null) => void
+    ): void;
+    write(chunk: any, callback?: (error?: Error | null) => void): boolean;
+    write(
+      chunk: any,
+      encoding: BufferEncoding,
+      callback?: (error?: Error | null) => void
+    ): boolean;
+    setDefaultEncoding(encoding: BufferEncoding): this;
+    end(callback?: () => void): this;
+    end(chunk: any, callback?: () => void): this;
+    end(chunk: any, encoding: BufferEncoding, callback?: () => void): this;
+    cork(): void;
+    uncork(): void;
+    destroy(error?: Error): this;
+  }
+
+  /**
+   * The `node:stream` Duplex, from the bundled `readable-stream`: a Readable
+   * that is also a Writable.
+   */
+  class Duplex extends Readable implements Writable {
+    constructor(options?: DuplexOptions);
+    allowHalfOpen: boolean;
+    writable: boolean;
+    readonly writableEnded: boolean;
+    readonly writableFinished: boolean;
+    readonly writableHighWaterMark: number;
+    readonly writableLength: number;
+    readonly writableObjectMode: boolean;
+    readonly writableCorked: number;
+    _write(
+      chunk: any,
+      encoding: BufferEncoding,
+      callback: (error?: Error | null) => void
+    ): void;
+    _writev?(
+      chunks: { chunk: any; encoding: BufferEncoding }[],
+      callback: (error?: Error | null) => void
+    ): void;
+    _final(callback: (error?: Error | null) => void): void;
+    write(chunk: any, callback?: (error?: Error | null) => void): boolean;
+    write(
+      chunk: any,
+      encoding: BufferEncoding,
+      callback?: (error?: Error | null) => void
+    ): boolean;
+    setDefaultEncoding(encoding: BufferEncoding): this;
+    end(callback?: () => void): this;
+    end(chunk: any, callback?: () => void): this;
+    end(chunk: any, encoding: BufferEncoding, callback?: () => void): this;
+    cork(): void;
+    uncork(): void;
   }
 
   global {

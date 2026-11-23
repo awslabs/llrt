@@ -179,3 +179,15 @@ describe("process.stdout and process.stderr", () => {
     expect(actual.message).toEqual(expected.message);
   });
 });
+
+it("should pass three or four extra arguments to a nextTick callback", async () => {
+  for (const args of [
+    [1, 2, 3],
+    [1, 2, 3, 4],
+  ]) {
+    const received = await new Promise<unknown[]>((resolve) =>
+      process.nextTick((...values: unknown[]) => resolve(values), ...args)
+    );
+    expect(received).toEqual(args);
+  }
+});

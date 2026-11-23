@@ -86,6 +86,31 @@ describe("EventEmitter", () => {
     ]);
   });
 
+  it("should add once listeners through on() and prependListener()", () => {
+    const calls: string[] = [];
+    class MyEmitter extends EventEmitter {
+      on(event: string, listener: (...args: any[]) => void) {
+        calls.push("on");
+        return super.on(event, listener);
+      }
+      prependListener(event: string, listener: (...args: any[]) => void) {
+        calls.push("prependListener");
+        return super.prependListener(event, listener);
+      }
+    }
+    const myEmitter = new MyEmitter();
+    const eventsArray: string[] = [];
+    myEmitter.once("event", () => eventsArray.push("once"));
+    myEmitter.prependOnceListener("event", () =>
+      eventsArray.push("prepended once")
+    );
+    expect(calls).toEqual(["on", "prependListener"]);
+    myEmitter.emit("event");
+    myEmitter.emit("event");
+    expect(eventsArray).toEqual(["prepended once", "once"]);
+    expect(myEmitter.listenerCount("event")).toEqual(0);
+  });
+
   it("should handle crash in event handler", () => {
     const emitter = new EventEmitter();
 

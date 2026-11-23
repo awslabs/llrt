@@ -205,3 +205,11 @@ it("should normalize paths before resolving cyclic requires", () => {
   expect(request.cycle).toBe(request);
   expect(request.done).toBe(true);
 });
+
+it("should not run queued microtasks or due timers inside the first require of a built-in module", async () => {
+  const { code, stdout } = await spawnCapture(process.argv0, [
+    `${CWD}/fixtures/require-pending-jobs.cjs`,
+  ]);
+  expect(code).toBe(0);
+  expect(stdout).toBe("required,microtask,timer\n");
+});

@@ -332,7 +332,7 @@ Lightweight and fast hash classes for LLRT.
 ## net
 
 > [!WARNING]
-> These APIs uses native streams that is not 100% compatible with the Node.js Streams API. Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
+> Server APIs like `createSever` provides limited functionality useful for testing purposes. Serverless applications typically don't expose servers. Some server options are not supported:
 > `highWaterMark`, `pauseOnConnect`, `keepAlive`, `noDelay`, `keepAliveInitialDelay`
 
 [connect](https://nodejs.org/api/net.html#netconnect)

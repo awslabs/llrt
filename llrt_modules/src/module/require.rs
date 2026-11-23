@@ -3,14 +3,17 @@
 use std::{cell::RefCell, collections::HashSet, fs, rc::Rc};
 
 use llrt_hooking::{invoke_async_hook, register_finalization_registry, HookType};
-use llrt_json::parse::json_parse;
+use llrt_json::{escape::escape_json_string, parse::json_parse};
 use llrt_utils::{
     ctx::CtxExt,
     io::BYTECODE_FILE_EXT,
     primordials::{BasePrimordials, Primordial},
     provider::ProviderType,
 };
-use rquickjs::{atom::PredefinedAtom, qjs, Ctx, Filter, Function, Module, Object, Result, Value};
+use rquickjs::{
+    atom::PredefinedAtom, module::Evaluated, qjs, Ctx, Filter, Function, Module, Object, Promise,
+    Result, Value,
+};
 use tokio::time::Instant;
 use tracing::trace;
 
@@ -100,7 +103,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     state.progress.insert(import_name.clone(), obj.clone());
     drop(state);
 
-    let import_promise = Module::import(&ctx, import_specifier.as_bytes())?;
+    let (module, import_promise) = evaluate(&ctx, &import_specifier)?;
 
     let rt = unsafe { qjs::JS_GetRuntime(ctx.as_raw().as_ptr()) };
 
@@ -114,8 +117,9 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
     invoke_async_hook(&ctx, HookType::Init, ProviderType::TimerWrap, uid)?;
 
     let imported_object = loop {
-        if let Some(x) = import_promise.result::<Object>() {
-            break x?;
+        if let Some(x) = import_promise.result::<()>() {
+            x?;
+            break module.get::<_, Object>("ns")?;
         }
 
         if deadline < Instant::now() {
@@ -195,4 +199,22 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
 
     state.cache.insert(import_name, value.clone());
     Ok(value)
+}
+
+// Runs no pending jobs or timers; the promise is pending only under top-level await.
+fn evaluate<'js>(
+    ctx: &Ctx<'js>,
+    specifier: &str,
+) -> Result<(Module<'js, Evaluated>, Promise<'js>)> {
+    let base = match ctx.script_or_module_name(1) {
+        Some(name) => name.to_string()?,
+        None => String::new(),
+    };
+    // Resolvers strip both prefixes, and no import specifier can name this module.
+    let name = [CJS_IMPORT_PREFIX, CJS_IMPORT_PREFIX, &base].concat();
+    let mut source = String::with_capacity(specifier.len() + 20);
+    source.push_str("export*as ns from\"");
+    escape_json_string(&mut source, specifier.as_bytes());
+    source.push('"');
+    Module::declare(ctx.clone(), name, source)?.eval()
 }

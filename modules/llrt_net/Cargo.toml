@@ -13,14 +13,15 @@ path = "src/lib.rs"
 [dependencies]
 llrt_buffer = { workspace = true }
 llrt_context = { workspace = true }
+llrt_encoding = { workspace = true }
 llrt_events = { workspace = true }
 llrt_net_policy = { workspace = true }
-llrt_stream = { workspace = true }
 llrt_utils = { workspace = true, default-features = false }
 rquickjs = { version = "0.14", default-features = false }
-tokio = { version = "1", features = ["net"], default-features = false }
+tokio = { version = "1", features = [
+  "io-util",
+  "macros",
+  "net",
+  "sync",
+], default-features = false }
 tracing = { version = "0.1", default-features = false }
-
-[dev-dependencies]
-llrt_test = { workspace = true }
-rand = { version = "0.10", features = ["alloc"], default-features = false }
