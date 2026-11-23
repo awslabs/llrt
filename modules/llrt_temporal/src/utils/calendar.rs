@@ -83,7 +83,7 @@ impl Calendar {
     }
 
     pub fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Calendar> {
-        let ca = obj.get::<_, String>("Calendar").ok();
+        let ca = obj.get::<_, String>("calendar").ok();
         parse_temporal_calendar(ctx, ca)
     }
 }
