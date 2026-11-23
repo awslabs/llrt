@@ -546,6 +546,34 @@ describe("Instance methods", () => {
         "2021-08-01T12:00:00+02:00[Europe/Paris]"
       );
     });
+
+    it("accepts a zoned date-time string while preserving the instant", () => {
+      const zdt = new Temporal.ZonedDateTime(0n, "UTC");
+      const result = zdt.withTimeZone(
+        "1994-11-05T08:15:30-05:00[America/New_York]"
+      );
+      expect(result.toString()).toBe(
+        "1969-12-31T19:00:00-05:00[America/New_York]"
+      );
+      expect(result.epochMilliseconds).toBe(zdt.epochMilliseconds);
+      expect(result.calendarId).toBe(zdt.calendarId);
+    });
+
+    it("accepts fixed offsets and rejects invalid time zones", () => {
+      const zdt = new Temporal.ZonedDateTime(0n, "UTC");
+      expect(zdt.withTimeZone("+05:30").offset).toBe("+05:30");
+      expect(() => zdt.withTimeZone("Not/A_Time_Zone")).toThrow(RangeError);
+    });
+
+    it("accepts compact fixed offsets and rejects invalid ones", () => {
+      const zdt = new Temporal.ZonedDateTime(0n, "UTC");
+      expect(zdt.withTimeZone("+0530").offset).toBe("+05:30");
+      expect(zdt.withTimeZone("-0330").offset).toBe("-03:30");
+      expect(new Temporal.ZonedDateTime(0n, "+0530").offset).toBe("+05:30");
+      for (const offset of ["+2400", "+0560", "+05a0", "+0é0"]) {
+        expect(() => zdt.withTimeZone(offset)).toThrow(RangeError);
+      }
+    });
   });
 });
 
