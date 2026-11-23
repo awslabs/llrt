@@ -218,12 +218,7 @@ impl<'js> Request<'js> {
         // `body` getter keeps returning the same object it did before.
         if let Some((input_request, init_overrides_body)) = input_request_to_disturb {
             let input_req = input_request.borrow();
-            // If the input's `body` getter was never called, the body is still
-            // a plain value (string, bytes, Blob...). Move it to the new
-            // request rather than creating a stream just to tee it: the
-            // unread tee branch is never freed, and QuickJS aborts in
-            // JS_FreeRuntime. The input gets a closed, locked stream, so its
-            // `body` is still non-null and `bodyUsed` is true.
+            // An unread body is moved, not teed: an unread tee branch leaks.
             let body_is_value = input_req.body_stream.read().unwrap().is_none()
                 && matches!(
                     &*input_req.body.read().unwrap(),
