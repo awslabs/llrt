@@ -121,7 +121,8 @@ zlib = ["llrt_zlib"]
 
 [dependencies]
 home = { version = "0.5", default-features = false }
-llrt_hooking = { workspace = true }
+llrt_async_context = { workspace = true }
+llrt_scheduler = { workspace = true }
 llrt_json = { workspace = true }
 llrt_utils = { workspace = true, default-features = true }
 once_cell = { version = "1", features = ["std"], default-features = false }

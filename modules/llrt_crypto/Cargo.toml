@@ -68,6 +68,7 @@ crypto-openssl = ["openssl-sys", "openssl", "_subtle-full", "_modern-webcrypto"]
 crc32c = { version = "0.6", default-features = false }
 crc32fast = { version = "1", default-features = false }
 ctutils = { version = "0.4", default-features = false }
+llrt_async_context = { workspace = true }
 llrt_buffer = { workspace = true }
 llrt_context = { workspace = true }
 llrt_encoding = { workspace = true }

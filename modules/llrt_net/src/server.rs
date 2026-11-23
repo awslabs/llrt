@@ -7,6 +7,8 @@ use std::sync::{
     Arc, RwLock,
 };
 
+use crate::rw_join;
+use llrt_async_context::lifecycle::{register_native_resource, AsyncResourceHandle};
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
 use llrt_stream::{impl_stream_events, SteamEvents};
@@ -43,6 +45,7 @@ pub struct Server<'js> {
     already_listen: Arc<AtomicBool>,
     sockets: ReuseList<Class<'js, Socket<'js>>>,
     should_close: Arc<AtomicBool>,
+    async_resource: Option<AsyncResourceHandle>,
 }
 
 impl<'js> Trace<'js> for Server<'js> {
@@ -99,6 +102,7 @@ impl<'js> Server<'js> {
                 already_listen: Arc::new(AtomicBool::new(false)),
                 sockets: ReuseList::with_capacity(8),
                 should_close: Arc::new(AtomicBool::new(false)),
+                async_resource: None,
             },
         )?;
 
@@ -210,6 +214,12 @@ impl<'js> Server<'js> {
             Self::add_event_listener_str(this.clone(), &ctx, "listening", callback, true, true)?;
         }
 
+        let async_resource = register_native_resource(&ctx)?;
+        {
+            let mut borrow = this.borrow_mut();
+            borrow.async_resource = Some(async_resource.clone());
+        }
+
         let ctx2 = ctx.clone();
 
         if port.is_none() && path.is_none() {
@@ -222,12 +232,18 @@ impl<'js> Server<'js> {
                 Ok(listener) => listener,
                 Err(e) => {
                     already_running.store(false, Ordering::Relaxed);
-                    Err::<(), _>(e).emit_error("listen", &ctx2, this.clone())?;
+                    async_resource.run(&ctx2, || {
+                        Err::<(), _>(e)
+                            .emit_error("listen", &ctx2, this.clone())
+                            .map(|_| ())
+                    })?;
                     return Ok(()); // Don't stop the VM if failed to bind
                 },
             };
 
-            Self::emit_str(this.clone(), &ctx2, "listening", vec![], false)?;
+            async_resource.run(&ctx2, || {
+                Self::emit_str(this.clone(), &ctx2, "listening", vec![], false)
+            })?;
 
             let notify = Arc::new(Notify::new());
             let close_notify = notify.notified();
@@ -244,6 +260,7 @@ impl<'js> Server<'js> {
                             socket,
                             notify.clone(),
                             allow_half_open,
+                            async_resource.clone(),
                         ).emit_error("handle_socket_connection",&ctx3, this2)?;
                     },
                     _ = close_rx.recv() => {
@@ -263,7 +280,9 @@ impl<'js> Server<'js> {
             already_running.store(false, Ordering::Relaxed);
             should_close.store(false, Ordering::Relaxed);
 
-            Self::emit_str(this.0, &ctx2, "close", vec![], false)?;
+            async_resource.run(&ctx2, || {
+                Self::emit_str(this.0, &ctx2, "close", vec![], false)
+            })?;
 
             Ok(())
         })?;
@@ -334,31 +353,50 @@ impl<'js> Server<'js> {
         stream_result: Result<NetStream>,
         notify_close: Arc<Notify>,
         allow_half_open: bool,
+        server_resource: AsyncResourceHandle,
     ) -> Result<()> {
         let net_stream = stream_result.or_throw(&ctx)?;
 
         ctx.clone().spawn_exit(async move {
-            let socket_instance = Socket::new(ctx.clone(), allow_half_open)?;
-            let socket_index;
-            {
-                let mut sever_borrow = this.borrow_mut();
-                socket_index = sever_borrow.sockets.append(socket_instance.clone());
-            }
+            let mut socket_instance = None;
+            let mut socket_index = None;
+            server_resource.run(&ctx, || {
+                let socket = Socket::new(ctx.clone(), allow_half_open)?;
+                Socket::register_async_resource(&socket, &ctx)?;
+                socket_index = Some(this.borrow_mut().sockets.append(socket.clone()));
+                Self::emit_str(
+                    this.clone(),
+                    &ctx,
+                    "connection",
+                    vec![socket.clone().into_value()],
+                    false,
+                )?;
+                socket_instance = Some(socket);
+                Ok(())
+            })?;
+            let socket_instance = socket_instance.expect("socket created in connection scope");
+            let socket_index = socket_index.expect("socket registered in connection scope");
 
-            let socket_instance2 = socket_instance.clone().into_value();
-            Self::emit_str(
-                this.clone(),
-                &ctx,
-                "connection",
-                vec![socket_instance2],
-                false,
-            )?;
+            let socket_resource = {
+                let borrow = socket_instance.borrow();
+                borrow
+                    .async_resource
+                    .clone()
+                    .expect("socket resource registered")
+            };
+            let mut processing = None;
+            socket_resource.run(&ctx, || {
+                processing =
+                    Some(net_stream.start_process(&socket_instance, &ctx, allow_half_open)?);
+                Ok(())
+            })?;
+            let (readable_done, writable_done) =
+                processing.expect("streams started in socket scope");
+            let had_error = rw_join(&ctx, readable_done, writable_done).await?;
 
-            let had_error = net_stream
-                .process(&socket_instance, &ctx, allow_half_open)
-                .await?;
-
-            Socket::emit_close(socket_instance, &ctx, had_error)?;
+            socket_resource.run(&ctx, || {
+                Socket::emit_close(socket_instance, &ctx, had_error)
+            })?;
             {
                 let mut sever_borrow = this.borrow_mut();
                 sever_borrow.sockets.remove(socket_index);

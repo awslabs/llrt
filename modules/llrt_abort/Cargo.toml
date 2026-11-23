@@ -13,7 +13,7 @@ path = "src/lib.rs"
 [features]
 default = ["sleep-timers"]
 
-sleep-timers = ["llrt_timers"]
+sleep-timers = ["dep:llrt_scheduler"]
 sleep-tokio = ["tokio"]
 
 [dependencies]
@@ -23,6 +23,7 @@ llrt_utils = { workspace = true, default-features = false }
 rquickjs = { version = "0.14", default-features = false }
 
 # Optional
+llrt_scheduler = { workspace = true, optional = true }
 llrt_timers = { workspace = true, optional = true }
 tokio = { version = "1", features = [
     "time",

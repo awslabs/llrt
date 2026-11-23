@@ -49,9 +49,9 @@ hyper = { version = "1", default-features = false }
 itoa = { version = "1", default-features = false }
 jiff = { version = "1", features = ["std"], default-features = false }
 libc = { version = "0.2", default-features = false }
+llrt_async_context = { workspace = true }
 llrt_context = { workspace = true }
 llrt_encoding = { workspace = true }
-llrt_hooking = { workspace = true }
 llrt_json = { workspace = true }
 llrt_logging = { workspace = true }
 llrt_modules = { workspace = true, default-features = false, features = [
@@ -60,6 +60,7 @@ llrt_modules = { workspace = true, default-features = false, features = [
 ] }
 llrt_net_policy = { workspace = true }
 llrt_numbers = { workspace = true }
+llrt_scheduler = { workspace = true }
 llrt_utils = { workspace = true, default-features = true, features = ["all"] }
 once_cell = { version = "1", features = ["std"], default-features = false }
 phf = { version = "0.14", default-features = false }

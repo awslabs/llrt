@@ -12,6 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 itoa = { version = "1", default-features = false }
+llrt_async_context = { workspace = true }
 llrt_buffer = { workspace = true }
 llrt_context = { workspace = true }
 llrt_events = { workspace = true }

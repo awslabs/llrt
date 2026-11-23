@@ -1,0 +1,14 @@
+[package]
+name = "llrt_async_context"
+description = "LLRT async context tracking and propagation"
+version = "0.10.0-beta"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_async_context"
+path = "src/lib.rs"
+
+[dependencies]
+rquickjs = { version = "0.14", default-features = false }
