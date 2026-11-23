@@ -1,9 +1,11 @@
 import defaultImport from "node:net";
 import legacyImport from "net";
 import type { Server, Socket } from "node:net";
+import { platform } from "node:os";
 import stream from "node:stream";
 
 const net = defaultImport;
+const IS_WINDOWS = platform() === "win32";
 
 it("node:net should be the same as net", () => {
   expect(defaultImport).toStrictEqual(legacyImport);
@@ -226,7 +228,8 @@ describe("writes", () => {
     );
     expect(ok).toBe(false);
     await delay(100);
-    expect(events).toEqual([]);
+    // Windows' loopback buffers can take all 8 MiB while the server is paused.
+    if (!IS_WINDOWS) expect(events).toEqual([]);
     serverSocket!.resume();
     await drained;
     expect(events).toEqual(["drain", "callback"]);
