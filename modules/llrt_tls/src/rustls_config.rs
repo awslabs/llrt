@@ -11,7 +11,7 @@ use rustls::{
 #[cfg(feature = "webpki-roots")]
 use webpki_roots::TLS_SERVER_ROOTS;
 
-use crate::client_auth::{is_encrypted_pem_key, ENCRYPTED_KEY, KEY_MISMATCH};
+use crate::client_auth::{is_encrypted_pem_key, Invalid, ENCRYPTED_KEY, KEY_MISMATCH};
 use crate::no_verification::NoCertificateVerification;
 use crate::BuildClientConfigOptions;
 
@@ -122,7 +122,7 @@ pub fn build_client_config(
         (Some(cert), Some(key)) => {
             let cert_chain = CertificateDer::pem_slice_iter(&cert)
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| format!("Invalid cert: {e}"))?;
+                .map_err(|e| Invalid("Invalid cert: ", e))?;
             if cert_chain.is_empty() {
                 return Err("Invalid cert: no certificate found".into());
             }
@@ -130,13 +130,13 @@ pub fn build_client_config(
                 return Err(ENCRYPTED_KEY.into());
             }
             let key =
-                PrivateKeyDer::from_pem_slice(&key).map_err(|e| format!("Invalid key: {e}"))?;
+                PrivateKeyDer::from_pem_slice(&key).map_err(|e| Invalid("Invalid key: ", e))?;
             builder
                 .with_client_auth_cert(cert_chain, key)
                 .map_err(|e| match e {
                     rustls::Error::InconsistentKeys(_) => KEY_MISMATCH.into(),
-                    rustls::Error::InvalidCertificate(_) => format!("Invalid cert: {e}").into(),
-                    e => format!("Invalid key: {e}").into(),
+                    rustls::Error::InvalidCertificate(_) => Invalid("Invalid cert: ", e).into(),
+                    e => Invalid("Invalid key: ", e).into(),
                 })
         },
         (None, None) => Ok(builder.with_no_client_auth()),

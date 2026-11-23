@@ -69,9 +69,23 @@ impl Default for BuildClientConfigOptions {
     feature = "tls-openssl"
 ))]
 mod client_auth {
+    use std::fmt;
+
     #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
     pub const ENCRYPTED_KEY: &str = "Invalid key: encrypted keys are not supported";
     pub const KEY_MISMATCH: &str = "Invalid key: does not match cert";
+
+    #[derive(Debug)]
+    pub struct Invalid<E>(pub &'static str, pub E);
+
+    impl<E: fmt::Display> fmt::Display for Invalid<E> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(self.0)?;
+            self.1.fmt(f)
+        }
+    }
+
+    impl<E: fmt::Debug + fmt::Display> std::error::Error for Invalid<E> {}
 
     /// Whether a PEM private key is encrypted: PKCS#8 `ENCRYPTED PRIVATE KEY`,
     /// or a legacy OpenSSL key with a `Proc-Type: 4,ENCRYPTED` header.
