@@ -866,7 +866,7 @@ fn get_fetch_options<'js>(
                         }
                     }
                 }
-                
+
                 if let Ok(stream) = Class::<ReadableStream>::from_value(&body_opt) {
                     let duplex: Option<String> =
                         get_option::<String>("duplex", arg_opts.as_ref(), resource_opts.as_ref())?;
