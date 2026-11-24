@@ -80,6 +80,22 @@ That's it 🎉
 > Even though LLRT supports [ES2023](https://262.ecma-international.org/14.0/) it's **NOT** a drop in replacement for Node.js. Consult [Compatibility matrix](#compatibility-matrix) and [API](API.md) for more details.
 > All dependencies should be bundled for a `browser` platform and mark included `@aws-sdk` packages as external.
 
+## Response streaming
+
+LLRT supports [Lambda response streaming](https://docs.aws.amazon.com/lambda/latest/dg/configuration-response-streaming.html) with the `awslambda.streamifyResponse` global the Node.js runtime provides:
+
+```javascript
+export const handler = awslambda.streamifyResponse(
+  async (event, responseStream, context) => {
+    responseStream.setContentType("text/plain");
+    responseStream.write("Hello, ");
+    responseStream.end("world!");
+  }
+);
+```
+
+See [API](API.md#awslambdastreamifyresponse) for details. `awslambda.HttpResponseStream`, which Lambda function URLs use for status codes and headers, isn't supported yet.
+
 ## Testing & ensuring compatibility
 
 The best way to ensure your code is compatible with LLRT is to write tests and execute them using the built-in test runner. The test runner currently supports Jest/Chai assertions. There are three main types of tests you can create:
@@ -190,13 +206,14 @@ The test runner also has support for filters. Using filters is as simple as addi
 | WEBIDL                                                            | ✔︎⚠️  |
 | XHR                                                               | ✔︎⚠️  |
 
-| Other features | LLRT |
-| -------------- | ---- |
-| async/await    | ✔︎    |
-| esm            | ✔︎    |
-| cjs            | ✔︎    |
-| Intl           | ✔︎⚠️  |
-| Temporal       | ✔︎⚠️  |
+| Other features            | LLRT |
+| ------------------------- | ---- |
+| async/await               | ✔︎    |
+| esm                       | ✔︎    |
+| cjs                       | ✔︎    |
+| Intl                      | ✔︎⚠️  |
+| Temporal                  | ✔︎⚠️  |
+| Lambda response streaming | ✔︎⚠️  |
 
 _⚠️ = partially supported in LLRT_<br />
 _⏱ = planned partial support_<br />
