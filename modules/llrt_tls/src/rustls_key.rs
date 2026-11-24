@@ -497,7 +497,7 @@ mod tests {
         for (i, (pem, expected)) in cases.into_iter().enumerate() {
             assert_eq!(error(&pem, Some(PASSPHRASE)), expected, "case {i}");
         }
-        let legacy = read("ec-encrypted-legacy.pem");
+        let legacy = read("ec-encrypted-legacy.pem").replace("\r\n", "\n");
         let blocks: Vec<&str> = legacy
             .split_inclusive("-----END ENCRYPTED PRIVATE KEY-----\n")
             .collect();
