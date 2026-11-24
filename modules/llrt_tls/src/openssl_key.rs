@@ -1,6 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::borrow::Cow;
 use std::ffi::c_int;
 
 use hex_simd::AsciiCase;
@@ -8,15 +7,8 @@ use openssl::error::{Error, ErrorStack};
 use openssl::pkey::{PKey, Private};
 
 use crate::client_auth::{is_encrypted_pem_key, Invalid};
+use crate::error::INTERRUPTED_OR_CANCELLED;
 use crate::TlsError;
-
-const INTERRUPTED_OR_CANCELLED: TlsError = TlsError {
-    message: Cow::Borrowed("error:07880109:common libcrypto routines::interrupted or cancelled"),
-    code: Some(Cow::Borrowed("ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED")),
-    library: Some("common libcrypto routines"),
-    reason: Some("interrupted or cancelled"),
-    openssl_error_stack: Vec::new(),
-};
 
 pub(crate) fn load_private_key(
     pem: &[u8],

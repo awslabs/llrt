@@ -2323,13 +2323,23 @@ dependencies = [
 name = "llrt_tls"
 version = "0.10.0-beta"
 dependencies = [
+ "aes",
+ "base64-simd",
+ "cbc",
+ "der",
  "hex-simd",
+ "hmac",
  "itoa",
+ "md-5",
  "once_cell",
  "openssl",
+ "pbkdf2",
  "rustls",
  "rustls-graviola",
  "rustls-native-certs",
+ "sha1",
+ "sha2",
+ "sha3",
  "tracing",
  "webpki-roots",
 ]

@@ -17,9 +17,23 @@ webpki-roots = ["dep:webpki-roots"]
 native-roots = ["dep:rustls-native-certs", "dep:tracing"]
 
 # TLS crypto backend features (rustls-based)
-tls-ring = ["dep:rustls", "rustls/ring"]
-tls-aws-lc = ["dep:rustls", "rustls/aws_lc_rs"]
-tls-graviola = ["dep:rustls", "dep:rustls-graviola"]
+tls-ring = ["dep:rustls", "rustls/ring", "_encrypted-keys"]
+tls-aws-lc = ["dep:rustls", "rustls/aws_lc_rs", "_encrypted-keys"]
+tls-graviola = ["dep:rustls", "dep:rustls-graviola", "_encrypted-keys"]
+
+# Internal feature: decrypts encrypted PKCS#8 keys on the rustls backends
+_encrypted-keys = [
+  "dep:aes",
+  "dep:base64-simd",
+  "dep:cbc",
+  "dep:der",
+  "dep:hmac",
+  "dep:md-5",
+  "dep:pbkdf2",
+  "dep:sha1",
+  "dep:sha2",
+  "dep:sha3",
+]
 
 # OpenSSL TLS backend
 tls-openssl = ["dep:openssl", "dep:hex-simd", "dep:itoa"]
@@ -37,5 +51,15 @@ itoa = { version = "1", default-features = false, optional = true }
 webpki-roots = { version = "1", default-features = false, optional = true }
 rustls-native-certs = { version = "0.8", default-features = false, optional = true }
 tracing = { version = "0.1", default-features = false, optional = true }
+aes = { version = "0.9", default-features = false, optional = true }
+base64-simd = { version = "0.8", features = ["alloc"], default-features = false, optional = true }
+cbc = { version = "0.2", features = ["block-padding"], default-features = false, optional = true }
+der = { version = "0.8", features = ["derive", "oid"], default-features = false, optional = true }
+hmac = { version = "0.13", default-features = false, optional = true }
+md-5 = { version = "0.11", default-features = false, optional = true }
+pbkdf2 = { version = "0.13", default-features = false, optional = true }
+sha1 = { version = "0.11", default-features = false, optional = true }
+sha2 = { version = "0.11", default-features = false, optional = true }
+sha3 = { version = "0.12", default-features = false, optional = true }
 
 [dev-dependencies]

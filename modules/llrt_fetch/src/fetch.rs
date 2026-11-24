@@ -1704,8 +1704,8 @@ mod tests {
         all(feature = "tls-graviola", target_arch = "x86_64"),
         feature = "tls-openssl"
     ))]
-    const ENCRYPTED_KEY_ERROR: &str =
-        "Failed to build TLS config. Invalid key: encrypted keys are not supported";
+    const TRADITIONAL_KEY_ERROR: &str = "Failed to build TLS config. Invalid key: \
+         encrypted keys using AES-256-CBC in traditional PEM are not supported";
 
     #[cfg(any(
         feature = "tls-ring",
@@ -1774,13 +1774,10 @@ mod tests {
                 let result =
                     call_test::<Vec<String>, _>(&ctx, &module, (cert, key, other_key)).await;
 
-                let (encrypted_pkcs8, encrypted_legacy) = if cfg!(feature = "tls-openssl") {
-                    (
-                        "error:1E08010C:DECODER routines::unsupported",
-                        "error:1C80006B:Provider routines::wrong final block length",
-                    )
+                let encrypted_legacy = if cfg!(feature = "tls-openssl") {
+                    "error:1C80006B:Provider routines::wrong final block length"
                 } else {
-                    (ENCRYPTED_KEY_ERROR, ENCRYPTED_KEY_ERROR)
+                    TRADITIONAL_KEY_ERROR
                 };
                 assert_eq!(
                     result[..6],
@@ -1789,7 +1786,7 @@ mod tests {
                         "Failed to build TLS config. cert and key must be provided together",
                         "Only one cert is supported",
                         "Failed to build TLS config. Invalid key: does not match cert",
-                        encrypted_pkcs8,
+                        "error:1E08010C:DECODER routines::unsupported",
                         encrypted_legacy,
                     ]
                 );
@@ -1861,12 +1858,12 @@ mod tests {
                 let result =
                     call_test::<Vec<String>, _>(&ctx, &module, (addr, ca, cert, keys)).await;
 
-                let expected = if cfg!(feature = "tls-openssl") {
+                let traditional = if cfg!(feature = "tls-openssl") {
                     "Hello, LLRT!".to_string()
                 } else {
-                    format!("Error: {ENCRYPTED_KEY_ERROR}")
+                    format!("Error: {TRADITIONAL_KEY_ERROR}")
                 };
-                assert_eq!(result, [expected.clone(), expected]);
+                assert_eq!(result, ["Hello, LLRT!".to_string(), traditional]);
             })
         })
         .await;
@@ -1946,20 +1943,21 @@ mod tests {
                          Received {received}|ERR_INVALID_ARG_TYPE|||false"
                     )
                 };
-                let (bad_decrypt, too_long) = if cfg!(feature = "tls-openssl") {
-                    (
-                        "Error|error:1C800064:Provider routines::bad decrypt|ERR_OSSL_BAD_DECRYPT|\
-                         Provider routines|bad decrypt|true"
-                            .to_string(),
-                        "Error|error:07880109:common libcrypto routines::interrupted or cancelled|\
-                         ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED|common libcrypto routines|\
-                         interrupted or cancelled|false"
-                            .to_string(),
-                    )
+                // Only OpenSSL has the error stack
+                let openssl = cfg!(feature = "tls-openssl");
+                let bad_decrypt = format!(
+                    "Error|error:1C800064:Provider routines::bad decrypt|ERR_OSSL_BAD_DECRYPT|\
+                     Provider routines|bad decrypt|{openssl}"
+                );
+                let traditional_bad_decrypt = if openssl {
+                    bad_decrypt.clone()
                 } else {
-                    let error = format!("Error|{ENCRYPTED_KEY_ERROR}||||false");
-                    (error.clone(), error)
+                    format!("Error|{TRADITIONAL_KEY_ERROR}||||false")
                 };
+                let too_long = "Error|error:07880109:common libcrypto routines::interrupted or cancelled|\
+                                ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED|common libcrypto routines|\
+                                interrupted or cancelled|false"
+                    .to_string();
                 assert_eq!(
                     result,
                     [
@@ -1975,8 +1973,8 @@ mod tests {
                         "no error".to_string(),
                         "no error".to_string(),
                         bad_decrypt.clone(),
-                        bad_decrypt.clone(),
                         bad_decrypt,
+                        traditional_bad_decrypt,
                         too_long,
                     ]
                 );
