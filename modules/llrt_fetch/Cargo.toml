@@ -11,7 +11,7 @@ name = "llrt_fetch"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "compression-c", "webpki-roots", "tls-ring"]
+default = ["http1", "http2", "compression-c", "webpki-roots", "tls-ring", "encrypted-keys"]
 
 http1 = ["hyper/http1", "llrt_http/http1"]
 http2 = ["hyper/http2", "llrt_http/http2"]
@@ -21,6 +21,8 @@ compression-rust = ["llrt_compression/all-rust"]
 
 webpki-roots = ["llrt_http/webpki-roots"]
 native-roots = ["llrt_http/native-roots"]
+
+encrypted-keys = ["llrt_http/encrypted-keys"]
 
 tls-ring = ["llrt_http/tls-ring", "llrt_test_tls/tls-ring"]
 tls-aws-lc = ["llrt_http/tls-aws-lc", "llrt_test_tls/tls-aws-lc"]

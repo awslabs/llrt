@@ -2215,6 +2215,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_pbe"
+version = "0.10.0-beta"
+dependencies = [
+ "aes",
+ "cbc",
+ "der",
+ "hmac",
+ "md-5",
+ "pbkdf2",
+ "sha1",
+ "sha2",
+ "sha3",
+]
+
+[[package]]
+name = "llrt_pem"
+version = "0.10.0-beta"
+dependencies = [
+ "base64-simd",
+]
+
+[[package]]
 name = "llrt_perf_hooks"
 version = "0.10.0-beta"
 dependencies = [
@@ -2222,6 +2244,15 @@ dependencies = [
  "llrt_test",
  "llrt_utils",
  "rquickjs",
+]
+
+[[package]]
+name = "llrt_pkcs8"
+version = "0.10.0-beta"
+dependencies = [
+ "der",
+ "llrt_pbe",
+ "llrt_pem",
 ]
 
 [[package]]
@@ -2330,16 +2361,16 @@ dependencies = [
  "hex-simd",
  "hmac",
  "itoa",
- "md-5",
+ "llrt_pbe",
+ "llrt_pem",
+ "llrt_pkcs8",
  "once_cell",
  "openssl",
  "pbkdf2",
  "rustls",
  "rustls-graviola",
  "rustls-native-certs",
- "sha1",
  "sha2",
- "sha3",
  "tracing",
  "webpki-roots",
 ]

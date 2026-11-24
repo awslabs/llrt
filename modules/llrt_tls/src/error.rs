@@ -20,6 +20,13 @@ impl fmt::Display for TlsError {
 
 impl std::error::Error for TlsError {}
 
+#[cfg(any(
+    feature = "tls-openssl",
+    all(
+        feature = "encrypted-keys",
+        any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola")
+    )
+))]
 macro_rules! openssl_errors {
     ($($name:ident = $id:literal $library:literal $reason:literal $code:literal;)*) => {$(
         pub(crate) const $name: TlsError = TlsError {
@@ -33,17 +40,21 @@ macro_rules! openssl_errors {
 }
 
 #[cfg(any(
-    feature = "tls-ring",
-    feature = "tls-aws-lc",
-    feature = "tls-graviola",
-    feature = "tls-openssl"
+    feature = "tls-openssl",
+    all(
+        feature = "encrypted-keys",
+        any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola")
+    )
 ))]
 openssl_errors! {
     INTERRUPTED_OR_CANCELLED = "07880109" "common libcrypto routines" "interrupted or cancelled" "ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED";
 }
 
 // The errors Node.js throws for encrypted private keys, with OpenSSL 3.
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
+#[cfg(all(
+    feature = "encrypted-keys",
+    any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola")
+))]
 openssl_errors! {
     BAD_DECRYPT = "1C800064" "Provider routines" "bad decrypt" "ERR_OSSL_BAD_DECRYPT";
     WRONG_FINAL_BLOCK_LENGTH = "1C80006B" "Provider routines" "wrong final block length" "ERR_OSSL_WRONG_FINAL_BLOCK_LENGTH";

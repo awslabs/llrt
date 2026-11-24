@@ -30,9 +30,6 @@ pub use rustls_config::*;
 mod no_verification;
 
 #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
-mod pbe;
-
-#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola"))]
 mod rustls_key;
 
 #[cfg(feature = "tls-openssl")]
@@ -77,6 +74,8 @@ impl Default for BuildClientConfigOptions {
 mod client_auth {
     use std::fmt;
 
+    #[cfg(not(any(feature = "tls-openssl", feature = "encrypted-keys")))]
+    pub const ENCRYPTED_KEY: &str = "Invalid key: encrypted keys are not supported";
     pub const KEY_MISMATCH: &str = "Invalid key: does not match cert";
 
     #[derive(Debug)]
@@ -93,7 +92,7 @@ mod client_auth {
 
     /// Whether a PEM private key is encrypted: PKCS#8 `ENCRYPTED PRIVATE KEY`,
     /// or a legacy OpenSSL key with a `Proc-Type: 4,ENCRYPTED` header.
-    #[cfg(feature = "tls-openssl")]
+    #[cfg(any(feature = "tls-openssl", not(feature = "encrypted-keys")))]
     pub fn is_encrypted_pem_key(pem: &[u8]) -> bool {
         let contains = |needle: &[u8]| pem.windows(needle.len()).any(|w| w == needle);
         contains(b"-----BEGIN ENCRYPTED PRIVATE KEY-----") || contains(b"Proc-Type: 4,ENCRYPTED")

@@ -1,0 +1,14 @@
+[package]
+name = "llrt_pem"
+description = "LLRT PEM private key reader"
+version.workspace = true
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_pem"
+path = "src/lib.rs"
+
+[dependencies]
+base64-simd = { version = "0.8", features = ["alloc"], default-features = false }

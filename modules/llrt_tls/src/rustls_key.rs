@@ -3,113 +3,116 @@
 use rustls::pki_types::{pem::PemObject, PrivateKeyDer};
 
 use crate::client_auth::Invalid;
-use crate::error::{DECODER_UNSUPPORTED, INTERRUPTED_OR_CANCELLED};
-use crate::pbe;
+#[cfg(not(feature = "encrypted-keys"))]
+use crate::client_auth::{is_encrypted_pem_key, ENCRYPTED_KEY};
 
 pub(crate) type BoxError = Box<dyn std::error::Error + Send + Sync>;
-
-/// OpenSSL's `PEM_BUFSIZE`, the longest passphrase Node.js accepts.
-pub(crate) const MAX_PASSPHRASE_LEN: usize = 1024;
 
 pub(crate) fn load_private_key(
     pem: &[u8],
     passphrase: Option<&[u8]>,
 ) -> Result<PrivateKeyDer<'static>, BoxError> {
-    let block = match first_key_block(pem) {
-        Some(block) if block.proc_type || block.label == b"ENCRYPTED PRIVATE KEY" => block,
-        _ => {
-            return PrivateKeyDer::from_pem_slice(pem)
-                .map_err(|e| Invalid("Invalid key: ", e).into())
-        },
-    };
-    if !block.complete {
-        return Err(DECODER_UNSUPPORTED.into());
+    #[cfg(feature = "encrypted-keys")]
+    if let Some(block) = llrt_pem::first_private_key_block(pem)
+        .filter(|block| block.proc_type || block.label == b"ENCRYPTED PRIVATE KEY")
+    {
+        return encrypted::load(&block, passphrase.unwrap_or_default());
     }
-    let passphrase = passphrase.unwrap_or_default();
-    if block.proc_type {
-        if passphrase.len() > MAX_PASSPHRASE_LEN {
-            return Err(INTERRUPTED_OR_CANCELLED.into());
-        }
-        return Err(match block.dek_cipher {
-            Some(cipher) => {
-                not_supported(&[&String::from_utf8_lossy(cipher), " in traditional PEM"])
-            },
-            None => not_supported(&["traditional PEM"]),
-        });
-    }
-    let der = base64_simd::forgiving_decode_to_vec(&block.body).map_err(|_| DECODER_UNSUPPORTED)?;
-    pbe::decrypt(&der, passphrase).map(|key| PrivateKeyDer::Pkcs8(key.into()))
-}
-
-pub(crate) fn not_supported(what: &[&str]) -> BoxError {
-    const PREFIX: &str = "Invalid key: encrypted keys using ";
-    const SUFFIX: &str = " are not supported";
-    let len = PREFIX.len() + what.iter().map(|part| part.len()).sum::<usize>() + SUFFIX.len();
-    let mut message = String::with_capacity(len);
-    message.push_str(PREFIX);
-    what.iter().for_each(|part| message.push_str(part));
-    message.push_str(SUFFIX);
-    message.into()
-}
-
-struct KeyBlock<'a> {
-    label: &'a [u8],
-    proc_type: bool,
-    dek_cipher: Option<&'a [u8]>,
-    body: Vec<u8>,
-    complete: bool,
-}
-
-/// The first private-key block, which OpenSSL's `PEM_read_bio_PrivateKey` uses.
-fn first_key_block(pem: &[u8]) -> Option<KeyBlock<'_>> {
-    let mut lines = pem.split(|&b| b == b'\n').map(<[u8]>::trim_ascii_end);
-    let label = loop {
-        let label =
-            lines.find_map(|line| line.strip_prefix(b"-----BEGIN ")?.strip_suffix(b"-----"))?;
-        if label.ends_with(b"PRIVATE KEY") {
-            break label;
-        }
-    };
-    let mut block = KeyBlock {
-        label,
-        proc_type: false,
-        dek_cipher: None,
-        body: Vec::new(),
-        complete: false,
-    };
-    let mut in_body = false;
-    for line in lines {
-        if let Some(end) = line.strip_prefix(b"-----END ") {
-            block.complete = end.strip_suffix(b"-----") == Some(label);
-            break;
-        }
-        match line.iter().position(|&b| b == b':') {
-            Some(colon) if !in_body => {
-                let value = line[colon + 1..].trim_ascii();
-                match line[..colon].trim_ascii() {
-                    b"Proc-Type" => block.proc_type = true,
-                    b"DEK-Info" => {
-                        block.dek_cipher = value
-                            .split(|&b| b == b',')
-                            .next()
-                            .map(<[u8]>::trim_ascii)
-                            .filter(|cipher| !cipher.is_empty())
-                    },
-                    _ => {},
-                }
-            },
-            _ => {
-                in_body |= !line.is_empty();
-                if label == b"ENCRYPTED PRIVATE KEY" {
-                    block.body.extend_from_slice(line);
-                }
-            },
+    #[cfg(not(feature = "encrypted-keys"))]
+    {
+        _ = passphrase;
+        if is_encrypted_pem_key(pem) {
+            return Err(ENCRYPTED_KEY.into());
         }
     }
-    Some(block)
+    PrivateKeyDer::from_pem_slice(pem).map_err(|e| Invalid("Invalid key: ", e).into())
 }
 
-#[cfg(test)]
+#[cfg(feature = "encrypted-keys")]
+mod encrypted {
+    use llrt_pbe::Error as Pbe;
+    use llrt_pem::PemBlock;
+    use llrt_pkcs8::{EncryptedPrivateKeyInfo, Error as Pkcs8};
+    use rustls::pki_types::PrivateKeyDer;
+
+    use super::BoxError;
+    use crate::error::{
+        TlsError, BAD_DECRYPT, CIPHER_PARAMETER_ERROR, DATA_IS_WRONG, DECODER_UNSUPPORTED,
+        DECODE_ERROR, EVP_UNSUPPORTED, INTERRUPTED_OR_CANCELLED, INVALID_ITERATION_COUNT,
+        PARAM_NEGATIVE_VALUE, UNKNOWN_PBE_ALGORITHM, UNSUPPORTED_CIPHER, UNSUPPORTED_KDF,
+        UNSUPPORTED_KEYLENGTH, UNSUPPORTED_PRF, UNSUPPORTED_SALT_TYPE, WRONG_FINAL_BLOCK_LENGTH,
+    };
+
+    /// OpenSSL's `PEM_BUFSIZE`, the longest passphrase Node.js accepts.
+    const MAX_PASSPHRASE_LEN: usize = 1024;
+
+    pub(super) fn load(
+        block: &PemBlock<'_>,
+        passphrase: &[u8],
+    ) -> Result<PrivateKeyDer<'static>, BoxError> {
+        if !block.complete {
+            return Err(DECODER_UNSUPPORTED.into());
+        }
+        if block.proc_type {
+            check_length(passphrase)?;
+            return Err(match block.dek_cipher {
+                Some(cipher) => {
+                    not_supported(&[&String::from_utf8_lossy(cipher), " in traditional PEM"])
+                },
+                None => not_supported(&["traditional PEM"]),
+            });
+        }
+        let der = block.decode().ok_or(DECODER_UNSUPPORTED)?;
+        let key = EncryptedPrivateKeyInfo::parse(&der).map_err(node_error)?;
+        check_length(passphrase)?;
+        let key = key.decrypt(passphrase).map_err(node_error)?;
+        Ok(PrivateKeyDer::Pkcs8(key.into()))
+    }
+
+    fn check_length(passphrase: &[u8]) -> Result<(), TlsError> {
+        match passphrase.len() {
+            0..=MAX_PASSPHRASE_LEN => Ok(()),
+            _ => Err(INTERRUPTED_OR_CANCELLED),
+        }
+    }
+
+    fn node_error(error: Pkcs8) -> BoxError {
+        let Pkcs8::Decrypt(error) = error else {
+            return DECODER_UNSUPPORTED.into();
+        };
+        let error = match error {
+            Pbe::Unimplemented(name) => return not_supported(&[name]),
+            Pbe::UnknownScheme => UNKNOWN_PBE_ALGORITHM,
+            Pbe::Unsupported => EVP_UNSUPPORTED,
+            Pbe::InvalidParameters => DECODE_ERROR,
+            Pbe::UnsupportedKdf => UNSUPPORTED_KDF,
+            Pbe::UnsupportedCipher => UNSUPPORTED_CIPHER,
+            Pbe::InvalidCipherParameters => CIPHER_PARAMETER_ERROR,
+            Pbe::InvalidIv => DATA_IS_WRONG,
+            Pbe::UnsupportedKeyLength => UNSUPPORTED_KEYLENGTH,
+            Pbe::UnsupportedPrf => UNSUPPORTED_PRF,
+            Pbe::UnsupportedSaltType => UNSUPPORTED_SALT_TYPE,
+            Pbe::ZeroIterations => INVALID_ITERATION_COUNT,
+            Pbe::IterationCountOutOfRange => PARAM_NEGATIVE_VALUE,
+            Pbe::WrongFinalBlockLength => WRONG_FINAL_BLOCK_LENGTH,
+            Pbe::BadDecrypt => BAD_DECRYPT,
+        };
+        error.into()
+    }
+
+    fn not_supported(what: &[&str]) -> BoxError {
+        const PREFIX: &str = "Invalid key: encrypted keys using ";
+        const SUFFIX: &str = " are not supported";
+        let len = PREFIX.len() + what.iter().map(|part| part.len()).sum::<usize>() + SUFFIX.len();
+        let mut message = String::with_capacity(len);
+        message.push_str(PREFIX);
+        what.iter().for_each(|part| message.push_str(part));
+        message.push_str(SUFFIX);
+        message.into()
+    }
+}
+
+#[cfg(all(test, feature = "encrypted-keys"))]
 mod tests {
     use std::path::Path;
 
@@ -324,20 +327,8 @@ mod tests {
     }
 
     #[test]
-    fn decrypts_every_prf_and_aes_key_size() {
+    fn decrypts_openssl_variants() {
         let expected = pem_der(&read("ec.key"));
-        let fixtures: Vec<_> = fixtures()
-            .into_iter()
-            .filter(|(label, _)| label.starts_with("aes-"))
-            .collect();
-        assert_eq!(fixtures.len(), 14);
-        for (label, pem) in &fixtures {
-            assert_eq!(decrypted(pem, Some(PASSPHRASE)), expected, "{label}");
-        }
-        // hmacWithSHA1 named explicitly, which OpenSSL never writes
-        let mut epki = Node::parse(&pem_der(&fixture("aes-256-cbc hmac-sha1"))).remove(0);
-        *prf_oid(&mut epki) = Node::oid("1.2.840.113549.2.7");
-        assert_eq!(decrypted(&pem(&epki.encode()), Some(PASSPHRASE)), expected);
         let pem = variant(|epki| {
             pbkdf2_params(epki).insert(2, Node::primitive(INTEGER, &[24]));
             pbkdf2_params(epki).last_mut().unwrap().children.truncate(1);
@@ -357,22 +348,13 @@ mod tests {
     #[test]
     fn decrypts_with_an_empty_passphrase() {
         let expected = pem_der(&read("ec.key"));
-        let pem = read("ec-encrypted-empty.key");
-        assert_eq!(decrypted(&pem, None), expected);
-        assert_eq!(decrypted(&pem, Some(b"")), expected);
-        assert_eq!(error(&pem, Some(b"x")), BAD_DECRYPT);
+        assert_eq!(decrypted(&read("ec-encrypted-empty.key"), None), expected);
     }
 
     #[test]
     fn uses_the_first_private_key_block() {
         let expected = pem_der(&read("ec.key"));
         let key = fixture("aes-192-cbc hmacWithSHA256");
-        let cert_first = read("client.pem") + "text\n" + &key;
-        assert_eq!(decrypted(&cert_first, Some(PASSPHRASE)), expected);
-        assert_eq!(
-            decrypted(&key.replace('\n', "\r\n"), Some(PASSPHRASE)),
-            expected
-        );
         let plain_first = read("ec.key") + &key;
         assert_eq!(decrypted(&plain_first, Some(b"wrong")), expected);
         let encrypted_first = key + &read("ec.key");
@@ -619,5 +601,26 @@ mod tests {
                 format!("Invalid key: encrypted keys using {what} are not supported")
             );
         }
+    }
+}
+
+#[cfg(all(test, not(feature = "encrypted-keys")))]
+mod tests_without_encrypted_keys {
+    use std::path::Path;
+
+    use super::*;
+
+    #[test]
+    fn encrypted_keys_are_not_supported() {
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/llrt_test_tls/data");
+        let read = |name| std::fs::read(data.join(name)).unwrap();
+        for name in ["client-encrypted.key", "client-encrypted-traditional.key"] {
+            let e = load_private_key(&read(name), Some("pässphrase".as_bytes())).unwrap_err();
+            assert_eq!(
+                e.to_string(),
+                "Invalid key: encrypted keys are not supported"
+            );
+        }
+        load_private_key(&read("client.key"), None).unwrap();
     }
 }

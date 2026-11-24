@@ -174,6 +174,9 @@ LLRT supports multiple cryptographic backends for both the crypto module and TLS
 | `tls-graviola`       | rustls with graviola crypto                   |
 | `tls-openssl`        | OpenSSL for TLS                               |
 
+`encrypted-keys` (default) lets the rustls backends load encrypted private keys
+(`https.Agent`'s `passphrase` option). The OpenSSL backend always supports them.
+
 ### Building with different backends
 
 ```bash
@@ -181,13 +184,13 @@ LLRT supports multiple cryptographic backends for both the crypto module and TLS
 cargo build --release
 
 # Using AWS-LC for TLS
-cargo build --release --no-default-features --features "macro,tls-aws-lc"
+cargo build --release --no-default-features --features "macro,tls-aws-lc,encrypted-keys"
 
 # Using OpenSSL for both crypto and TLS
 cargo build --release --no-default-features --features "macro,crypto-openssl,tls-openssl"
 
 # Using Graviola for both crypto and TLS
-cargo build --release --no-default-features --features "macro,crypto-graviola-rust,tls-graviola"
+cargo build --release --no-default-features --features "macro,crypto-graviola-rust,tls-graviola,encrypted-keys"
 ```
 
 ## Running Lambda emulator

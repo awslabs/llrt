@@ -1713,6 +1713,15 @@ mod tests {
         all(feature = "tls-graviola", target_arch = "x86_64"),
         feature = "tls-openssl"
     ))]
+    const ENCRYPTED_KEY_ERROR: &str =
+        "Failed to build TLS config. Invalid key: encrypted keys are not supported";
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
     #[tokio::test]
     async fn test_agent_client_certificate_errors() {
         use llrt_test_tls::FileType;
@@ -1774,10 +1783,16 @@ mod tests {
                 let result =
                     call_test::<Vec<String>, _>(&ctx, &module, (cert, key, other_key)).await;
 
-                let encrypted_legacy = if cfg!(feature = "tls-openssl") {
-                    "error:1C80006B:Provider routines::wrong final block length"
+                let decoder = "error:1E08010C:DECODER routines::unsupported";
+                let (encrypted_pkcs8, encrypted_legacy) = if cfg!(feature = "tls-openssl") {
+                    (
+                        decoder,
+                        "error:1C80006B:Provider routines::wrong final block length",
+                    )
+                } else if cfg!(feature = "encrypted-keys") {
+                    (decoder, TRADITIONAL_KEY_ERROR)
                 } else {
-                    TRADITIONAL_KEY_ERROR
+                    (ENCRYPTED_KEY_ERROR, ENCRYPTED_KEY_ERROR)
                 };
                 assert_eq!(
                     result[..6],
@@ -1786,7 +1801,7 @@ mod tests {
                         "Failed to build TLS config. cert and key must be provided together",
                         "Only one cert is supported",
                         "Failed to build TLS config. Invalid key: does not match cert",
-                        "error:1E08010C:DECODER routines::unsupported",
+                        encrypted_pkcs8,
                         encrypted_legacy,
                     ]
                 );
@@ -1858,12 +1873,16 @@ mod tests {
                 let result =
                     call_test::<Vec<String>, _>(&ctx, &module, (addr, ca, cert, keys)).await;
 
-                let traditional = if cfg!(feature = "tls-openssl") {
-                    "Hello, LLRT!".to_string()
+                let hello = "Hello, LLRT!".to_string();
+                let expected = if cfg!(feature = "tls-openssl") {
+                    [hello.clone(), hello]
+                } else if cfg!(feature = "encrypted-keys") {
+                    [hello, format!("Error: {TRADITIONAL_KEY_ERROR}")]
                 } else {
-                    format!("Error: {TRADITIONAL_KEY_ERROR}")
+                    let error = format!("Error: {ENCRYPTED_KEY_ERROR}");
+                    [error.clone(), error]
                 };
-                assert_eq!(result, ["Hello, LLRT!".to_string(), traditional]);
+                assert_eq!(result, expected);
             })
         })
         .await;
@@ -1948,15 +1967,19 @@ mod tests {
                     "Error|error:1C800064:Provider routines::bad decrypt|ERR_OSSL_BAD_DECRYPT|\
                      Provider routines|bad decrypt|{openssl}"
                 );
-                let traditional_bad_decrypt = if openssl {
-                    bad_decrypt.clone()
-                } else {
-                    format!("Error|{TRADITIONAL_KEY_ERROR}||||false")
-                };
                 let too_long = "Error|error:07880109:common libcrypto routines::interrupted or cancelled|\
                                 ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED|common libcrypto routines|\
                                 interrupted or cancelled|false"
                     .to_string();
+                let (bad_decrypt, traditional_bad_decrypt, too_long) = if openssl {
+                    (bad_decrypt.clone(), bad_decrypt, too_long)
+                } else if cfg!(feature = "encrypted-keys") {
+                    let traditional = format!("Error|{TRADITIONAL_KEY_ERROR}||||false");
+                    (bad_decrypt, traditional, too_long)
+                } else {
+                    let error = format!("Error|{ENCRYPTED_KEY_ERROR}||||false");
+                    (error.clone(), error.clone(), error)
+                };
                 assert_eq!(
                     result,
                     [

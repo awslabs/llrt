@@ -1,0 +1,22 @@
+[package]
+name = "llrt_pbe"
+description = "LLRT password-based decryption (PKCS#5 PBES2)"
+version.workspace = true
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/llrt"
+
+[lib]
+name = "llrt_pbe"
+path = "src/lib.rs"
+
+[dependencies]
+aes = { version = "0.9", default-features = false }
+cbc = { version = "0.2", features = ["block-padding"], default-features = false }
+der = { version = "0.8", features = ["derive", "oid"], default-features = false }
+hmac = { version = "0.13", default-features = false }
+md-5 = { version = "0.11", default-features = false }
+pbkdf2 = { version = "0.13", default-features = false }
+sha1 = { version = "0.11", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+sha3 = { version = "0.12", default-features = false }
