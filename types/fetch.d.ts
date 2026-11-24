@@ -184,6 +184,11 @@ declare global {
     headers?: HeadersLike;
     agent?: Agent;
     duplex?: "half";
+    /**
+     * LLRT extension (also in Bun). When `false`, the response body is not
+     * decoded and the `Content-Encoding` header is preserved. Defaults to `true`.
+     */
+    decompress?: boolean;
   }
 
   type RequestCache = "no-store";
@@ -223,6 +228,10 @@ declare global {
      * keep the associated connection alive.
      */
     readonly keepalive: boolean;
+    /**
+     * Whether response bodies will be decompressed for requests made with this Request.
+     */
+    readonly decompress: boolean;
     /**
      * Returns the {@link AbortSignal} associated with the request
      */
@@ -374,17 +383,8 @@ declare global {
     static redirect(url: string | URL, status?: number): Response;
   }
 
-  interface FetchOpts extends RequestOpts {
-    /**
-     * LLRT extension (also in Bun). When `false`, the response body is
-     * returned as sent, not decoded, and no default `Accept-Encoding` is
-     * sent. Defaults to `true`.
-     */
-    decompress?: boolean;
-  }
-
   function fetch(
     input: string | URL | Request,
-    init?: FetchOpts
+    init?: RequestOpts
   ): Promise<Response>;
 }

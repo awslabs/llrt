@@ -54,9 +54,11 @@ const isCompressed = (bytes: ArrayBuffer | Uint8Array) => {
 };
 
 describe("fetch decompress option", () => {
-  it("decodes Content-Encoding by default", async () => {
+  it("decodes Content-Encoding by default and drops stale headers", async () => {
     const res = await fetch(`${origin}/br`);
     expect(await res.text()).toBe(PAYLOAD);
+    expect(res.headers.get("content-encoding")).toBeNull();
+    expect(res.headers.get("content-length")).toBeNull();
   });
 
   it("returns the body as sent when decompress is false", async () => {
@@ -84,10 +86,12 @@ describe("fetch decompress option", () => {
     expect(isCompressed(await res.arrayBuffer())).toBe(true);
   });
 
-  it("ignores decompress set on a Request, as Bun does", async () => {
-    const req = new Request(`${origin}/br`, { decompress: false } as any);
+  it("honors decompress set on a Request, as the SDK handler needs", async () => {
+    const req = new Request(`${origin}/br`, { decompress: false });
+    expect(req.decompress).toBe(false);
     const res = await fetch(req);
-    expect(await res.text()).toBe(PAYLOAD);
+    expect(res.headers.get("content-encoding")).toBe("br");
+    expect(isCompressed(await res.arrayBuffer())).toBe(true);
   });
 
   it("sends the default Accept-Encoding only when decompressing", async () => {

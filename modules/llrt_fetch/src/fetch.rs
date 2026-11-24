@@ -516,8 +516,7 @@ fn apply_default_headers(
     if !detected_headers.contains(USER_AGENT.as_str()) {
         *req = std::mem::take(req).header(USER_AGENT, ["llrt ", VERSION].concat());
     }
-    // Without decompression, advertising encodings would invite compressed
-    // bodies the caller never asked for.
+    // Don't advertise encodings we won't decode.
     if decompress && !detected_headers.contains(ACCEPT_ENCODING.as_str()) {
         *req = std::mem::take(req).header(ACCEPT_ENCODING, "zstd, br, gzip, deflate");
     }
@@ -954,7 +953,10 @@ fn get_fetch_options<'js>(
     }
 
     let integrity = get_option::<String>("integrity", arg_opts.as_ref(), resource_opts.as_ref())?;
-    let decompress = get_option::<Value>("decompress", arg_opts.as_ref(), None)?
+
+    // LLRT extension, also in Bun. Read from the init object, and from a
+    // Request instance, since the SDK's fetch handler builds one internally.
+    let decompress = get_option::<Value>("decompress", arg_opts.as_ref(), resource_opts.as_ref())?
         .and_then(|v| v.as_bool().or_else(|| v.as_number().map(|n| n != 0.0)))
         .unwrap_or(true);
 
@@ -1467,6 +1469,14 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
+                    {
+                        let headers: Class<Headers> = response.get("headers")?;
+                        let headers = headers.borrow();
+                        assert!(headers
+                            .get(ctx.clone(), "content-encoding".into())?
+                            .is_null());
+                        assert!(headers.get(ctx.clone(), "content-length".into())?.is_null());
+                    }
                     let response_text: String = Response::text(This(response), ctx.clone())?
                         .into_future()
                         .await?;
