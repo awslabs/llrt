@@ -218,7 +218,24 @@ impl<'js> Request<'js> {
         // `body` getter keeps returning the same object it did before.
         if let Some((input_request, init_overrides_body)) = input_request_to_disturb {
             let input_req = input_request.borrow();
-            if let Ok(body_value) = input_req.body(ctx.clone()) {
+            // An unread body is moved, not teed: an unread tee branch leaks.
+            let body_is_value = input_req.body_stream.read().unwrap().is_none()
+                && matches!(
+                    &*input_req.body.read().unwrap(),
+                    BodyVariant::Provided(Some(value))
+                        if Class::<ReadableStream>::from_value(value).is_err()
+                );
+            if body_is_value {
+                let body = std::mem::replace(
+                    &mut *input_req.body.write().unwrap(),
+                    BodyVariant::Provided(None),
+                );
+                if !init_overrides_body {
+                    *request.body.write().unwrap() = body;
+                }
+                *input_req.body_stream.write().unwrap() =
+                    Some(crate::body_helpers::create_disturbed_stream(&ctx)?);
+            } else if let Ok(body_value) = input_req.body(ctx.clone()) {
                 if let Some(stream) = body_value
                     .as_object()
                     .and_then(Class::<ReadableStream>::from_object)
@@ -939,6 +956,31 @@ mod tests {
                     )?;
                     let done: bool = promise.into_future().await?;
                     assert!(done);
+                    Ok(())
+                };
+                run.await.catch(&ctx).unwrap();
+            })
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_request_from_request_with_body_frees() {
+        test_async_with(|ctx| {
+            llrt_stream_web::init(&ctx).unwrap();
+            llrt_abort::init(&ctx).unwrap();
+            crate::init(&ctx).unwrap();
+            Box::pin(async move {
+                let run = async {
+                    let promise: Promise = ctx.eval(
+                        r#"(async () => {
+                            const original = new Request("http://localhost/", { method: "POST", body: "hello" });
+                            const copy = new Request(original);
+                            return await copy.text();
+                        })()"#,
+                    )?;
+                    let text: String = promise.into_future().await?;
+                    assert_eq!(text, "hello");
                     Ok(())
                 };
                 run.await.catch(&ctx).unwrap();
