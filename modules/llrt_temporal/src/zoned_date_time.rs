@@ -77,11 +77,12 @@ impl ZonedDateTime {
         Ok(Self { inner: zoned, ca })
     }
 
-    fn equals(&self, other: Self) -> bool {
-        self.inner.timestamp() == other.inner.timestamp()
+    fn equals(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<bool> {
+        let other = Self::from(ctx, other)?;
+        Ok(self.inner.timestamp() == other.inner.timestamp()
             && self.inner.time_zone().primary_iana_name()
                 == other.inner.time_zone().primary_iana_name()
-            && self.ca == other.ca
+            && self.ca == other.ca)
     }
 
     #[qjs(rename = "getTimeZoneTransition")]
@@ -182,7 +183,8 @@ impl ZonedDateTime {
     }
 
     fn with_time_zone(&self, ctx: Ctx<'_>, tz: String) -> Result<Self> {
-        let zoned = self.inner.in_tz(&tz).or_throw_range(&ctx, "")?;
+        let tz = parse_temporal_time_zone(&ctx, Some(&tz))?;
+        let zoned = self.inner.with_time_zone(tz);
         let ca = self.ca.clone();
         Ok(Self { inner: zoned, ca })
     }

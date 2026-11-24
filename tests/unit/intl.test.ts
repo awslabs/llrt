@@ -19,6 +19,15 @@ describe("Intl.supportedValuesOf", () => {
     const zones = Intl.supportedValuesOf("timeZone");
     expect(zones.length).toBeGreaterThan(400);
   });
+
+  it("returns sorted primary time zone identifiers without aliases", () => {
+    const zones = Intl.supportedValuesOf("timeZone");
+    expect(zones.includes("Africa/Asmara")).toBe(true);
+    expect(zones.includes("Africa/Asmera")).toBe(false);
+    expect(zones.includes("UTC")).toBe(true);
+    expect(zones.includes("Etc/UTC")).toBe(false);
+    expect(zones).toStrictEqual([...new Set(zones)].sort());
+  });
 });
 
 describe("Intl.DateTimeFormat", () => {

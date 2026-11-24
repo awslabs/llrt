@@ -34,7 +34,13 @@ pub(crate) fn parse_temporal_time_zone(
 }
 
 fn parse_temporal_offset(s: &str) -> Option<Offset> {
-    Offset::from_seconds(parse_offset_seconds(s, false)?).ok()
+    let seconds = if s.len() == 5 && s.is_ascii() {
+        let normalized = [&s[..3], ":", &s[3..]].concat();
+        parse_offset_seconds(&normalized, false)?
+    } else {
+        parse_offset_seconds(s, false)?
+    };
+    Offset::from_seconds(seconds).ok()
 }
 
 pub(crate) fn parse_offset_seconds(s: &str, with_seconds: bool) -> Option<i32> {

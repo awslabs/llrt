@@ -10,6 +10,8 @@ mod cldr_data;
 mod date_time_format;
 mod pattern_formatter;
 
+use std::collections::BTreeSet;
+
 pub use date_time_format::{
     format_date_in_timezone, parse_to_locale_string_options, DateTimeFormat, DateTimeFormatOptions,
     ToLocaleStringOptions,
@@ -205,9 +207,16 @@ fn supported_values_of<'js>(ctx: Ctx<'js>, key: String) -> Result<Array<'js>> {
     match key.as_ref() {
         "timeZone" => {
             let timezones = TimeZoneDatabase::from_env();
-
-            for (i, tz) in timezones.available().enumerate() {
-                array.set(i, tz.as_str())?;
+            let mut primary_names = BTreeSet::new();
+            for name in timezones.available() {
+                if let Ok(tz) = timezones.get(name.as_str()) {
+                    if let Some(primary) = tz.primary_iana_name() {
+                        primary_names.insert(primary.to_owned());
+                    }
+                }
+            }
+            for (i, name) in primary_names.iter().enumerate() {
+                array.set(i, name.as_str())?;
             }
         },
         _ => {
