@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use openssl::ssl::{SslConnectorBuilder, SslMethod, SslVerifyMode};
 use openssl::x509::X509;
 
-use crate::client_auth::KEY_MISMATCH;
+use crate::client_auth::{Invalid, KEY_MISMATCH};
 use crate::openssl_key::load_private_key;
 use crate::BuildClientConfigOptions;
 
@@ -74,7 +74,7 @@ pub fn build_client_config(
     match (options.cert, options.key) {
         (Some(cert), Some(key)) => {
             let mut cert_chain = X509::stack_from_pem(&cert)
-                .map_err(|e| format!("Invalid cert: {e}"))?
+                .map_err(|e| Invalid("Invalid cert: ", e))?
                 .into_iter();
             let leaf = cert_chain
                 .next()

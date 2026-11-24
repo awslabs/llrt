@@ -96,8 +96,8 @@ impl<'js> FromJs<'js> for AgentOptions {
         Ok(Self {
             reject_unauthorized: obj.get_optional::<_, bool>("rejectUnauthorized")?,
             ca: get_pem_list(ctx, obj, "ca")?,
-            cert: get_single_pem(ctx, obj, "cert")?,
-            key: get_single_pem(ctx, obj, "key")?,
+            cert: get_single_pem(ctx, obj, "cert", "Only one cert is supported")?,
+            key: get_single_pem(ctx, obj, "key", "Only one key is supported")?,
             passphrase: get_passphrase(ctx, obj)?,
         })
     }
@@ -124,15 +124,17 @@ fn get_pem_list<'js>(
 
 /// Like [`get_pem_list`], but only one value is supported: a single client
 /// certificate chain and private key pair.
-fn get_single_pem<'js>(ctx: &Ctx<'js>, obj: &Object<'js>, name: &str) -> Result<Option<Vec<u8>>> {
+fn get_single_pem<'js>(
+    ctx: &Ctx<'js>,
+    obj: &Object<'js>,
+    name: &str,
+    too_many: &str,
+) -> Result<Option<Vec<u8>>> {
     let Some(mut values) = get_pem_list(ctx, obj, name)? else {
         return Ok(None);
     };
     if values.len() > 1 {
-        return Err(Exception::throw_type(
-            ctx,
-            &format!("Only one {name} is supported"),
-        ));
+        return Err(Exception::throw_type(ctx, too_many));
     }
     Ok(values.pop())
 }

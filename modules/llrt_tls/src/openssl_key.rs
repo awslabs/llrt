@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use std::borrow::Cow;
 use std::ffi::c_int;
-use std::fmt;
 
 use hex_simd::AsciiCase;
 use openssl::error::{Error, ErrorStack};
 use openssl::pkey::{PKey, Private};
 
-use crate::client_auth::is_encrypted_pem_key;
+use crate::client_auth::{is_encrypted_pem_key, Invalid};
 use crate::TlsError;
 
 const INTERRUPTED_OR_CANCELLED: TlsError = TlsError {
@@ -18,18 +17,6 @@ const INTERRUPTED_OR_CANCELLED: TlsError = TlsError {
     reason: Some("interrupted or cancelled"),
     openssl_error_stack: Vec::new(),
 };
-
-#[derive(Debug)]
-struct InvalidKey(ErrorStack);
-
-impl fmt::Display for InvalidKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("Invalid key: ")?;
-        fmt::Display::fmt(&self.0, f)
-    }
-}
-
-impl std::error::Error for InvalidKey {}
 
 pub(crate) fn load_private_key(
     pem: &[u8],
@@ -58,7 +45,7 @@ pub(crate) fn load_private_key(
                 return error.into();
             }
         }
-        InvalidKey(stack).into()
+        Invalid("Invalid key: ", stack).into()
     })
 }
 
