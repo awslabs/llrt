@@ -866,14 +866,8 @@ fn get_fetch_options<'js>(
                         }
                     }
                 }
-                // Check if body is a ReadableStream
+                
                 if let Ok(stream) = Class::<ReadableStream>::from_value(&body_opt) {
-                    // Per WHATWG Fetch spec, streaming request bodies on HTTP/1.x
-                    // require explicit `duplex: 'half'` (the client needs to know
-                    // it can't wait for the whole request before reading the
-                    // response). WPT `request-upload.any.js` "Streaming upload
-                    // shouldn't work on Http/1.1" expects rejection when duplex
-                    // is not set.
                     let duplex: Option<String> =
                         get_option::<String>("duplex", arg_opts.as_ref(), resource_opts.as_ref())?;
                     if duplex.as_deref() != Some("half") {
@@ -889,10 +883,6 @@ fn get_fetch_options<'js>(
                         let blob_ref = blob.borrow();
                         let mime = blob_ref.mime_type();
                         let ct = if mime.is_empty() { None } else { Some(mime) };
-                        // Zero-copy: borrow the Blob's ArrayBuffer instead of
-                        // materialising a Vec. `RequestBody::from_bytes` holds
-                        // the `ObjectBytes` alive for the duration of the
-                        // request, keeping the ArrayBuffer pinned.
                         let ab = blob_ref.array_buffer_ref();
                         let len = ab.len();
                         (ObjectBytes::DataView(ab, 0, len), ct)
@@ -963,16 +953,7 @@ fn get_fetch_options<'js>(
         }
     }
 
-    // Per WHATWG Fetch spec, integrity is a stringified SRI (subresource
-    // integrity) metadata. After the response body is received, the fetch
-    // machinery verifies one of the listed hashes matches; on failure the
-    // returned promise rejects with a TypeError.
     let integrity = get_option::<String>("integrity", arg_opts.as_ref(), resource_opts.as_ref())?;
-
-    // LLRT extension, matching Bun: `decompress: false` leaves the response
-    // body as sent (Content-Encoding intact) and omits the default
-    // Accept-Encoding. Like Bun, it is read from the init object, not from
-    // a Request instance.
     let decompress = get_option::<Value>("decompress", arg_opts.as_ref(), None)?
         .and_then(|v| v.as_bool().or_else(|| v.as_number().map(|n| n != 0.0)))
         .unwrap_or(true);
