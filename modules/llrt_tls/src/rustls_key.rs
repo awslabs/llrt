@@ -41,12 +41,14 @@ pub(crate) fn load_private_key(
     pbe::decrypt(&der, passphrase).map(|key| PrivateKeyDer::Pkcs8(key.into()))
 }
 
-/// The error for an encryption that Node.js supports and LLRT doesn't yet.
 pub(crate) fn not_supported(what: &[&str]) -> BoxError {
-    let mut message = String::with_capacity(64);
-    message.push_str("Invalid key: encrypted keys using ");
+    const PREFIX: &str = "Invalid key: encrypted keys using ";
+    const SUFFIX: &str = " are not supported";
+    let len = PREFIX.len() + what.iter().map(|part| part.len()).sum::<usize>() + SUFFIX.len();
+    let mut message = String::with_capacity(len);
+    message.push_str(PREFIX);
     what.iter().for_each(|part| message.push_str(part));
-    message.push_str(" are not supported");
+    message.push_str(SUFFIX);
     message.into()
 }
 
@@ -58,8 +60,7 @@ struct KeyBlock<'a> {
     complete: bool,
 }
 
-/// The first PEM block with a private key, as OpenSSL's
-/// `PEM_read_bio_PrivateKey` reads it.
+/// The first private-key block, which OpenSSL's `PEM_read_bio_PrivateKey` uses.
 fn first_key_block(pem: &[u8]) -> Option<KeyBlock<'_>> {
     let mut lines = pem.split(|&b| b == b'\n').map(<[u8]>::trim_ascii_end);
     let label = loop {
@@ -76,13 +77,14 @@ fn first_key_block(pem: &[u8]) -> Option<KeyBlock<'_>> {
         body: Vec::new(),
         complete: false,
     };
+    let mut in_body = false;
     for line in lines {
         if let Some(end) = line.strip_prefix(b"-----END ") {
             block.complete = end.strip_suffix(b"-----") == Some(label);
             break;
         }
         match line.iter().position(|&b| b == b':') {
-            Some(colon) if block.body.is_empty() => {
+            Some(colon) if !in_body => {
                 let value = line[colon + 1..].trim_ascii();
                 match line[..colon].trim_ascii() {
                     b"Proc-Type" => block.proc_type = true,
@@ -96,7 +98,12 @@ fn first_key_block(pem: &[u8]) -> Option<KeyBlock<'_>> {
                     _ => {},
                 }
             },
-            _ => block.body.extend_from_slice(line),
+            _ => {
+                in_body |= !line.is_empty();
+                if label == b"ENCRYPTED PRIVATE KEY" {
+                    block.body.extend_from_slice(line);
+                }
+            },
         }
     }
     Some(block)
@@ -121,7 +128,6 @@ mod tests {
         std::fs::read_to_string(data.join(name)).unwrap()
     }
 
-    /// The PEM blocks of `ec-encrypted.pem`, by the line before each.
     fn fixtures() -> Vec<(String, String)> {
         let text = read("ec-encrypted.pem");
         let mut lines = text.lines();
@@ -173,7 +179,6 @@ mod tests {
         e.to_string()
     }
 
-    /// A DER value, to change encrypted keys in tests.
     struct Node {
         tag: u8,
         value: Vec<u8>,
@@ -252,14 +257,12 @@ mod tests {
     const INTEGER: u8 = 0x02;
     const OCTET_STRING: u8 = 0x04;
 
-    // EncryptedPrivateKeyInfo { AlgorithmIdentifier { PBES2, PBES2-params }, data }
     fn outer_oid(epki: &mut Node) -> &mut Node {
         &mut epki.children[0].children[0]
     }
     fn pbes2(epki: &mut Node) -> &mut Node {
         &mut epki.children[0].children[1]
     }
-    // AlgorithmIdentifier { PBKDF2, PBKDF2-params { salt, iterations, keyLength?, prf? } }
     fn kdf(epki: &mut Node) -> &mut Node {
         &mut pbes2(epki).children[0]
     }
@@ -269,7 +272,6 @@ mod tests {
     fn prf_oid(epki: &mut Node) -> &mut Node {
         &mut pbkdf2_params(epki).last_mut().unwrap().children[0]
     }
-    // AlgorithmIdentifier { cipher, IV }
     fn enc(epki: &mut Node) -> &mut Vec<Node> {
         &mut pbes2(epki).children[1].children
     }
@@ -277,15 +279,13 @@ mod tests {
         &mut epki.children[1].value
     }
 
-    /// The hmacWithSHA256 and AES-192-CBC fixture, changed by `edit`.
     fn variant(edit: impl FnOnce(&mut Node)) -> String {
         let mut epki = Node::parse(&pem_der(&fixture("aes-192-cbc hmacWithSHA256"))).remove(0);
         edit(&mut epki);
         pem(&epki.encode())
     }
 
-    /// `variant` with `cipher` and the parameters OpenSSL writes for key
-    /// wrap: an EOC tag in the long form, which DER doesn't allow.
+    // OpenSSL writes key wrap's parameters as an EOC tag in the long form
     fn wrap_variant(cipher: &str) -> String {
         const PLACEHOLDER: [u8; 4] = [0x04, 0x02, 0xaa, 0xbb];
         let mut der = pem_der(&variant(|epki| {
@@ -299,7 +299,6 @@ mod tests {
         pem(&der)
     }
 
-    /// Encrypts `plain` under the variant's own parameters, with an IV of `iv`.
     fn encrypt(epki: &mut Node, plain: &[u8], iv: &[u8]) {
         let params = pbkdf2_params(epki);
         let (salt, iterations) = (&params[0].value, &params[1].value);
@@ -339,10 +338,8 @@ mod tests {
         let mut epki = Node::parse(&pem_der(&fixture("aes-256-cbc hmac-sha1"))).remove(0);
         *prf_oid(&mut epki) = Node::oid("1.2.840.113549.2.7");
         assert_eq!(decrypted(&pem(&epki.encode()), Some(PASSPHRASE)), expected);
-        // keyLength matching the cipher, and a PRF without parameters
         let pem = variant(|epki| {
             pbkdf2_params(epki).insert(2, Node::primitive(INTEGER, &[24]));
-            prf_oid(epki);
             pbkdf2_params(epki).last_mut().unwrap().children.truncate(1);
         });
         assert_eq!(decrypted(&pem, Some(PASSPHRASE)), expected);
@@ -376,7 +373,6 @@ mod tests {
             decrypted(&key.replace('\n', "\r\n"), Some(PASSPHRASE)),
             expected
         );
-        // An unencrypted key first takes the unencrypted path
         let plain_first = read("ec.key") + &key;
         assert_eq!(decrypted(&plain_first, Some(b"wrong")), expected);
         let encrypted_first = key + &read("ec.key");
@@ -501,7 +497,6 @@ mod tests {
         for (i, (pem, expected)) in cases.into_iter().enumerate() {
             assert_eq!(error(&pem, Some(PASSPHRASE)), expected, "case {i}");
         }
-        // PBES1, and PKCS#12 PBE with RC2 or RC4
         let legacy = read("ec-encrypted-legacy.pem");
         let blocks: Vec<&str> = legacy
             .split_inclusive("-----END ENCRYPTED PRIVATE KEY-----\n")

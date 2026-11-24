@@ -1943,7 +1943,6 @@ mod tests {
                          Received {received}|ERR_INVALID_ARG_TYPE|||false"
                     )
                 };
-                // Only OpenSSL has the error stack
                 let openssl = cfg!(feature = "tls-openssl");
                 let bad_decrypt = format!(
                     "Error|error:1C800064:Provider routines::bad decrypt|ERR_OSSL_BAD_DECRYPT|\

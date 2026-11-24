@@ -77,8 +77,7 @@ mod oid {
     pub const SM4: Oid = Oid::new_unwrap("1.2.156.10197.1.104");
 }
 
-/// Decrypts a DER `EncryptedPrivateKeyInfo` to a PKCS#8 `PrivateKeyInfo`,
-/// with OpenSSL's checks in OpenSSL's order.
+/// OpenSSL's checks, in OpenSSL's order.
 pub(crate) fn decrypt(der: &[u8], passphrase: &[u8]) -> Result<Vec<u8>, BoxError> {
     let (epki, _) =
         EncryptedPrivateKeyInfo::from_der_partial(der).map_err(|_| DECODER_UNSUPPORTED)?;
@@ -151,8 +150,7 @@ where
         .ok_or(DECODE_ERROR)
 }
 
-/// The cipher and its undecoded parameters. For key wrap, OpenSSL writes
-/// parameters with an invalid tag.
+/// The cipher and its raw parameters, which OpenSSL writes with an invalid tag for key wrap.
 fn cipher_identifier(enc: AnyRef<'_>) -> Result<(Oid, &[u8]), TlsError> {
     let mut reader = SliceReader::new(enc.value()).map_err(|_| DECODE_ERROR)?;
     match (enc.tag(), reader.decode::<Oid>()) {
@@ -164,8 +162,6 @@ fn cipher_identifier(enc: AnyRef<'_>) -> Result<(Oid, &[u8]), TlsError> {
     }
 }
 
-/// The key length of an AES-CBC cipher, and OpenSSL's errors for the other
-/// PBES2 ciphers.
 fn aes_cbc_key_len(oid: &Oid) -> Result<usize, BoxError> {
     if let Some(arc) = child_arc(oid, oid::AES) {
         let bits = match arc / 20 {
@@ -216,7 +212,6 @@ fn cbc_iv(params: &[u8]) -> Result<[u8; 16], TlsError> {
 
 type Pbkdf2 = fn(&[u8], &[u8], u32, &mut [u8]) -> Result<(), hmac::digest::InvalidLength>;
 
-/// PBKDF2 with a PRF from OpenSSL's table.
 fn pbkdf2_with(prf: &Oid) -> Result<Pbkdf2, BoxError> {
     use pbkdf2::pbkdf2;
     Ok(match *prf {
@@ -263,8 +258,7 @@ fn aes_cbc_decrypt(key: &[u8], iv: &[u8; 16], data: &[u8]) -> Result<Vec<u8>, Tl
     Ok(buf)
 }
 
-/// A wrong passphrase leaves valid padding about once in 256 tries. OpenSSL
-/// then fails to decode the key.
+/// A wrong passphrase leaves valid padding about once in 256 tries, and OpenSSL can't decode it.
 fn private_key_info(mut plain: Vec<u8>) -> Result<Vec<u8>, TlsError> {
     let trailing = match AnyRef::from_der_partial(&plain) {
         Ok((any, rest)) if any.tag() == Tag::Sequence => rest.len(),
