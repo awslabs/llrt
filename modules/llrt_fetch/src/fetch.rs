@@ -1722,6 +1722,36 @@ mod tests {
         all(feature = "tls-graviola", target_arch = "x86_64"),
         feature = "tls-openssl"
     ))]
+    const SHA256_KEY_ERROR: &str = "Failed to build TLS config. Invalid key: \
+         encrypted keys using HMAC-SHA256 are not supported";
+
+    // Whether rustls decrypts any keys, and the HMAC-SHA256 keys these tests use
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    const DECRYPTS: bool = cfg!(any(
+        feature = "encrypted-keys-hmac-sha1",
+        feature = "encrypted-keys-hmac-sha2",
+        feature = "encrypted-keys-hmac-sha3",
+        feature = "encrypted-keys-hmac-md5"
+    ));
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    const DECRYPTS_SHA256: bool = cfg!(feature = "encrypted-keys-hmac-sha2");
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
     #[tokio::test]
     async fn test_agent_client_certificate_errors() {
         use llrt_test_tls::FileType;
@@ -1789,7 +1819,7 @@ mod tests {
                         decoder,
                         "error:1C80006B:Provider routines::wrong final block length",
                     )
-                } else if cfg!(feature = "encrypted-keys") {
+                } else if DECRYPTS {
                     (decoder, TRADITIONAL_KEY_ERROR)
                 } else {
                     (ENCRYPTED_KEY_ERROR, ENCRYPTED_KEY_ERROR)
@@ -1876,8 +1906,13 @@ mod tests {
                 let hello = "Hello, LLRT!".to_string();
                 let expected = if cfg!(feature = "tls-openssl") {
                     [hello.clone(), hello]
-                } else if cfg!(feature = "encrypted-keys") {
+                } else if DECRYPTS_SHA256 {
                     [hello, format!("Error: {TRADITIONAL_KEY_ERROR}")]
+                } else if DECRYPTS {
+                    [
+                        format!("Error: {SHA256_KEY_ERROR}"),
+                        format!("Error: {TRADITIONAL_KEY_ERROR}"),
+                    ]
                 } else {
                     let error = format!("Error: {ENCRYPTED_KEY_ERROR}");
                     [error.clone(), error]
@@ -1973,9 +2008,13 @@ mod tests {
                     .to_string();
                 let (bad_decrypt, traditional_bad_decrypt, too_long) = if openssl {
                     (bad_decrypt.clone(), bad_decrypt, too_long)
-                } else if cfg!(feature = "encrypted-keys") {
+                } else if DECRYPTS_SHA256 {
                     let traditional = format!("Error|{TRADITIONAL_KEY_ERROR}||||false");
                     (bad_decrypt, traditional, too_long)
+                } else if DECRYPTS {
+                    let sha256 = format!("Error|{SHA256_KEY_ERROR}||||false");
+                    let traditional = format!("Error|{TRADITIONAL_KEY_ERROR}||||false");
+                    (sha256, traditional, too_long)
                 } else {
                     let error = format!("Error|{ENCRYPTED_KEY_ERROR}||||false");
                     (error.clone(), error.clone(), error)

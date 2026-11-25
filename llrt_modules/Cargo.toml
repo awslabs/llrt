@@ -29,11 +29,32 @@ tls-graviola = [
 ]
 tls-openssl = ["llrt_http?/tls-openssl", "llrt_tls?/tls-openssl"]
 
-# Encrypted private keys on the rustls backends
+# Encrypted private keys on the rustls backends, by PBKDF2 PRF
 encrypted-keys = [
-  "llrt_http?/encrypted-keys",
-  "llrt_tls?/encrypted-keys",
-  "llrt_fetch?/encrypted-keys",
+  "encrypted-keys-hmac-sha1",
+  "encrypted-keys-hmac-sha2",
+  "encrypted-keys-hmac-sha3",
+  "encrypted-keys-hmac-md5",
+]
+encrypted-keys-hmac-sha1 = [
+  "llrt_http?/encrypted-keys-hmac-sha1",
+  "llrt_tls?/encrypted-keys-hmac-sha1",
+  "llrt_fetch?/encrypted-keys-hmac-sha1",
+]
+encrypted-keys-hmac-sha2 = [
+  "llrt_http?/encrypted-keys-hmac-sha2",
+  "llrt_tls?/encrypted-keys-hmac-sha2",
+  "llrt_fetch?/encrypted-keys-hmac-sha2",
+]
+encrypted-keys-hmac-sha3 = [
+  "llrt_http?/encrypted-keys-hmac-sha3",
+  "llrt_tls?/encrypted-keys-hmac-sha3",
+  "llrt_fetch?/encrypted-keys-hmac-sha3",
+]
+encrypted-keys-hmac-md5 = [
+  "llrt_http?/encrypted-keys-hmac-md5",
+  "llrt_tls?/encrypted-keys-hmac-md5",
+  "llrt_fetch?/encrypted-keys-hmac-md5",
 ]
 
 # Crypto provider features

@@ -16,9 +16,20 @@ default = ["webpki-roots", "tls-ring", "encrypted-keys"]
 webpki-roots = ["dep:webpki-roots"]
 native-roots = ["dep:rustls-native-certs", "dep:tracing"]
 
-# Decrypts encrypted private keys on the rustls backends. OpenSSL decrypts
-# them itself, so the OpenSSL backend doesn't use it.
-encrypted-keys = ["dep:llrt_pem", "dep:llrt_pbe", "dep:llrt_pkcs8"]
+# Encrypted PKCS#8 keys on the rustls backends, by PBKDF2 PRF. OpenSSL
+# decrypts keys itself, so the OpenSSL backend doesn't use them.
+encrypted-keys = [
+  "encrypted-keys-hmac-sha1",
+  "encrypted-keys-hmac-sha2",
+  "encrypted-keys-hmac-sha3",
+  "encrypted-keys-hmac-md5",
+]
+encrypted-keys-hmac-sha1 = ["_encrypted-keys", "llrt_pbe/hmac-sha1"]
+encrypted-keys-hmac-sha2 = ["_encrypted-keys", "llrt_pbe/hmac-sha2"]
+encrypted-keys-hmac-sha3 = ["_encrypted-keys", "llrt_pbe/hmac-sha3"]
+encrypted-keys-hmac-md5 = ["_encrypted-keys", "llrt_pbe/hmac-md5"]
+# Internal feature: the code shared by the encrypted-keys-* features
+_encrypted-keys = ["dep:llrt_pbe"]
 
 # TLS crypto backend features (rustls-based)
 tls-ring = ["dep:rustls", "rustls/ring"]
@@ -41,15 +52,6 @@ itoa = { version = "1", default-features = false, optional = true }
 webpki-roots = { version = "1", default-features = false, optional = true }
 rustls-native-certs = { version = "0.8", default-features = false, optional = true }
 tracing = { version = "0.1", default-features = false, optional = true }
-llrt_pem = { workspace = true, optional = true }
 llrt_pbe = { workspace = true, optional = true }
-llrt_pkcs8 = { workspace = true, optional = true }
 
 [dev-dependencies]
-aes = { version = "0.9", default-features = false }
-base64-simd = { version = "0.8", features = ["alloc"], default-features = false }
-cbc = { version = "0.2", features = ["block-padding"], default-features = false }
-der = { version = "0.8", features = ["oid"], default-features = false }
-hmac = { version = "0.13", default-features = false }
-pbkdf2 = { version = "0.13", default-features = false }
-sha2 = { version = "0.11", default-features = false }

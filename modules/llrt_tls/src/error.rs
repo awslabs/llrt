@@ -23,7 +23,7 @@ impl std::error::Error for TlsError {}
 #[cfg(any(
     feature = "tls-openssl",
     all(
-        feature = "encrypted-keys",
+        feature = "_encrypted-keys",
         any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola")
     )
 ))]
@@ -42,7 +42,7 @@ macro_rules! openssl_errors {
 #[cfg(any(
     feature = "tls-openssl",
     all(
-        feature = "encrypted-keys",
+        feature = "_encrypted-keys",
         any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola")
     )
 ))]
@@ -52,7 +52,7 @@ openssl_errors! {
 
 // The errors Node.js throws for encrypted private keys, with OpenSSL 3.
 #[cfg(all(
-    feature = "encrypted-keys",
+    feature = "_encrypted-keys",
     any(feature = "tls-ring", feature = "tls-aws-lc", feature = "tls-graviola")
 ))]
 openssl_errors! {

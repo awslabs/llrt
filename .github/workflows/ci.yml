@@ -33,6 +33,8 @@ jobs:
             echo "console.log(123);" > "llrt_core/bundle/js/test$i.js"
           done
           cargo clippy --all-targets -- -D warnings
+      - name: Test encrypted keys with only the SHA-2 PRFs
+        run: cargo test -p llrt_pbe -p llrt_tls --no-default-features --features llrt_tls/webpki-roots,llrt_tls/tls-ring,llrt_tls/encrypted-keys-hmac-sha2
   wpt:
     needs:
       - check
