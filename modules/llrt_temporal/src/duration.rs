@@ -12,6 +12,7 @@ use rquickjs::{
 };
 
 use crate::utils::date::fill_duration_from_iter as fill_date_from_iter;
+use crate::utils::relative_to::RelativeTo;
 use crate::utils::span::SpanExt;
 use crate::utils::span_round::SpanRoundExt;
 use crate::utils::span_total::SpanTotalExt;
@@ -33,9 +34,14 @@ impl Duration {
     }
 
     #[qjs(static)]
-    fn compare(ctx: Ctx<'_>, duration1: Self, duration2: Self, opt: Opt<Value<'_>>) -> Result<i8> {
-        let sc = Self::into_span_compare(&duration2.inner, &opt);
-        match duration1.inner.compare(sc).or_throw_range(&ctx, "")? {
+    fn compare(ctx: Ctx<'_>, dur1: Value<'_>, dur2: Value<'_>, opt: Opt<Value<'_>>) -> Result<i8> {
+        let duration1 = Self::from_value(&ctx, &dur1)?;
+        let duration2 = Self::from_value(&ctx, &dur2)?;
+        let (mut compare, relative) = Self::into_span_compare(&ctx, &duration2.inner, &opt)?;
+        if let Some(relative) = &relative {
+            compare = compare.relative(relative.as_relative());
+        }
+        match duration1.inner.compare(compare).or_throw_range(&ctx, "")? {
             Ordering::Less => Ok(-1),
             Ordering::Equal => Ok(0),
             Ordering::Greater => Ok(1),
@@ -65,7 +71,10 @@ impl Duration {
     }
 
     fn round(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<Self> {
-        let round = SpanRound::from_value(&ctx, &options)?;
+        let (mut round, relative) = SpanRound::from_value(&ctx, &options)?;
+        if let Some(relative) = &relative {
+            round = round.relative(relative.as_relative());
+        }
         let span = self.inner.round(round).or_throw_range(&ctx, "")?;
         Ok(Self { inner: span })
     }
@@ -90,7 +99,10 @@ impl Duration {
     }
 
     fn total(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<f64> {
-        let total = SpanTotal::from_value(&ctx, &options)?;
+        let (mut total, relative) = SpanTotal::from_value(&ctx, &options)?;
+        if let Some(relative) = &relative {
+            total = total.relative(relative.as_relative());
+        }
         let num = self.inner.total(total).or_throw_range(&ctx, "")?;
         Ok(num)
     }
@@ -192,7 +204,8 @@ impl Duration {
             if let Some(cls) = Class::<Self>::from_object(obj) {
                 return Ok(cls.borrow().clone());
             }
-            return Self::from_object(ctx, obj);
+            let span = Span::from_object_with_fields(ctx, obj)?;
+            return Ok(Self { inner: span });
         }
 
         let str = value
@@ -208,8 +221,12 @@ impl Duration {
         self.inner
     }
 
-    fn into_span_compare<'a>(span: &Span, value: &Opt<Value<'a>>) -> SpanCompare<'a> {
-        Span::into_span_compare(span, value)
+    fn into_span_compare(
+        ctx: &Ctx<'_>,
+        span: &Span,
+        value: &Opt<Value<'_>>,
+    ) -> Result<(SpanCompare<'static>, Option<RelativeTo>)> {
+        Span::into_span_compare(ctx, span, value)
     }
 
     pub(crate) fn new_object(span: Span) -> Self {

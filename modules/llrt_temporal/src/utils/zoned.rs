@@ -1,11 +1,11 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use jiff::{civil::DateTime, ZonedDateTime as Zoned};
+use jiff::{civil::DateTime, tz::OffsetConflict, ZonedDateTime as Zoned};
 use llrt_utils::{object::ObjectExt, result::ResultExt};
-use rquickjs::{Ctx, Exception, Object, Result, Value};
+use rquickjs::{Ctx, Object, Result, Value};
 
 use super::date_time::DateTimeExt;
-use super::time_zone::{parse_offset_seconds, parse_temporal_time_zone};
+use super::time_zone::{parse_temporal_offset, parse_temporal_time_zone};
 
 pub(crate) trait ZonedExt {
     fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned>;
@@ -29,21 +29,31 @@ impl ZonedExt for Zoned {
 fn from_obj(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Zoned> {
     let dt = DateTime::from_object(ctx, obj)?;
     let tz = obj.get_optional::<_, String>("timeZone")?;
-    let tz = parse_temporal_time_zone(ctx, tz.as_ref())?;
-    let zoned = dt.to_zoned_datetime(tz).or_throw_range(ctx, "")?;
+    from_parts(ctx, obj, dt, tz.as_ref())
+}
 
+pub(super) fn from_object_with_time_zone(
+    ctx: &Ctx<'_>,
+    obj: &Object<'_>,
+    tz: &String,
+) -> Result<Zoned> {
+    let dt = DateTime::from_object(ctx, obj)?;
+    from_parts(ctx, obj, dt, Some(tz))
+}
+
+fn from_parts(ctx: &Ctx<'_>, obj: &Object<'_>, dt: DateTime, tz: Option<&String>) -> Result<Zoned> {
+    let tz = parse_temporal_time_zone(ctx, tz)?;
     if let Some(offset) = obj.get_optional::<_, String>("offset")? {
-        let offset_seconds = parse_offset_seconds(&offset, true)
+        let offset = parse_temporal_offset(&offset, true)
             .or_throw_range(ctx, "Invalid or rounded offset in property bag")?;
 
-        if zoned.offset().seconds() != offset_seconds {
-            return Err(Exception::throw_range(
-                ctx,
-                "Offset does not match time zone",
-            ));
-        }
+        return OffsetConflict::Reject
+            .resolve(dt, offset, tz)
+            .or_throw_range(ctx, "")?
+            .unambiguous()
+            .or_throw_range(ctx, "");
     }
-    Ok(zoned)
+    dt.to_zoned_datetime(tz).or_throw_range(ctx, "")
 }
 
 fn into_zoned(ctx: &Ctx<'_>, zoned: &Zoned, obj: &Object<'_>) -> Result<Zoned> {
