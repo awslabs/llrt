@@ -76,10 +76,10 @@ pub(crate) fn parse_temporal_offset(s: &str, allow_seconds: bool) -> Option<Offs
         None => (s, None),
     };
     let (normalized, with_seconds) = match main.len() {
-        5 => (format!("{}:{}", &main[..3], &main[3..]), false),
+        5 => ([&main[..3], ":", &main[3..]].concat(), false),
         6 => (main.to_owned(), false),
         7 if allow_seconds => (
-            format!("{}:{}:{}", &main[..3], &main[3..5], &main[5..]),
+            [&main[..3], ":", &main[3..5], ":", &main[5..]].concat(),
             true,
         ),
         9 if allow_seconds => (main.to_owned(), true),

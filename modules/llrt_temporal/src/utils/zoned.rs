@@ -49,8 +49,7 @@ fn from_parts(ctx: &Ctx<'_>, obj: &Object<'_>, dt: DateTime, tz: Option<&String>
 
         return OffsetConflict::Reject
             .resolve(dt, offset, tz)
-            .or_throw_range(ctx, "")?
-            .unambiguous()
+            .and_then(|result| result.unambiguous())
             .or_throw_range(ctx, "");
     }
     dt.to_zoned_datetime(tz).or_throw_range(ctx, "")
