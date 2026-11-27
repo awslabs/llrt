@@ -236,7 +236,9 @@ fn unhandled_rejection_tracker() -> RejectionTracker {
         ctx.spawn(async move {
             // The task that rejected can queue microtasks that attach a handler after the
             // rejection callback runs, so drain the job queue before reporting anything.
-            while task_ctx.drain_jobs().is_err() {}
+            if let Err(err) = task_ctx.drain_jobs() {
+                print_job_error_and_exit(&task_ctx, &err);
+            }
 
             let unhandled = task_ctx
                 .userdata::<RefCell<PendingRejections>>()
