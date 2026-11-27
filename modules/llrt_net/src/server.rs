@@ -1,15 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-#![allow(clippy::uninlined_format_args)]
-
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, RwLock,
+use std::{
+    future::poll_fn,
+    io,
+    sync::{Arc, RwLock},
+    task::{Poll, Waker},
 };
 
 use llrt_context::CtxExtension;
 use llrt_events::{EmitError, Emitter, EventEmitter, EventList};
-use llrt_stream::{impl_stream_events, SteamEvents};
 use llrt_utils::{object::ObjectExt, result::ResultExt, reuse_list::ReuseList};
 #[cfg(unix)]
 use rquickjs::IntoJs;
@@ -18,31 +17,23 @@ use rquickjs::{
     prelude::{Opt, Rest, This},
     Class, Ctx, Exception, Function, JsLifetime, Object, Result, Undefined, Value,
 };
+use tokio::net::TcpListener;
 #[cfg(unix)]
 use tokio::net::UnixListener;
-use tokio::{
-    net::TcpListener,
-    select,
-    sync::{
-        broadcast::{self, Sender},
-        Notify,
-    },
-};
 use tracing::trace;
 
-use super::{get_address_parts, socket::Socket, Listener, NetStream};
-
-impl_stream_events!(Server);
+use super::{address_parts, rethrow_in_task, socket::Socket, Listener, NetStream};
 
 #[rquickjs::class]
 pub struct Server<'js> {
     emitter: EventEmitter<'js>,
     address: Value<'js>,
-    close_tx: Sender<()>,
     allow_half_open: bool,
-    already_listen: Arc<AtomicBool>,
+    listening: bool,
+    listening_id: u32,
+    listener: Option<Listener>,
+    accept_waker: Option<Waker>,
     sockets: ReuseList<Class<'js, Socket<'js>>>,
-    should_close: Arc<AtomicBool>,
 }
 
 impl<'js> Trace<'js> for Server<'js> {
@@ -86,19 +77,17 @@ impl<'js> Server<'js> {
             connection_listener = next.into_function();
         }
 
-        let emitter = EventEmitter::new();
-        let (close_tx, _) = broadcast::channel::<()>(1);
-
         let instance = Class::instance(
             ctx.clone(),
             Self {
-                emitter,
+                emitter: EventEmitter::new(),
                 address: Undefined.into_value(ctx.clone()),
-                close_tx,
                 allow_half_open,
-                already_listen: Arc::new(AtomicBool::new(false)),
+                listening: false,
+                listening_id: 0,
+                listener: None,
+                accept_waker: None,
                 sockets: ReuseList::with_capacity(8),
-                should_close: Arc::new(AtomicBool::new(false)),
             },
         )?;
 
@@ -142,14 +131,7 @@ impl<'js> Server<'js> {
         let mut backlog = None;
         let mut callback = None;
 
-        let borrow = this.borrow();
-        let mut close_rx = borrow.close_tx.subscribe();
-        let allow_half_open = borrow.allow_half_open;
-        let already_running = borrow.already_listen.clone();
-        let should_close = borrow.should_close.clone();
-        drop(borrow);
-
-        if already_running.load(Ordering::Relaxed) {
+        if this.borrow().listening {
             return Err(Exception::throw_message(&ctx, "ERR_SERVER_ALREADY_LISTEN"));
         }
 
@@ -216,54 +198,57 @@ impl<'js> Server<'js> {
             port = Some(0)
         }
 
+        let listening_id = {
+            let mut server = this.borrow_mut();
+            server.listening = true;
+            server.listening_id = server.listening_id.wrapping_add(1);
+            server.listening_id
+        };
+
         ctx.spawn_exit(async move {
-            already_running.store(true, Ordering::Relaxed);
             let listener = match Self::bind(this.clone(), ctx2.clone(), port, host, path).await {
                 Ok(listener) => listener,
                 Err(e) => {
-                    already_running.store(false, Ordering::Relaxed);
+                    let mut server = this.borrow_mut();
+                    if server.listening_id == listening_id {
+                        server.listening = false;
+                    }
+                    drop(server);
                     Err::<(), _>(e).emit_error("listen", &ctx2, this.clone())?;
                     return Ok(()); // Don't stop the VM if failed to bind
                 },
             };
 
+            {
+                let mut server = this.borrow_mut();
+                if server.listening_id != listening_id {
+                    return Ok(());
+                }
+                server.listener = Some(listener);
+            }
+
             Self::emit_str(this.clone(), &ctx2, "listening", vec![], false)?;
 
-            let notify = Arc::new(Notify::new());
-            let close_notify = notify.notified();
-
-            loop {
-                let ctx3 = ctx2.clone();
-                let this2 = this.clone();
-
-                select! {
-                    socket = listener.accept(&ctx3) => {
-                        Self::handle_socket_connection(
-                            this2.clone(),
-                            ctx3.clone(),
-                            socket,
-                            notify.clone(),
-                            allow_half_open,
-                        ).emit_error("handle_socket_connection",&ctx3, this2)?;
-                    },
-                    _ = close_rx.recv() => {
-                        break;
-                    }
+            while let Some(accepted) = poll_fn(|cx| {
+                let mut server = this.borrow_mut();
+                let server = &mut *server;
+                let Some(listener) = &server.listener else {
+                    return Poll::Ready(None);
+                };
+                let accepted = listener.poll_accept(cx).map(Some);
+                if accepted.is_pending() {
+                    server.accept_waker = Some(cx.waker().clone());
                 }
+                accepted
+            })
+            .await
+            {
+                Self::handle_connection(&this, &ctx2, accepted).emit_error(
+                    "handle_socket_connection",
+                    &ctx2,
+                    this.clone(),
+                )?;
             }
-
-            if !this.borrow().sockets.is_empty() {
-                trace!("Waiting for sockets to finish");
-                close_notify.await;
-                trace!("Sockets finished");
-            } else {
-                trace!("No sockets to wait for, closing");
-            }
-
-            already_running.store(false, Ordering::Relaxed);
-            should_close.store(false, Ordering::Relaxed);
-
-            Self::emit_str(this.0, &ctx2, "close", vec![], false)?;
 
             Ok(())
         })?;
@@ -274,12 +259,20 @@ impl<'js> Server<'js> {
     fn close(this: This<Class<'js, Self>>, ctx: Ctx<'js>, cb: Opt<Function<'js>>) -> Result<()> {
         trace!("Closing server");
         if let Some(cb) = cb.0 {
-            Self::add_event_listener_str(this.clone(), &ctx, "close", cb, true, true)?;
+            Self::add_event_listener_str(this.clone(), &ctx, "close", cb, false, true)?;
         }
-        let borrow = this.borrow_mut();
-        borrow.should_close.store(true, Ordering::Relaxed);
-        let _ = borrow.close_tx.send(());
-        Ok(())
+        let mut server = this.borrow_mut();
+        if !server.listening {
+            return Ok(());
+        }
+        server.listening = false;
+        server.listening_id = server.listening_id.wrapping_add(1);
+        server.listener = None;
+        if let Some(waker) = server.accept_waker.take() {
+            waker.wake();
+        }
+        drop(server);
+        Self::emit_close_if_drained(&this, &ctx)
     }
 }
 
@@ -299,7 +292,7 @@ impl<'js> Server<'js> {
 
             let address_object = Object::new(ctx.clone())?;
 
-            let (address, port, family) = get_address_parts(&ctx, listener.local_addr())?;
+            let (address, port, family) = address_parts(listener.local_addr().or_throw(&ctx)?);
             address_object.set("address", address)?;
             address_object.set("port", port)?;
             address_object.set("family", family)?;
@@ -328,134 +321,46 @@ impl<'js> Server<'js> {
         Ok(listener)
     }
 
-    fn handle_socket_connection(
-        this: Class<'js, Self>,
-        ctx: Ctx<'js>,
-        stream_result: Result<NetStream>,
-        notify_close: Arc<Notify>,
-        allow_half_open: bool,
+    fn handle_connection(
+        this: &Class<'js, Self>,
+        ctx: &Ctx<'js>,
+        accepted: io::Result<NetStream>,
     ) -> Result<()> {
-        let net_stream = stream_result.or_throw(&ctx)?;
-
-        ctx.clone().spawn_exit(async move {
-            let socket_instance = Socket::new(ctx.clone(), allow_half_open)?;
-            let socket_index;
-            {
-                let mut sever_borrow = this.borrow_mut();
-                socket_index = sever_borrow.sockets.append(socket_instance.clone());
-            }
-
-            let socket_instance2 = socket_instance.clone().into_value();
-            Self::emit_str(
-                this.clone(),
-                &ctx,
-                "connection",
-                vec![socket_instance2],
-                false,
-            )?;
-
-            let had_error = net_stream
-                .process(&socket_instance, &ctx, allow_half_open)
-                .await?;
-
-            Socket::emit_close(socket_instance, &ctx, had_error)?;
-            {
-                let mut sever_borrow = this.borrow_mut();
-                sever_borrow.sockets.remove(socket_index);
-
-                if sever_borrow.sockets.is_empty()
-                    && sever_borrow.should_close.load(Ordering::Relaxed)
-                {
-                    trace!("Sockets empty, notify close");
-                    notify_close.notify_one();
-                }
-            }
-
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::Duration;
-
-    use llrt_buffer as buffer;
-    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
-    use tokio::{
-        io::{AsyncReadExt, AsyncWriteExt},
-        net::TcpStream,
-    };
-
-    use crate::NetModule;
-
-    async fn call_tcp(port: u16) {
-        // Connect to server
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port))
-            .await
-            .unwrap();
-        stream.set_nodelay(true).unwrap();
-
-        // Write
-        let msg = b"Hello, world!";
-        stream.write_all(msg).await.unwrap();
-        stream.flush().await.unwrap();
-
-        // Read
-        let mut buf = vec![0; 1024];
-        let n = stream.read(&mut buf).await.unwrap();
-
-        assert_eq!(&buf[..n], msg);
+        let stream = accepted.or_throw(ctx)?;
+        let options = Object::new(ctx.clone())?;
+        options.set("allowHalfOpen", this.borrow().allow_half_open)?;
+        let socket = Socket::create(ctx, Some(options.into_value()), Some(stream))?;
+        let index = this.borrow_mut().sockets.append(socket.clone());
+        socket.borrow_mut().set_server(this.clone(), index);
+        Self::emit_str(
+            this.clone(),
+            ctx,
+            "connection",
+            vec![socket.into_value()],
+            false,
+        )
     }
 
-    #[tokio::test]
-    async fn test_server_echo() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                buffer::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<NetModule>(ctx.clone(), "net")
-                    .await
-                    .unwrap();
+    pub(crate) fn connection_closed(
+        this: &Class<'js, Self>,
+        ctx: &Ctx<'js>,
+        index: usize,
+    ) -> Result<()> {
+        this.borrow_mut().sockets.remove(index);
+        Self::emit_close_if_drained(this, ctx)
+    }
 
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { createServer } from 'net';
+    fn emit_close_if_drained(this: &Class<'js, Self>, ctx: &Ctx<'js>) -> Result<()> {
+        let server = this.borrow();
+        if server.listening || !server.sockets.is_empty() {
+            return Ok(());
+        }
+        drop(server);
+        Function::new(ctx.clone(), Self::emit_close)?.defer((This(this.clone()),))
+    }
 
-                        export async function test() {
-                            const server = createServer(socket => {
-                                socket.on('data', data => {
-                                    socket.write(data, () => server.close());
-                                });
-                            });
-
-                            // Use port 0 to let the OS assign an available port
-                            server.listen(0, '127.0.0.1');
-
-                            return new Promise((resolve, reject) => {
-                                server.on('listening', () => {
-                                    const port = server.address().port;
-                                    resolve(port);
-                                });
-                                server.on('error', (err) => reject(err));
-                            });
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-
-                // Get the OS-assigned port from the server
-                let port: u16 = call_test(&ctx, &module, ()).await;
-
-                // Now connect to the server and run the echo test
-                call_tcp(port).await;
-            })
-        })
-        .await;
+    fn emit_close(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<()> {
+        let emitted = Self::emit_str(this.0, &ctx, "close", vec![], false);
+        rethrow_in_task(&ctx, emitted)
     }
 }

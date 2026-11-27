@@ -11,7 +11,7 @@
 declare module "net" {
   import { Buffer } from "buffer";
   import { EventEmitter } from "events";
-  import { DefaultDuplexStream as Duplex } from "stream";
+  import { Duplex } from "stream";
 
   interface AddressInfo {
     address: string;

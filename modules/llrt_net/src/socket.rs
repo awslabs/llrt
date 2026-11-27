@@ -1,54 +1,59 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
-use std::{
-    pin::Pin,
-    sync::{Arc, RwLock},
-};
+use std::{io, pin::Pin};
 
+use llrt_buffer::Buffer;
 use llrt_context::CtxExtension;
-use llrt_events::{EmitError, Emitter, EventEmitter, EventKey, EventList};
-use llrt_stream::{
-    impl_stream_events,
-    readable::{ReadableStream, ReadableStreamInner},
-    writable::{WritableStream, WritableStreamInner},
-    SteamEvents,
+use llrt_encoding::Encoder;
+use llrt_utils::{
+    bytes::{get_lossy_string, ObjectBytes},
+    error::ErrorExtensions,
+    object::ObjectExt,
+    primordials::{BasePrimordials, Primordial},
+    result::ResultExt,
 };
-use llrt_utils::{object::ObjectExt, result::ResultExt};
 use rquickjs::{
+    atom::PredefinedAtom,
     class::{Trace, Tracer},
     prelude::{Opt, Rest, This},
-    Class, Ctx, Error, Exception, Function, JsLifetime, Object, Result, Value,
+    Array, CatchResultExt, Class, Coerced, Ctx, Exception, Function, IntoJs, JsLifetime, Object,
+    Result, Value,
 };
 #[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::{
-    io::{AsyncRead, AsyncWrite},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::TcpStream,
-    sync::oneshot::Receiver,
+    select,
+    sync::watch,
 };
-use tracing::trace;
 
-use super::{get_address_parts, rw_join, ReadyState, LOCALHOST};
+use super::{address_parts, rethrow_in_task, server::Server, NetStream, LOCALHOST};
 
-impl_stream_events!(Socket);
+const HIGH_WATER_MARK: u32 = 64 * 1024;
+const READ_SIZE: usize = 64 * 1024;
+
+type Reader = Pin<Box<dyn AsyncRead>>;
+type Writer = Pin<Box<dyn AsyncWrite>>;
 
 #[rquickjs::class]
-#[allow(dead_code)]
 pub struct Socket<'js> {
-    emitter: EventEmitter<'js>,
-    readable_stream_inner: ReadableStreamInner<'js>,
-    writable_stream_inner: WritableStreamInner<'js>,
+    reader: Option<Reader>,
+    writer: Option<Writer>,
+    has_handle: bool,
     connecting: bool,
-    destroyed: bool,
-    pending: bool,
+    reading: bool,
+    read_after_connect: bool,
+    write_after_connect: Option<(Vec<u8>, Function<'js>)>,
+    final_after_connect: Option<Function<'js>>,
+    closed: watch::Sender<bool>,
+    server: Option<(Class<'js, Server<'js>>, usize)>,
     local_address: Option<String>,
-    local_family: Option<String>,
+    local_family: Option<&'static str>,
     local_port: Option<u16>,
     remote_address: Option<String>,
-    remote_family: Option<String>,
+    remote_family: Option<&'static str>,
     remote_port: Option<u16>,
-    ready_state: ReadyState,
-    allow_half_open: bool,
 }
 
 unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
@@ -57,52 +62,23 @@ unsafe impl<'js> JsLifetime<'js> for Socket<'js> {
 
 impl<'js> Trace<'js> for Socket<'js> {
     fn trace<'a>(&self, tracer: Tracer<'a, 'js>) {
-        self.emitter.trace(tracer);
-    }
-}
-
-impl<'js> Emitter<'js> for Socket<'js> {
-    fn get_event_list(&self) -> Arc<RwLock<EventList<'js>>> {
-        self.emitter.get_event_list()
-    }
-
-    fn on_event_changed(&mut self, event: EventKey<'js>, added: bool) -> Result<()> {
-        self.readable_stream_inner.on_event_changed(event, added)
-    }
-}
-
-impl<'js> ReadableStream<'js> for Socket<'js> {
-    fn inner_mut(&mut self) -> &mut ReadableStreamInner<'js> {
-        &mut self.readable_stream_inner
-    }
-
-    fn inner(&self) -> &ReadableStreamInner<'js> {
-        &self.readable_stream_inner
-    }
-}
-
-impl<'js> WritableStream<'js> for Socket<'js> {
-    fn inner_mut(&mut self) -> &mut WritableStreamInner<'js> {
-        &mut self.writable_stream_inner
-    }
-
-    fn inner(&self) -> &WritableStreamInner<'js> {
-        &self.writable_stream_inner
+        if let Some((_, cb)) = &self.write_after_connect {
+            cb.trace(tracer);
+        }
+        if let Some(cb) = &self.final_after_connect {
+            cb.trace(tracer);
+        }
+        if let Some((server, _)) = &self.server {
+            server.trace(tracer);
+        }
     }
 }
 
 #[rquickjs::methods(rename_all = "camelCase")]
 impl<'js> Socket<'js> {
     #[qjs(constructor)]
-    pub fn ctor(ctx: Ctx<'js>, opts: Opt<Object<'js>>) -> Result<Class<'js, Self>> {
-        let mut allow_half_open = false;
-        if let Some(opts) = opts.0 {
-            if let Some(opt_allow_half_open) = opts.get_optional("allowHalfOpen")? {
-                allow_half_open = opt_allow_half_open;
-            }
-        }
-
-        Self::new(ctx, allow_half_open)
+    pub fn ctor(ctx: Ctx<'js>, options: Opt<Value<'js>>) -> Result<Class<'js, Self>> {
+        Self::create(&ctx, options.0, None)
     }
 
     #[qjs(get, enumerable)]
@@ -112,52 +88,27 @@ impl<'js> Socket<'js> {
 
     #[qjs(get, enumerable)]
     pub fn pending(&self) -> bool {
-        self.pending
+        !self.has_handle || self.connecting
+    }
+
+    #[qjs(get, enumerable)]
+    pub fn ready_state(this: This<Class<'js, Self>>) -> Result<&'static str> {
+        if this.borrow().connecting {
+            return Ok("opening");
+        }
+        let readable = this.get::<_, Coerced<bool>>("readable")?.0;
+        let writable = this.get::<_, Coerced<bool>>("writable")?.0;
+        Ok(match (readable, writable) {
+            (true, true) => "open",
+            (true, false) => "readOnly",
+            (false, true) => "writeOnly",
+            (false, false) => "closed",
+        })
     }
 
     #[qjs(get, enumerable)]
     pub fn remote_address(&self) -> Option<String> {
         self.remote_address.clone()
-    }
-
-    pub fn write(
-        this: This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-        value: Value<'js>,
-        cb: Opt<Function<'js>>,
-    ) -> Result<()> {
-        WritableStream::write_flushed(this, ctx.clone(), value, cb)?;
-        Ok(())
-    }
-
-    pub fn end(
-        this: This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-        callback: Opt<Function<'js>>,
-    ) -> Result<()> {
-        if let Some(cb) = callback.0 {
-            Self::add_event_listener_str(this.clone(), &ctx, "end", cb, true, true)?;
-        }
-
-        //ReadableStream::destroy(This(this.clone()), ctx.clone())?;
-        WritableStream::end(this);
-
-        Ok(())
-    }
-
-    pub fn destroy(this: This<Class<'js, Self>>, error: Opt<Value<'js>>) -> Class<'js, Self> {
-        this.borrow_mut().destroyed = true;
-        ReadableStream::destroy(This(this.clone()), Opt(None));
-        WritableStream::destroy(This(this.clone()), error);
-        this.0
-    }
-
-    pub fn read(
-        this: This<Class<'js, Self>>,
-        ctx: Ctx<'js>,
-        size: Opt<usize>,
-    ) -> Result<Value<'js>> {
-        ReadableStream::read(this, ctx, size)
     }
 
     #[qjs(get, enumerable)]
@@ -166,13 +117,13 @@ impl<'js> Socket<'js> {
     }
 
     #[qjs(get, enumerable)]
-    pub fn remote_family(&self) -> Option<String> {
-        self.remote_family.clone()
+    pub fn remote_family(&self) -> Option<&'static str> {
+        self.remote_family
     }
 
     #[qjs(get, enumerable)]
-    pub fn local_family(&self) -> Option<String> {
-        self.local_family.clone()
+    pub fn local_family(&self) -> Option<&'static str> {
+        self.local_family
     }
 
     #[qjs(get, enumerable)]
@@ -185,11 +136,6 @@ impl<'js> Socket<'js> {
         self.local_port
     }
 
-    #[qjs(get, enumerable)]
-    pub fn ready_state(&self) -> String {
-        self.ready_state.to_string()
-    }
-
     pub fn connect(
         this: This<Class<'js, Self>>,
         ctx: Ctx<'js>,
@@ -197,12 +143,9 @@ impl<'js> Socket<'js> {
     ) -> Result<Class<'js, Self>> {
         let args = args.0;
 
-        let borrow = this.borrow();
-        let allow_half_open = borrow.allow_half_open;
-        if borrow.destroyed {
+        if this.get::<_, Coerced<bool>>("destroyed")?.0 {
             return Err(Exception::throw_message(&ctx, "Socket destroyed"));
         }
-        drop(borrow);
 
         let mut port = None;
         let mut host = String::from(LOCALHOST);
@@ -256,270 +199,485 @@ impl<'js> Socket<'js> {
 
         let this = this.0;
 
-        let this2 = this.clone();
-
         if let Some(listener) = listener {
-            Socket::add_event_listener_str(this.clone(), &ctx, "connect", listener, false, true)?;
+            let once: Function = this.get("once")?;
+            once.call::<_, ()>((This(this.clone()), "connect", listener))?;
         }
 
+        let mut closed = {
+            let mut socket = this.borrow_mut();
+            socket.has_handle = true;
+            socket.connecting = true;
+            socket.closed.subscribe()
+        };
+
+        let this2 = this.clone();
         ctx.clone().spawn_exit(async move {
-            let ctx2 = ctx.clone();
-            let ctx3 = ctx.clone();
-            let this3 = this2.clone();
-            if this3.borrow().destroyed {
-                Socket::emit_close(this3.clone(), &ctx3, false)?;
-                return Ok(());
-            }
-            let connect = async move {
-                let (readable_done, writable_done) = if let Some(path) = path {
+            let connect = async {
+                if let Some(path) = path {
                     #[cfg(unix)]
                     {
-                        let stream = UnixStream::connect(path).await.or_throw(&ctx3)?;
-                        Self::process_unix_stream(&this2, &ctx3, stream, allow_half_open)
+                        let stream = UnixStream::connect(path).await;
+                        return Ok(stream.map(NetStream::Unix));
                     }
                     #[cfg(not(unix))]
                     {
                         _ = path;
                         return Err(Exception::throw_type(
-                            &ctx3,
+                            &ctx,
                             "Unix domain sockets are not supported on this platform",
                         ));
                     }
-                } else if let Some((host, port)) = addr {
-                    let stream = TcpStream::connect((host.as_str(), port))
-                        .await
-                        .or_throw(&ctx3)?;
-                    Self::process_tcp_stream(&this2, &ctx3, stream, allow_half_open)
-                } else {
-                    unreachable!()
-                }?;
-
-                Socket::emit_str(this2.clone(), &ctx3, "connect", vec![], false)?;
-
-                let had_error = rw_join(&ctx3, readable_done, writable_done).await?;
-
-                Socket::emit_close(this2, &ctx3, had_error)?;
-
-                Ok::<_, Error>(())
-            }
-            .await;
-
-            connect.emit_error("connect", &ctx2, this3)?;
-            Ok(())
+                }
+                let (host, port) = addr.unwrap();
+                let stream = TcpStream::connect((host.as_str(), port)).await;
+                Ok(stream.map(NetStream::Tcp))
+            };
+            let connected = select! {
+                biased;
+                _ = closed.wait_for(|closed| *closed) => return Ok(()),
+                connected = connect => connected,
+            };
+            let error = match connected.catch(&ctx) {
+                Ok(Ok(stream)) => return Self::after_connect(this2, &ctx, stream),
+                Ok(Err(error)) => io_error(&ctx, &error)?,
+                Err(error) => error.into_value(&ctx)?,
+            };
+            destroy(&this2, error)
         })?;
 
         Ok(this)
     }
+
+    #[qjs(rename = "_read")]
+    pub fn read_impl(this: This<Class<'js, Self>>, ctx: Ctx<'js>) -> Result<()> {
+        let mut socket = this.borrow_mut();
+        if socket.connecting || !socket.has_handle {
+            socket.read_after_connect = true;
+            return Ok(());
+        }
+        if socket.reading {
+            return Ok(());
+        }
+        let Some(reader) = socket.reader.take() else {
+            return Ok(());
+        };
+        socket.reading = true;
+        let closed = socket.closed.subscribe();
+        drop(socket);
+        Self::read_until_full(this.0, ctx, reader, closed);
+        Ok(())
+    }
+
+    #[qjs(rename = "_write")]
+    pub fn write_impl(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        chunk: Value<'js>,
+        encoding: Value<'js>,
+        cb: Function<'js>,
+    ) -> Result<()> {
+        let data = chunk_bytes(&ctx, chunk, encoding)?;
+        Self::write_generic(this.0, ctx, data, cb)
+    }
+
+    #[qjs(rename = "_writev")]
+    pub fn writev_impl(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        chunks: Array<'js>,
+        cb: Function<'js>,
+    ) -> Result<()> {
+        let mut data = Vec::new();
+        for entry in chunks.iter::<Object>() {
+            let entry = entry?;
+            data.extend(chunk_bytes(
+                &ctx,
+                entry.get("chunk")?,
+                entry.get("encoding")?,
+            )?);
+        }
+        Self::write_generic(this.0, ctx, data, cb)
+    }
+
+    #[qjs(rename = "_final")]
+    pub fn final_impl(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        cb: Function<'js>,
+    ) -> Result<()> {
+        let mut socket = this.borrow_mut();
+        if socket.connecting {
+            socket.final_after_connect = Some(cb);
+            return Ok(());
+        }
+        let Some(mut writer) = socket.writer.take() else {
+            drop(socket);
+            return cb.call(());
+        };
+        let mut closed = socket.closed.subscribe();
+        drop(socket);
+        ctx.spawn_exit_simple(async move {
+            select! {
+                biased;
+                _ = closed.wait_for(|closed| *closed) => {},
+                _ = writer.shutdown() => {},
+            }
+            cb.call(())
+        });
+        Ok(())
+    }
+
+    #[qjs(rename = "_destroy")]
+    pub fn destroy_impl(
+        this: This<Class<'js, Self>>,
+        ctx: Ctx<'js>,
+        error: Value<'js>,
+        cb: Function<'js>,
+    ) -> Result<()> {
+        let mut socket = this.borrow_mut();
+        let had_handle = socket.has_handle;
+        socket.has_handle = false;
+        socket.connecting = false;
+        socket.reading = false;
+        socket.read_after_connect = false;
+        socket.reader = None;
+        socket.writer = None;
+        socket.final_after_connect = None;
+        socket.closed.send_replace(true);
+        let server = socket.server.take();
+        drop(socket);
+
+        let had_error = error.get::<Coerced<bool>>()?.0;
+        cb.call::<_, ()>((error,))?;
+
+        if let Some((server, index)) = server {
+            Server::connection_closed(&server, &ctx, index)?;
+        }
+        Function::new(ctx.clone(), close_after_pending_callbacks)?
+            .defer((This(this.0), had_handle.then_some(had_error)))
+    }
 }
 
 impl<'js> Socket<'js> {
-    pub fn new(ctx: Ctx<'js>, allow_half_open: bool) -> Result<Class<'js, Self>> {
-        let emitter = EventEmitter::new();
+    pub(crate) fn create(
+        ctx: &Ctx<'js>,
+        options: Option<Value<'js>>,
+        stream: Option<NetStream>,
+    ) -> Result<Class<'js, Self>> {
+        let duplex = duplex(ctx)?;
 
-        let readable_stream_inner = ReadableStreamInner::new(emitter.clone(), false);
-        let writable_stream_inner = WritableStreamInner::new(emitter.clone(), false);
+        let opts = Object::new(ctx.clone())?;
+        if let Some(options) = options.filter(|options| options.is_object()) {
+            let assign: Function = BasePrimordials::get(ctx)?
+                .constructor_object
+                .get("assign")?;
+            assign.call::<_, ()>((opts.clone(), options))?;
+        }
+        let allow_half_open = opts.get::<_, Coerced<bool>>("allowHalfOpen")?.0;
+        opts.set("allowHalfOpen", allow_half_open)?;
+        opts.set("emitClose", false)?;
+        opts.set("autoDestroy", true)?;
+        opts.set("decodeStrings", false)?;
+        if is_nullish(&opts.get::<_, Value>("highWaterMark")?) {
+            for key in ["readableHighWaterMark", "writableHighWaterMark"] {
+                if is_nullish(&opts.get::<_, Value>(key)?) {
+                    opts.set(key, HIGH_WATER_MARK)?;
+                }
+            }
+        }
 
-        let instance = Class::instance(
-            ctx,
+        let (closed, _) = watch::channel(false);
+        let this = Class::instance(
+            ctx.clone(),
             Self {
-                emitter,
+                reader: None,
+                writer: None,
+                has_handle: false,
                 connecting: false,
-                destroyed: false,
-                pending: true,
-                ready_state: ReadyState::Closed,
+                reading: false,
+                read_after_connect: false,
+                write_after_connect: None,
+                final_after_connect: None,
+                closed,
+                server: None,
                 local_address: None,
                 local_family: None,
                 local_port: None,
                 remote_address: None,
                 remote_family: None,
                 remote_port: None,
-                readable_stream_inner,
-                writable_stream_inner,
-                allow_half_open,
             },
         )?;
-        Ok(instance)
+        duplex.call::<_, ()>((This(this.clone()), opts))?;
+        let on: Function = this.get("on")?;
+        let on_end = Function::new(ctx.clone(), on_readable_stream_end)?;
+        on.call::<_, ()>((This(this.clone()), "end", on_end))?;
+
+        if let Some(stream) = stream {
+            this.borrow_mut().attach(stream);
+            let read: Function = this.get("read")?;
+            read.call::<_, ()>((This(this.clone()), 0))?;
+        }
+        Ok(this)
     }
 
-    pub fn process_tcp_stream(
-        this: &Class<'js, Self>,
-        ctx: &Ctx<'js>,
-        stream: TcpStream,
-        allow_half_open: bool,
-    ) -> Result<(Receiver<bool>, Receiver<bool>)> {
-        Self::set_addresses(this, ctx, &stream)?;
-
-        let (reader, writer) = stream.into_split();
-        Self::process_stream(
-            this,
-            ctx,
-            Box::pin(reader),
-            Box::pin(writer),
-            allow_half_open,
-        )
+    pub(crate) fn set_server(&mut self, server: Class<'js, Server<'js>>, index: usize) {
+        self.server = Some((server, index));
     }
 
-    #[cfg(unix)]
-    pub fn process_unix_stream(
-        this: &Class<'js, Self>,
-        ctx: &Ctx<'js>,
-        stream: UnixStream,
-        allow_half_open: bool,
-    ) -> Result<(Receiver<bool>, Receiver<bool>)> {
-        let (reader, writer) = stream.into_split();
-        Self::process_stream(
-            this,
-            ctx,
-            Box::pin(reader),
-            Box::pin(writer),
-            allow_half_open,
-        )
-    }
-
-    // Takes boxed halves so that TCP and Unix sockets share one copy of the
-    // read and write loops.
-    fn process_stream(
-        this: &Class<'js, Self>,
-        ctx: &Ctx<'js>,
-        reader: Pin<Box<dyn AsyncRead + 'js>>,
-        writer: Pin<Box<dyn AsyncWrite + 'js>>,
-        allow_half_open: bool,
-    ) -> Result<(Receiver<bool>, Receiver<bool>)> {
-        let this2 = this.clone();
-        let readable_done =
-            ReadableStream::process_callback(this.clone(), ctx, reader, move || {
-                if !allow_half_open {
-                    WritableStream::end(This(this2));
+    fn attach(&mut self, stream: NetStream) {
+        let (reader, writer): (Reader, Writer) = match stream {
+            NetStream::Tcp(stream) => {
+                if let Ok(addr) = stream.peer_addr() {
+                    let (address, port, family) = address_parts(addr);
+                    self.remote_address = Some(address);
+                    self.remote_port = Some(port);
+                    self.remote_family = Some(family);
                 }
-            })?;
-        let writable_done = WritableStream::process(this.clone(), ctx, writer)?;
-
-        trace!("Connected to stream");
-        let mut borrow = this.borrow_mut();
-        borrow.connecting = false;
-        borrow.pending = false;
-        borrow.ready_state = ReadyState::Open;
-        drop(borrow);
-
-        Ok((readable_done, writable_done))
+                if let Ok(addr) = stream.local_addr() {
+                    let (address, port, family) = address_parts(addr);
+                    self.local_address = Some(address);
+                    self.local_port = Some(port);
+                    self.local_family = Some(family);
+                }
+                let (reader, writer) = stream.into_split();
+                (Box::pin(reader), Box::pin(writer))
+            },
+            #[cfg(unix)]
+            NetStream::Unix(stream) => {
+                let (reader, writer) = stream.into_split();
+                (Box::pin(reader), Box::pin(writer))
+            },
+        };
+        self.reader = Some(reader);
+        self.writer = Some(writer);
+        self.has_handle = true;
     }
 
-    pub fn set_addresses<'a>(
-        this: &'a Class<'js, Self>,
-        ctx: &Ctx<'js>,
-        stream: &TcpStream,
+    fn after_connect(this: Class<'js, Self>, ctx: &Ctx<'js>, stream: NetStream) -> Result<()> {
+        let (write, final_cb, read) = {
+            let mut socket = this.borrow_mut();
+            socket.attach(stream);
+            socket.connecting = false;
+            (
+                socket.write_after_connect.take(),
+                socket.final_after_connect.take(),
+                std::mem::take(&mut socket.read_after_connect),
+            )
+        };
+
+        let emit: Function = this.get("emit")?;
+        emit.call::<_, ()>((This(this.clone()), "connect"))?;
+
+        if let Some((data, cb)) = write {
+            Self::write_generic(this.clone(), ctx.clone(), data, cb)?;
+        }
+        if let Some(cb) = final_cb {
+            Self::final_impl(This(this.clone()), ctx.clone(), cb)?;
+        }
+        if read {
+            Self::read_impl(This(this.clone()), ctx.clone())?;
+        }
+
+        let is_paused: Function = this.get("isPaused")?;
+        if !is_paused.call::<_, bool>((This(this.clone()),))? {
+            let read: Function = this.get("read")?;
+            read.call::<_, ()>((This(this), 0))?;
+        }
+        Ok(())
+    }
+
+    fn read_until_full(
+        this: Class<'js, Self>,
+        ctx: Ctx<'js>,
+        mut reader: Reader,
+        mut closed: watch::Receiver<bool>,
+    ) {
+        ctx.clone().spawn_exit_simple(async move {
+            let mut buffer = Vec::with_capacity(READ_SIZE);
+            loop {
+                let result = select! {
+                    biased;
+                    _ = closed.wait_for(|closed| *closed) => return Ok(()),
+                    result = reader.read_buf(&mut buffer) => result,
+                };
+                let push: Function = this.get("push")?;
+                match result {
+                    Ok(0) => {
+                        this.borrow_mut().reading = false;
+                        push.call::<_, ()>((This(this.clone()), rquickjs::Null))?;
+                        let read: Function = this.get("read")?;
+                        return read.call((This(this), 0));
+                    },
+                    Ok(_) => {
+                        let chunk = Buffer(buffer.clone()).into_js(&ctx)?;
+                        buffer.clear();
+                        let more = push.call::<_, bool>((This(this.clone()), chunk))?;
+                        let mut socket = this.borrow_mut();
+                        if !socket.has_handle {
+                            return Ok(());
+                        }
+                        if !more {
+                            socket.reading = false;
+                            socket.reader = Some(reader);
+                            return Ok(());
+                        }
+                    },
+                    Err(error) => {
+                        this.borrow_mut().reading = false;
+                        let error = io_error(&ctx, &error)?;
+                        return destroy(&this, error);
+                    },
+                }
+            }
+        });
+    }
+
+    fn write_generic(
+        this: Class<'js, Self>,
+        ctx: Ctx<'js>,
+        data: Vec<u8>,
+        cb: Function<'js>,
     ) -> Result<()> {
-        let mut borrow = this.borrow_mut();
-
-        let (remote_address, remote_port, remote_family) =
-            get_address_parts(ctx, stream.peer_addr())?;
-        borrow.remote_address = Some(remote_address);
-        borrow.remote_port = Some(remote_port);
-        borrow.remote_family = Some(remote_family);
-
-        let (local_address, local_port, local_family) =
-            get_address_parts(ctx, stream.local_addr())?;
-        borrow.local_address = Some(local_address);
-        borrow.local_port = Some(local_port);
-        borrow.local_family = Some(local_family);
-
-        drop(borrow);
+        let mut socket = this.borrow_mut();
+        if socket.connecting {
+            socket.write_after_connect = Some((data, cb));
+            return Ok(());
+        }
+        let Some(mut writer) = socket.writer.take() else {
+            drop(socket);
+            return cb.call((node_error(&ctx, "ERR_SOCKET_CLOSED", "Socket is closed")?,));
+        };
+        let mut closed = socket.closed.subscribe();
+        drop(socket);
+        ctx.clone().spawn_exit_simple(async move {
+            let result = select! {
+                biased;
+                _ = closed.wait_for(|closed| *closed) => Ok(()),
+                result = writer.write_all(&data) => result,
+            };
+            {
+                let mut socket = this.borrow_mut();
+                if socket.has_handle {
+                    socket.writer = Some(writer);
+                }
+            }
+            match result {
+                Ok(()) => cb.call(()),
+                Err(error) => cb.call((io_error(&ctx, &error)?,)),
+            }
+        });
         Ok(())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::time::Duration;
+// Loads `stream` on first use, so that importing `net` stays free.
+fn duplex<'js>(ctx: &Ctx<'js>) -> Result<Function<'js>> {
+    let prototype = Class::<Socket>::prototype(ctx)?.or_throw(ctx)?;
+    let parent = prototype.get_prototype().or_throw(ctx)?;
+    if parent != BasePrimordials::get(ctx)?.prototype_object {
+        return parent.get(PredefinedAtom::Constructor);
+    }
+    let require: Function = ctx.globals().get("require")?;
+    let stream: Object = require.call(("stream",))?;
+    let duplex: Function = stream.get("Duplex")?;
+    let duplex_prototype: Object = duplex.get(PredefinedAtom::Prototype)?;
+    prototype.set_prototype(Some(&duplex_prototype))?;
+    let constructor: Object = prototype.get(PredefinedAtom::Constructor)?;
+    constructor.set_prototype(Some::<&Object>(&duplex))?;
+    Ok(duplex)
+}
 
-    use llrt_buffer as buffer;
-    use llrt_test::{call_test, test_async_with, ModuleEvaluator};
-    use rquickjs::{function::IntoArgs, module::Evaluated, Ctx, FromJs, Module};
-    use tokio::{
-        io::{AsyncReadExt, AsyncWriteExt},
-        net::TcpListener,
+fn on_readable_stream_end<'js>(this: This<Object<'js>>, ctx: Ctx<'js>) -> Result<()> {
+    if !this.get::<_, Coerced<bool>>("allowHalfOpen")?.0 {
+        this.set("write", Function::new(ctx, write_after_fin)?)?;
+    }
+    Ok(())
+}
+
+fn write_after_fin<'js>(
+    this: This<Object<'js>>,
+    ctx: Ctx<'js>,
+    chunk: Value<'js>,
+    encoding: Opt<Value<'js>>,
+    cb: Opt<Value<'js>>,
+) -> Result<Value<'js>> {
+    if !this.get::<_, Coerced<bool>>("writableEnded")?.0 {
+        let write: Function = duplex(&ctx)?
+            .get::<_, Object>(PredefinedAtom::Prototype)?
+            .get("write")?;
+        return write.call((this, chunk, encoding.0, cb.0));
+    }
+    let cb = match encoding.0 {
+        Some(encoding) if encoding.is_function() => Some(encoding),
+        _ => cb.0,
     };
-
-    use crate::NetModule;
-
-    async fn server() -> u16 {
-        // Use port 0 to let the OS assign an available port
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-        let port = listener.local_addr().unwrap().port();
-
-        // Spawn the accept loop so we can return the port immediately
-        tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
-            stream.set_nodelay(true).unwrap();
-
-            // Read
-            let mut buf = vec![0; 1024];
-            let n = stream.read(&mut buf).await.unwrap();
-
-            // Write
-            stream.write_all(&buf[..n]).await.unwrap();
-            stream.flush().await.unwrap();
-        });
-
-        port
+    let error = node_error(
+        &ctx,
+        "EPIPE",
+        "This socket has been ended by the other party",
+    )?;
+    if let Some(cb) = cb.and_then(Value::into_function) {
+        cb.defer((error.clone(),))?;
     }
+    destroy(&this, error)?;
+    Ok(Value::new_bool(ctx, false))
+}
 
-    async fn call_test_delay<'js, T, A>(
-        ctx: &Ctx<'js>,
-        module: &Module<'js, Evaluated>,
-        args: A,
-    ) -> T
-    where
-        T: FromJs<'js>,
-        A: IntoArgs<'js>,
-    {
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        call_test::<T, _>(ctx, module, args).await
+fn close_after_pending_callbacks<'js>(
+    this: This<Class<'js, Socket<'js>>>,
+    ctx: Ctx<'js>,
+    had_error: Option<bool>,
+) -> Result<()> {
+    let emitted = (|| {
+        let write = this.borrow_mut().write_after_connect.take();
+        if let Some((_, cb)) = write {
+            let error = node_error(
+                &ctx,
+                "ERR_SOCKET_CLOSED_BEFORE_CONNECTION",
+                "Socket closed before the connection was established",
+            )?;
+            cb.call::<_, ()>((error,))?;
+        }
+        let emit: Function = this.get("emit")?;
+        match had_error {
+            Some(had_error) => emit.call((This(this.0.clone()), "close", had_error)),
+            None => emit.call((This(this.0.clone()), "close")),
+        }
+    })();
+    rethrow_in_task(&ctx, emitted)
+}
+
+fn destroy<'js>(this: &Object<'js>, error: Value<'js>) -> Result<()> {
+    let destroy: Function = this.get("destroy")?;
+    destroy.call((This(this.clone()), error))
+}
+
+fn chunk_bytes<'js>(ctx: &Ctx<'js>, chunk: Value<'js>, encoding: Value<'js>) -> Result<Vec<u8>> {
+    if chunk.is_string() {
+        let encoder = Encoder::for_writable(ctx, Some(encoding))?;
+        return encoder
+            .decode_from_string(get_lossy_string(chunk)?)
+            .or_throw(ctx);
     }
+    Ok(ObjectBytes::from(ctx, &chunk)?.as_bytes(ctx)?.to_vec())
+}
 
-    #[tokio::test]
-    async fn test_server_echo() {
-        test_async_with(|ctx| {
-            Box::pin(async move {
-                buffer::init(&ctx).unwrap();
-                ModuleEvaluator::eval_rust::<NetModule>(ctx.clone(), "net")
-                    .await
-                    .unwrap();
+fn is_nullish(value: &Value<'_>) -> bool {
+    value.is_null() || value.is_undefined()
+}
 
-                // Start server and get OS-assigned port
-                let port = server().await;
+fn node_error<'js>(ctx: &Ctx<'js>, code: &str, message: &str) -> Result<Value<'js>> {
+    let exception = Exception::from_message(ctx.clone(), message)?;
+    exception.set("code", code)?;
+    Ok(exception.into_value())
+}
 
-                let module = ModuleEvaluator::eval_js(
-                    ctx.clone(),
-                    "test",
-                    r#"
-                        import { connect } from 'net';
-
-                        export async function test(port) {
-                            const socket = connect({ port });
-                            const txData = "Hello World";
-                            return new Promise((resolve, reject) => {
-                                socket.on('connect', () => {
-                                    socket.write(txData, (err) => {
-                                        if (err) {
-                                            reject(err);
-                                        }
-                                    });
-                                });
-                                socket.on('data', (rxData) => {
-                                    resolve(rxData.toString() === txData);
-                                });
-                            });
-                        }
-                    "#,
-                )
-                .await
-                .unwrap();
-
-                let ok: bool = call_test_delay(&ctx, &module, (port,)).await;
-                assert!(ok)
-            })
-        })
-        .await;
+fn io_error<'js>(ctx: &Ctx<'js>, error: &io::Error) -> Result<Value<'js>> {
+    let exception = Exception::from_message(ctx.clone(), &error.to_string())?;
+    if error.kind() == io::ErrorKind::ConnectionRefused {
+        exception.set("code", "ECONNREFUSED")?;
     }
+    Ok(exception.into_value())
 }

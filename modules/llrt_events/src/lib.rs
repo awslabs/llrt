@@ -15,6 +15,7 @@ use llrt_utils::{
 };
 use rquickjs::{
     class::{JsClass, Trace, Tracer},
+    function::Args,
     module::{Declarations, Exports, ModuleDef},
     prelude::{Func, Opt, Rest, This},
     CatchResultExt, Class, Ctx, Function, JsLifetime, Object, Result, String as JsString, Symbol,
@@ -289,7 +290,9 @@ where
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Object<'js>> {
-        Self::add_event_listener(this, ctx, event, listener, false, true)
+        let events = Self::resolve_events_from(&ctx, &this)?;
+        add_once_listener(&ctx, &this, &events, event, listener, "on", false)?;
+        Ok(this.0)
     }
 
     fn on(
@@ -316,7 +319,17 @@ where
         event: Value<'js>,
         listener: Function<'js>,
     ) -> Result<Object<'js>> {
-        Self::add_event_listener(this, ctx, event, listener, true, true)
+        let events = Self::resolve_events_from(&ctx, &this)?;
+        add_once_listener(
+            &ctx,
+            &this,
+            &events,
+            event,
+            listener,
+            "prependListener",
+            true,
+        )?;
+        Ok(this.0)
     }
 
     fn evt_add_event_listener(
@@ -423,12 +436,15 @@ where
             drop(events);
             for callback in callbacks {
                 let args: Vec<Value<'js>> = args.iter().map(|arg| arg.to_owned()).collect();
-                let args = Rest(args);
-                let this_val = This(this.0.clone().into_value());
+                let this_val = this.0.clone().into_value();
                 if defer {
-                    callback.defer((this_val, args))?;
+                    // `defer((This, Rest))` sizes its `Args` with no room for `this` and the function.
+                    let mut deferred = Args::new_unsized(ctx.clone());
+                    deferred.this(this_val)?;
+                    deferred.push_args(args)?;
+                    callback.defer_arg(deferred)?;
                 } else {
-                    callback.call::<_, ()>((this_val, args))?;
+                    callback.call::<_, ()>((This(this_val), Rest(args)))?;
                 }
             }
             Ok(true)
@@ -523,6 +539,37 @@ fn find_all_listeners<'js>(
     } else {
         vec![]
     }
+}
+
+// Adds through the method a subclass may override, such as Readable's `on`.
+fn add_once_listener<'js>(
+    ctx: &Ctx<'js>,
+    this: &Object<'js>,
+    events: &Events<'js>,
+    event: Value<'js>,
+    listener: Function<'js>,
+    method: &'static str,
+    prepend: bool,
+) -> Result<()> {
+    let add: Function = this.get(method)?;
+    add.call::<_, Value>((This(this.clone()), event.clone(), listener.clone()))?;
+
+    let mut events = events.write().or_throw(ctx)?;
+    let key = EventKey::from_value(ctx, event)?;
+    if let Some((_, items)) = events.iter_mut().find(|(k, _)| k == &key) {
+        let mut added = items
+            .iter_mut()
+            .filter(|item| !item.once && item.callback == listener);
+        let item = if prepend {
+            added.next()
+        } else {
+            added.next_back()
+        };
+        if let Some(item) = item {
+            item.once = true;
+        }
+    }
+    Ok(())
 }
 
 fn has_key<'js>(event_list: Arc<RwLock<EventList<'js>>>, key: EventKey<'js>) -> bool {

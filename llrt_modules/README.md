@@ -151,6 +151,9 @@ async fn main() -> Result<(), Error> {
 
 _⚠️ = partially supported_
 
+> [!NOTE]
+> `net.Socket` is a `node:stream` Duplex, which LLRT Modules does not provide. The host must make a `stream` module available to `require`. Without it, importing `net` and `server.listen()` work, but `net.connect()`, `new net.Socket()` and accepted connections throw.
+
 ## License
 
 This module is licensed under the Apache-2.0 License.
