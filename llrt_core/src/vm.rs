@@ -11,7 +11,7 @@ use crate::libs::{
     context::set_spawn_error_handler,
     hooking::HOOKING_MODE,
     json,
-    logging::print_error_and_exit,
+    logging::{print_error_and_exit, print_job_error_and_exit},
     numbers,
     utils::{
         primordials::{BasePrimordials, Primordial},
@@ -196,7 +196,11 @@ impl Vm {
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
-        let _ = self.runtime.idle().await;
+        if let Err(err) = self.runtime.idle().await {
+            self.ctx
+                .with(|ctx| print_job_error_and_exit(&ctx, &err))
+                .await;
+        }
         Ok(())
     }
 }
