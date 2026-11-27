@@ -329,7 +329,7 @@ impl ZonedDateTime {
         Ok(Self { inner: zoned, ca })
     }
 
-    fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
+    pub(crate) fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
         let (str, ca) = split_calendar_annotation(str);
         let ca = parse_temporal_calendar(ctx, ca)?;
         let zoned = Zoned::from_str(&str).or_throw_range(ctx, "")?;

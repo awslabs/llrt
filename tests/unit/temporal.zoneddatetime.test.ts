@@ -570,7 +570,15 @@ describe("Instance methods", () => {
       expect(zdt.withTimeZone("+0530").offset).toBe("+05:30");
       expect(zdt.withTimeZone("-0330").offset).toBe("-03:30");
       expect(new Temporal.ZonedDateTime(0n, "+0530").offset).toBe("+05:30");
-      for (const offset of ["+2400", "+0560", "+05a0", "+0é0"]) {
+      for (const offset of [
+        "+2400",
+        "+0560",
+        "+05a0",
+        "+0é0",
+        "+05:30:00",
+        "+053000",
+        "+05:30:00.000",
+      ]) {
         expect(() => zdt.withTimeZone(offset)).toThrow(RangeError);
       }
     });

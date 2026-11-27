@@ -34,12 +34,14 @@ impl PlainTime {
     }
 
     #[qjs(static)]
-    fn compare(time1: Self, time2: Self) -> i8 {
-        match time1.inner.cmp(&time2.inner) {
+    fn compare(ctx: Ctx<'_>, time1: Value<'_>, time2: Value<'_>) -> Result<i8> {
+        let pt1 = Self::from(ctx.clone(), time1)?;
+        let pt2 = Self::from(ctx.clone(), time2)?;
+        Ok(match pt1.inner.cmp(&pt2.inner) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,
-        }
+        })
     }
 
     #[qjs(static)]
@@ -74,8 +76,9 @@ impl PlainTime {
         Ok(Self { inner: time })
     }
 
-    fn equals(&self, other: Self) -> bool {
-        self.inner == other.inner
+    fn equals(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<bool> {
+        let other = Self::from(ctx, other)?;
+        Ok(self.inner == other.inner)
     }
 
     fn round(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<Self> {
