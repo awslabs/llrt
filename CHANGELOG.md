@@ -1,3 +1,6 @@
+### Breaking changes
+  - Unhandled promise rejections now print the error and exit with code 1, matching Node's default. A forgotten rejection can therefore terminate the process, including a Lambda sandbox (@richarddavison)
+
 ### Features
   - Added `textStream()` to `Blob`, `Request` and `Response` (@nabetti1720)
   - Added `latin1`, `binary`, `ascii` and `base64url` encodings to `Buffer` (@arxhr007)
