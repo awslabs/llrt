@@ -42,12 +42,14 @@ impl PlainDate {
     }
 
     #[qjs(static)]
-    fn compare(date1: Self, date2: Self) -> i8 {
-        match date1.inner.cmp(&date2.inner) {
+    fn compare(ctx: Ctx<'_>, date1: Value<'_>, date2: Value<'_>) -> Result<i8> {
+        let pd1 = Self::from(ctx.clone(), date1)?;
+        let pd2 = Self::from(ctx.clone(), date2)?;
+        Ok(match pd1.inner.cmp(&pd2.inner) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,
-        }
+        })
     }
 
     #[qjs(static)]
@@ -83,8 +85,9 @@ impl PlainDate {
         Ok(Self { inner: zoned, ca })
     }
 
-    fn equals(&self, other: Self) -> bool {
-        self.inner == other.inner
+    fn equals(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<bool> {
+        let other = Self::from(ctx, other)?;
+        Ok(self.inner == other.inner && self.ca == other.ca)
     }
 
     fn since(&self, other: Self) -> Duration {
@@ -197,13 +200,13 @@ impl PlainDate {
         Ok(obj)
     }
 
-    fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
+    pub(crate) fn from_object(ctx: &Ctx<'_>, obj: &Object<'_>) -> Result<Self> {
         let date = Date::from_object(ctx, obj)?;
         let ca = Calendar::from_object(ctx, obj)?;
         Ok(Self { inner: date, ca })
     }
 
-    fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
+    pub(crate) fn from_str(ctx: &Ctx<'_>, str: &str) -> Result<Self> {
         let (str, ca) = split_calendar_annotation(str);
         let ca = parse_temporal_calendar(ctx, ca)?;
         let date = Date::from_str(&str).or_throw_range(ctx, "")?;

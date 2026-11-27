@@ -42,12 +42,14 @@ impl PlainDateTime {
     }
 
     #[qjs(static)]
-    fn compare(datetime1: Self, datetime2: Self) -> i8 {
-        match datetime1.inner.cmp(&datetime2.inner) {
+    fn compare(ctx: Ctx<'_>, datetime1: Value<'_>, datetime2: Value<'_>) -> Result<i8> {
+        let pdt1 = Self::from(ctx.clone(), datetime1)?;
+        let pdt2 = Self::from(ctx.clone(), datetime2)?;
+        Ok(match pdt1.inner.cmp(&pdt2.inner) {
             Ordering::Less => -1,
             Ordering::Equal => 0,
             Ordering::Greater => 1,
-        }
+        })
     }
 
     #[qjs(static)]
@@ -75,8 +77,9 @@ impl PlainDateTime {
         Ok(Self { inner: dt, ca })
     }
 
-    fn equals(&self, other: Self) -> bool {
-        self.inner == other.inner
+    fn equals(&self, ctx: Ctx<'_>, other: Value<'_>) -> Result<bool> {
+        let other = Self::from(ctx, other)?;
+        Ok(self.inner == other.inner && self.ca == other.ca)
     }
 
     fn round(&self, ctx: Ctx<'_>, options: Value<'_>) -> Result<Self> {

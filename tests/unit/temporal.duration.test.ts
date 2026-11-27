@@ -39,6 +39,124 @@ describe("Static methods", () => {
         })
       ).toBe(1);
     });
+
+    it("Accepts duration strings and property bags in either argument", () => {
+      const duration = Temporal.Duration.from({ minutes: 90 });
+      expect(Temporal.Duration.compare({ hours: 1 }, duration)).toBe(-1);
+      expect(Temporal.Duration.compare(duration, { hours: 1 })).toBe(1);
+      expect(
+        Temporal.Duration.compare("PT90M", { hours: 1, minutes: 30 })
+      ).toBe(0);
+      expect(() => Temporal.Duration.compare(duration, "invalid")).toThrow(
+        RangeError
+      );
+      expect(() => Temporal.Duration.compare(null, duration)).toThrow(
+        TypeError
+      );
+      expect(() => Temporal.Duration.compare({}, duration)).toThrow(TypeError);
+      expect(() => Temporal.Duration.compare({ hours: NaN }, duration)).toThrow(
+        RangeError
+      );
+      expect(() => Temporal.Duration.compare({ hours: 1.5 }, duration)).toThrow(
+        RangeError
+      );
+      expect(
+        Temporal.Duration.compare({ hours: "1", minutes: null }, "PT1H")
+      ).toBe(0);
+      expect(() =>
+        Temporal.Duration.compare(
+          {
+            get hours() {
+              throw new Error("duration getter");
+            },
+          },
+          duration
+        )
+      ).toThrow("duration getter");
+    });
+
+    it("Accounts for time zone transitions when comparing days and hours", () => {
+      const day = Temporal.Duration.from({ days: 1 });
+      const hours = Temporal.Duration.from({ hours: 24 });
+      const fall = Temporal.ZonedDateTime.from(
+        "2019-11-03T00:00[America/Vancouver]"
+      );
+      const spring = Temporal.ZonedDateTime.from(
+        "2019-03-10T00:00[America/Vancouver]"
+      );
+
+      expect(Temporal.Duration.compare(day, hours, { relativeTo: fall })).toBe(
+        1
+      );
+      expect(
+        Temporal.Duration.compare(day, hours, { relativeTo: spring })
+      ).toBe(-1);
+
+      const start = Temporal.ZonedDateTime.from(
+        "1999-10-29T01:00[America/Vancouver]"
+      );
+      const yearAndDay = Temporal.Duration.from({ years: 1, days: 1 });
+      const yearAndHours = Temporal.Duration.from({ years: 1, hours: 25 });
+      expect(
+        Temporal.Duration.compare(yearAndDay, yearAndHours, {
+          relativeTo: start,
+        })
+      ).toBe(0);
+    });
+
+    it("Accepts strings and property bags as relativeTo", () => {
+      const day = Temporal.Duration.from({ days: 1 });
+      const hours = Temporal.Duration.from({ hours: 24 });
+      expect(
+        Temporal.Duration.compare(day, hours, {
+          relativeTo: "2019-11-03T00:00[America/Vancouver]",
+        })
+      ).toBe(1);
+      expect(
+        Temporal.Duration.compare(day, hours, {
+          relativeTo: {
+            year: 2019,
+            month: 11,
+            day: 3,
+            timeZone: "America/Vancouver",
+          },
+        })
+      ).toBe(1);
+
+      const month = Temporal.Duration.from({ months: 1 });
+      const days = Temporal.Duration.from({ days: 31 });
+      expect(
+        Temporal.Duration.compare(days, month, { relativeTo: "2021-01-01" })
+      ).toBe(0);
+      expect(
+        Temporal.Duration.compare(days, month, {
+          relativeTo: "2021-01-01[foo=bar]",
+        })
+      ).toBe(0);
+      expect(
+        Temporal.Duration.compare(days, month, {
+          relativeTo: { year: 2021, month: 2, day: 1 },
+        })
+      ).toBe(1);
+    });
+
+    it("Propagates relativeTo errors", () => {
+      const hour = Temporal.Duration.from({ hours: 1 });
+      const error = new Error("relativeTo getter");
+      expect(() =>
+        Temporal.Duration.compare(hour, hour, {
+          get relativeTo() {
+            throw error;
+          },
+        })
+      ).toThrow("relativeTo getter");
+      expect(() =>
+        Temporal.Duration.compare(hour, hour, { relativeTo: "invalid" })
+      ).toThrow(RangeError);
+      expect(() =>
+        Temporal.Duration.compare(hour, hour, { relativeTo: null })
+      ).toThrow(TypeError);
+    });
   });
 
   describe("Temporal.Duration.from()", () => {
@@ -71,6 +189,89 @@ describe("Static methods", () => {
       const d2 = Temporal.Duration.from(d1);
       expect(d2.toString()).toBe("PT1H30M");
     });
+  });
+});
+
+describe("RelativeTo offset property bags", () => {
+  it("uses exact offsets for rounding and totaling", () => {
+    const duration = Temporal.Duration.from({ years: 1, hours: 24 });
+    const relativeTo = {
+      year: 1970,
+      month: 1,
+      day: 1,
+      timeZone: "+00:45",
+      offset: "+00:45:00.000000000",
+    };
+
+    for (const offset of [
+      "+00:45",
+      "+0045",
+      "+004500",
+      "+00:45:00.000000000",
+      "+004500,0",
+    ]) {
+      const options = { ...relativeTo, offset };
+      expect(
+        duration.round({ largestUnit: "years", relativeTo: options }).toString()
+      ).toBe("P1Y1D");
+      expect(duration.total({ unit: "days", relativeTo: options })).toBe(366);
+    }
+
+    for (const offset of [
+      "+00:45:00.000000001",
+      "+00:44:59.999999999",
+      "+00:45:00.",
+      "+00:45:00.0000000000",
+      "+00:4500",
+      "+00:46",
+    ]) {
+      const options = { ...relativeTo, offset };
+      expect(() =>
+        duration.round({ largestUnit: "years", relativeTo: options })
+      ).toThrow(RangeError);
+      expect(() =>
+        duration.total({ unit: "days", relativeTo: options })
+      ).toThrow(RangeError);
+    }
+  });
+
+  it("selects the offset-matching candidate in a time zone fold", () => {
+    const duration = Temporal.Duration.from({ days: 1 });
+    const relativeTo = {
+      year: 1952,
+      month: 10,
+      day: 15,
+      hour: 23,
+      minute: 59,
+      second: 59,
+      timeZone: "Pacific/Niue",
+      offset: "-11:19:40",
+    };
+    for (const [offset, seconds] of [
+      ["-11:19:40", 86420],
+      ["-11:20:00", 86400],
+    ] as const) {
+      const options = { ...relativeTo, offset };
+      expect(
+        duration.round({ largestUnit: "seconds", relativeTo: options }).seconds
+      ).toBe(seconds);
+      expect(duration.total({ unit: "seconds", relativeTo: options })).toBe(
+        seconds
+      );
+    }
+
+    const gap = {
+      year: 2019,
+      month: 3,
+      day: 10,
+      hour: 2,
+      minute: 30,
+      timeZone: "America/Vancouver",
+      offset: "-08:00",
+    };
+    expect(() => duration.total({ unit: "seconds", relativeTo: gap })).toThrow(
+      RangeError
+    );
   });
 });
 
@@ -180,6 +381,22 @@ describe("Instance methods", () => {
       });
       expect(roundedDuration.toString()).toBe("P32D");
     });
+
+    it("Accounts for time zone transitions when rounding", () => {
+      const duration = Temporal.Duration.from({ days: 1 });
+      const relativeTo = Temporal.ZonedDateTime.from(
+        "2019-11-03T00:00[America/Vancouver]"
+      );
+      expect(duration.round({ largestUnit: "hours", relativeTo }).hours).toBe(
+        25
+      );
+      expect(
+        duration.round({
+          largestUnit: "hours",
+          relativeTo: "2019-11-03T00:00[America/Vancouver]",
+        }).hours
+      ).toBe(25);
+    });
   });
 
   describe("Temporal.Duration.prototype.subtract()", () => {
@@ -252,6 +469,25 @@ describe("Instance methods", () => {
           relativeTo: Temporal.PlainDate.from("2021-01-01"),
         })
       ).toBe(31);
+    });
+
+    it("Accounts for time zone transitions when totaling", () => {
+      const duration = Temporal.Duration.from({ days: 1 });
+      const relativeTo = Temporal.ZonedDateTime.from(
+        "2019-11-03T00:00[America/Vancouver]"
+      );
+      expect(duration.total({ unit: "hours", relativeTo })).toBe(25);
+      expect(
+        duration.total({
+          unit: "hours",
+          relativeTo: {
+            year: 2019,
+            month: 11,
+            day: 3,
+            timeZone: "America/Vancouver",
+          },
+        })
+      ).toBe(25);
     });
   });
 

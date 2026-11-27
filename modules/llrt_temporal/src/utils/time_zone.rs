@@ -15,7 +15,7 @@ pub(crate) fn parse_temporal_time_zone(
 ) -> Result<TimeZone> {
     let tz = match timezone {
         Some(s) => {
-            if let Some(offset) = parse_temporal_offset(s) {
+            if let Some(offset) = parse_temporal_offset(s, false) {
                 TimeZone::fixed(offset)
             } else {
                 match TimeZone::get(s) {
@@ -33,17 +33,7 @@ pub(crate) fn parse_temporal_time_zone(
     Ok(tz)
 }
 
-fn parse_temporal_offset(s: &str) -> Option<Offset> {
-    let seconds = if s.len() == 5 && s.is_ascii() {
-        let normalized = [&s[..3], ":", &s[3..]].concat();
-        parse_offset_seconds(&normalized, false)?
-    } else {
-        parse_offset_seconds(s, false)?
-    };
-    Offset::from_seconds(seconds).ok()
-}
-
-pub(crate) fn parse_offset_seconds(s: &str, with_seconds: bool) -> Option<i32> {
+fn parse_offset_seconds(s: &str, with_seconds: bool) -> Option<i32> {
     let bytes = s.as_bytes();
     let expected_len = if with_seconds { 9 } else { 6 };
 
@@ -74,6 +64,39 @@ pub(crate) fn parse_offset_seconds(s: &str, with_seconds: bool) -> Option<i32> {
     }
 
     Some(sign * ((hours * 60 + minutes) * 60 + seconds))
+}
+
+pub(crate) fn parse_temporal_offset(s: &str, allow_seconds: bool) -> Option<Offset> {
+    if !s.is_ascii() {
+        return None;
+    }
+
+    let (main, fraction) = match s.split_once(['.', ',']) {
+        Some((main, fraction)) => (main, Some(fraction)),
+        None => (s, None),
+    };
+    let (normalized, with_seconds) = match main.len() {
+        5 => ([&main[..3], ":", &main[3..]].concat(), false),
+        6 => (main.to_owned(), false),
+        7 if allow_seconds => (
+            [&main[..3], ":", &main[3..5], ":", &main[5..]].concat(),
+            true,
+        ),
+        9 if allow_seconds => (main.to_owned(), true),
+        _ => return None,
+    };
+    if let Some(fraction) = fraction {
+        // Jiff time zones have whole-second offsets, so a nonzero fraction
+        // cannot exactly match any candidate.
+        if !with_seconds
+            || fraction.is_empty()
+            || fraction.len() > 9
+            || !fraction.bytes().all(|b| b == b'0')
+        {
+            return None;
+        }
+    }
+    Offset::from_seconds(parse_offset_seconds(&normalized, with_seconds)?).ok()
 }
 
 fn parse_two_digits(bytes: &[u8]) -> Option<i32> {
