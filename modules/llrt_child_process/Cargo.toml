@@ -17,7 +17,7 @@ llrt_context = { workspace = true }
 llrt_events = { workspace = true }
 llrt_stream = { workspace = true }
 llrt_utils = { workspace = true, default-features = false }
-rquickjs = { version = "0.14", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "fb26457c74d0e05074ed71e94bb3f6cdc2244249", default-features = false }
 tokio = { version = "1", features = ["process"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]

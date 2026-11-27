@@ -80,7 +80,7 @@ rand = { version = "0.10", features = [
   "std_rng",
   "thread_rng",
 ], default-features = false }
-rquickjs = { version = "0.14", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "fb26457c74d0e05074ed71e94bb3f6cdc2244249", default-features = false }
 
 
 # optional

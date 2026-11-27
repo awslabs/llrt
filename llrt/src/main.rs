@@ -28,7 +28,7 @@ use crate::base::{
     bytecode::BYTECODE_EXT,
     environment::ENV_LLRT_REGISTER_HOOKS,
     libs::{
-        logging::print_error_and_exit,
+        logging::{print_error_and_exit, print_job_error_and_exit},
         utils::{
             fs::DirectoryWalker,
             io::{is_supported_ext, SUPPORTED_EXTENSIONS},
@@ -182,13 +182,19 @@ async fn start_runtime(vm: &Vm) {
         vm.run_file(filename, true, true).await;
     }
 
-    vm.ctx
+    if let Err(err) = vm
+        .ctx
         .async_with(async |ctx| {
             if let Err(err) = runtime_client::start(&ctx).await.catch(&ctx) {
                 print_error_and_exit(&ctx, err)
             }
         })
-        .await;
+        .await
+    {
+        vm.ctx
+            .with(|ctx| print_job_error_and_exit(&ctx, &err))
+            .await;
+    }
 }
 
 async fn start_cli(vm: &Vm) {

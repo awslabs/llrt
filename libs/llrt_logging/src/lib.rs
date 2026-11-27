@@ -24,6 +24,7 @@ use rquickjs::{
     object::Filter,
     prelude::Rest,
     promise::PromiseState,
+    runtime::JobError,
     CaughtError, Coerced, Ctx,
     Error::{self},
     Function, Object, Result, Symbol, Type, Value,
@@ -818,6 +819,16 @@ pub fn print_error_and_exit<'js>(ctx: &Ctx<'js>, err: CaughtError<'js>) -> ! {
         eprintln!("{}", error_str);
         exit(1)
     };
+}
+
+pub fn print_job_error_and_exit<'js>(ctx: &Ctx<'js>, err: &JobError) -> ! {
+    match err.into_value(ctx) {
+        Ok(value) => print_error_and_exit(ctx, CaughtError::Value(value)),
+        Err(err) => {
+            eprintln!("Failed to read queued job error: {err}");
+            exit(1)
+        },
+    }
 }
 
 fn print_error<'js>(ctx: &Ctx<'js>, args: Rest<Value<'js>>) -> Result<()> {

@@ -21,7 +21,7 @@ pub struct LlrtCodecModule;
 impl LlrtCodecModule {
     pub fn decode_from_base64<'js>(ctx: Ctx<'js>, encoded: String<'js>) -> Result<Value<'js>> {
         let encoded = encoded.to_cstring()?;
-        let bytes = bytes_from_b64_strict(encoded.as_str().as_bytes())
+        let bytes = bytes_from_b64_strict(encoded.as_bytes())
             .or_throw_msg(&ctx, "Cannot decode unrecognized sequence")?;
 
         Ok(TypedArray::new(ctx, bytes)?.into_value())
@@ -33,7 +33,7 @@ impl LlrtCodecModule {
 
     pub fn decode_from_hex<'js>(ctx: Ctx<'js>, encoded: String<'js>) -> Result<Value<'js>> {
         let encoded = encoded.to_cstring()?;
-        let bytes = bytes_from_hex(encoded.as_str().as_bytes())
+        let bytes = bytes_from_hex(encoded.as_bytes())
             .or_throw_msg(&ctx, "Cannot decode unrecognized sequence")?;
 
         Ok(TypedArray::new(ctx, bytes)?.into_value())
