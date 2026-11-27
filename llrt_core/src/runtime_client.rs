@@ -688,6 +688,6 @@ mod tests {
         run_with_handler(&vm, "../fixtures/tla-webcall-handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/cjs-handler.handler", &runtime_api).await;
 
-        let _ = vm.runtime.idle().await;
+        vm.runtime.idle().await.expect("runtime idle failed");
     }
 }
