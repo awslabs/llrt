@@ -136,7 +136,7 @@ async fn readable_high_water_mark_applies_backpressure() {
             )
             .unwrap();
 
-            while ctx.execute_pending_job() {}
+            let _ = ctx.drain_jobs();
             assert_eq!(
                 ctx.eval::<String, _>("transformed.join(',')").unwrap(),
                 "0,1,2"
@@ -144,7 +144,7 @@ async fn readable_high_water_mark_applies_backpressure() {
 
             ctx.eval::<(), _>("globalThis.reader = ts.readable.getReader(); reader.read();")
                 .unwrap();
-            while ctx.execute_pending_job() {}
+            let _ = ctx.drain_jobs();
             assert_eq!(
                 ctx.eval::<String, _>("transformed.join(',')").unwrap(),
                 "0,1,2,3"

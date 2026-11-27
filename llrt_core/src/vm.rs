@@ -192,7 +192,7 @@ impl Vm {
     }
 
     pub async fn idle(self) -> StdResult<(), Box<dyn std::error::Error + Sync + Send>> {
-        self.runtime.idle().await;
+        let _ = self.runtime.idle().await;
         Ok(())
     }
 }

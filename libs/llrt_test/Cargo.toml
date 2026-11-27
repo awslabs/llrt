@@ -11,7 +11,7 @@ name = "llrt_test"
 path = "src/lib.rs"
 
 [dependencies]
-rquickjs = { version = "0.14", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "fb26457c74d0e05074ed71e94bb3f6cdc2244249", features = [
   "futures",
   "loader",
   "parallel",

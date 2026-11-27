@@ -81,7 +81,7 @@ where
 {
     let (rt, ctx) = given_runtime().await;
 
-    ctx.async_with(async |ctx| func(ctx).await).await;
+    let _ = ctx.async_with(async |ctx| func(ctx).await).await;
 
     if options.no_pending_jobs {
         assert!(!rt.is_job_pending().await);

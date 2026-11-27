@@ -221,6 +221,7 @@ pub(crate) async fn run_repl(ctx: &AsyncContext) {
     })
     .await
     .expect("Failed to run REPL")
+    .expect("Failed to drain REPL jobs")
 }
 
 fn write_history(history: &VecDeque<String>, history_file: Option<&Path>) {

@@ -366,7 +366,7 @@ pub fn poll_timers(
             let ctx2 = unsafe { Ctx::from_raw(ctx) };
 
             if is_first_time {
-                while ctx2.execute_pending_job() {}
+                let _ = ctx2.drain_jobs();
                 is_first_time = false;
             }
 
@@ -381,7 +381,7 @@ pub fn poll_timers(
                 invoke_async_hook(&ctx2, HookType::After, ProviderType::None, uid)?;
             }
 
-            while ctx2.execute_pending_job() {}
+            let _ = ctx2.drain_jobs();
         }
     }
     call_vec.clear();

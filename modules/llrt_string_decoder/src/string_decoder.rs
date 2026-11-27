@@ -3,7 +3,7 @@
 use llrt_buffer::ArrayBufferView;
 use llrt_encoding::Encoder;
 use llrt_utils::result::ResultExt;
-use rquickjs::{function::Opt, CString, Ctx, Exception, Result};
+use rquickjs::{function::Opt, CString, Ctx, Exception, Result, Utf8};
 
 #[derive(rquickjs::class::Trace, rquickjs::JsLifetime)]
 #[rquickjs::class]
@@ -228,7 +228,7 @@ impl StringDecoder {
 #[rquickjs::methods(rename_all = "camelCase")]
 impl StringDecoder {
     #[qjs(constructor)]
-    pub fn new(ctx: Ctx<'_>, encoding: Opt<CString<'_>>) -> Result<Self> {
+    pub fn new(ctx: Ctx<'_>, encoding: Opt<CString<'_, Utf8>>) -> Result<Self> {
         let encoding = encoding.0.as_ref().map(|e| e.as_str()).unwrap_or("utf-8");
 
         let encoder = Encoder::for_string_decoder(&ctx, encoding)?;

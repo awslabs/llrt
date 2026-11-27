@@ -15,7 +15,7 @@ either = { version = "1", default-features = false }
 llrt_context = { workspace = true }
 llrt_hooking = { workspace = true }
 llrt_utils = { workspace = true, default-features = false }
-rquickjs = { version = "0.14", features = [
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "fb26457c74d0e05074ed71e94bb3f6cdc2244249", features = [
   "macro",
   "either",
 ], default-features = false }

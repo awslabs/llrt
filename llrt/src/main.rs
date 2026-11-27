@@ -188,7 +188,8 @@ async fn start_runtime(vm: &Vm) {
                 print_error_and_exit(&ctx, err)
             }
         })
-        .await;
+        .await
+        .unwrap();
 }
 
 async fn start_cli(vm: &Vm) {

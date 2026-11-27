@@ -280,7 +280,7 @@ fn write_primitive2<'js>(
         },
         Type::String => {
             let js_string = unsafe { value.as_string().unwrap_unchecked() }.clone();
-            write_string(context.result, js_string.to_cstring()?.as_str());
+            write_string(context.result, js_string.to_cstring()?.as_bytes());
         },
         _ => return Ok(PrimitiveStatus::Iterate(new_value)),
     }
@@ -396,9 +396,9 @@ fn write_sep(result: &mut String, add_comma: bool, has_indentation: bool) {
 }
 
 #[inline(always)]
-fn write_string(string: &mut String, value: &str) {
+fn write_string(string: &mut String, value: &[u8]) {
     string.push('"');
-    escape_json_string(string, value.as_bytes());
+    escape_json_string(string, value);
     string.push('"');
 }
 

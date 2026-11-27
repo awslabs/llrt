@@ -677,7 +677,8 @@ mod tests {
                         .catch(&ctx)
                         .unwrap()
                 })
-                .await;
+                .await
+                .unwrap();
         }
 
         run_with_handler(&vm, "../fixtures/handler.handler", &runtime_api).await;
@@ -687,6 +688,6 @@ mod tests {
         run_with_handler(&vm, "../fixtures/tla-webcall-handler.handler", &runtime_api).await;
         run_with_handler(&vm, "../fixtures/cjs-handler.handler", &runtime_api).await;
 
-        vm.runtime.idle().await;
+        let _ = vm.runtime.idle().await;
     }
 }

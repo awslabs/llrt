@@ -14,7 +14,7 @@ path = "src/lib.rs"
 itoa = { version = "1", default-features = false }
 llrt_utils = { workspace = true, default-features = false }
 memchr = { version = "2", default-features = false }
-rquickjs = { version = "0.14", default-features = false }
+rquickjs = { git = "https://github.com/DelSkayn/rquickjs", rev = "fb26457c74d0e05074ed71e94bb3f6cdc2244249", default-features = false }
 ryu = { version = "1", default-features = false }
 simd-json = { version = "0.19", features = [
     "big-int-as-float",

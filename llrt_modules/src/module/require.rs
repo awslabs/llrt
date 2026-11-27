@@ -122,7 +122,7 @@ pub fn require(ctx: Ctx<'_>, specifier: String) -> Result<Value<'_>> {
             poll_timers(rt, &mut executing_timers, None, Some(&mut deadline))?;
         }
 
-        ctx.execute_pending_job();
+        let _ = ctx.drain_jobs();
     };
 
     let binding = ctx.userdata::<RefCell<RequireState>>().unwrap();
