@@ -11,13 +11,24 @@ name = "llrt_http"
 path = "src/lib.rs"
 
 [features]
-default = ["http1", "http2", "webpki-roots", "tls-ring"]
+default = ["http1", "http2", "webpki-roots", "tls-ring", "encrypted-keys"]
 
 http1 = ["hyper/http1", "hyper-rustls?/http1", "hyper-util/http1"]
 http2 = ["hyper/http2", "hyper-rustls?/http2", "hyper-util/http2"]
 
 webpki-roots = ["llrt_tls/webpki-roots"]
 native-roots = ["llrt_tls/native-roots"]
+
+encrypted-keys = [
+  "encrypted-keys-hmac-sha1",
+  "encrypted-keys-hmac-sha2",
+  "encrypted-keys-hmac-sha3",
+  "encrypted-keys-hmac-md5",
+]
+encrypted-keys-hmac-sha1 = ["llrt_tls/encrypted-keys-hmac-sha1"]
+encrypted-keys-hmac-sha2 = ["llrt_tls/encrypted-keys-hmac-sha2"]
+encrypted-keys-hmac-sha3 = ["llrt_tls/encrypted-keys-hmac-sha3"]
+encrypted-keys-hmac-md5 = ["llrt_tls/encrypted-keys-hmac-md5"]
 
 # TLS crypto backend features (rustls-based)
 tls-ring = [

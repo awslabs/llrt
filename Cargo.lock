@@ -2215,6 +2215,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "llrt_pbe"
+version = "0.10.0-beta"
+dependencies = [
+ "aes",
+ "base64-simd",
+ "cbc",
+ "der",
+ "hmac",
+ "md-5",
+ "pbkdf2",
+ "sha1",
+ "sha2",
+ "sha3",
+]
+
+[[package]]
 name = "llrt_perf_hooks"
 version = "0.10.0-beta"
 dependencies = [
@@ -2325,6 +2341,7 @@ version = "0.10.0-beta"
 dependencies = [
  "hex-simd",
  "itoa",
+ "llrt_pbe",
  "once_cell",
  "openssl",
  "rustls",

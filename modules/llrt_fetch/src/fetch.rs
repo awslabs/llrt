@@ -1704,8 +1704,47 @@ mod tests {
         all(feature = "tls-graviola", target_arch = "x86_64"),
         feature = "tls-openssl"
     ))]
+    const TRADITIONAL_KEY_ERROR: &str = "Failed to build TLS config. Invalid key: \
+         encrypted keys using AES-256-CBC in traditional PEM are not supported";
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
     const ENCRYPTED_KEY_ERROR: &str =
         "Failed to build TLS config. Invalid key: encrypted keys are not supported";
+
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    const SHA256_KEY_ERROR: &str = "Failed to build TLS config. Invalid key: \
+         encrypted keys using HMAC-SHA256 are not supported";
+
+    // Whether rustls decrypts any keys, and the HMAC-SHA256 keys these tests use
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    const DECRYPTS: bool = cfg!(any(
+        feature = "encrypted-keys-hmac-sha1",
+        feature = "encrypted-keys-hmac-sha2",
+        feature = "encrypted-keys-hmac-sha3",
+        feature = "encrypted-keys-hmac-md5"
+    ));
+    #[cfg(any(
+        feature = "tls-ring",
+        feature = "tls-aws-lc",
+        all(feature = "tls-graviola", target_arch = "x86_64"),
+        feature = "tls-openssl"
+    ))]
+    const DECRYPTS_SHA256: bool = cfg!(feature = "encrypted-keys-hmac-sha2");
 
     #[cfg(any(
         feature = "tls-ring",
@@ -1774,11 +1813,14 @@ mod tests {
                 let result =
                     call_test::<Vec<String>, _>(&ctx, &module, (cert, key, other_key)).await;
 
+                let decoder = "error:1E08010C:DECODER routines::unsupported";
                 let (encrypted_pkcs8, encrypted_legacy) = if cfg!(feature = "tls-openssl") {
                     (
-                        "error:1E08010C:DECODER routines::unsupported",
+                        decoder,
                         "error:1C80006B:Provider routines::wrong final block length",
                     )
+                } else if DECRYPTS {
+                    (decoder, TRADITIONAL_KEY_ERROR)
                 } else {
                     (ENCRYPTED_KEY_ERROR, ENCRYPTED_KEY_ERROR)
                 };
@@ -1861,12 +1903,21 @@ mod tests {
                 let result =
                     call_test::<Vec<String>, _>(&ctx, &module, (addr, ca, cert, keys)).await;
 
+                let hello = "Hello, LLRT!".to_string();
                 let expected = if cfg!(feature = "tls-openssl") {
-                    "Hello, LLRT!".to_string()
+                    [hello.clone(), hello]
+                } else if DECRYPTS_SHA256 {
+                    [hello, format!("Error: {TRADITIONAL_KEY_ERROR}")]
+                } else if DECRYPTS {
+                    [
+                        format!("Error: {SHA256_KEY_ERROR}"),
+                        format!("Error: {TRADITIONAL_KEY_ERROR}"),
+                    ]
                 } else {
-                    format!("Error: {ENCRYPTED_KEY_ERROR}")
+                    let error = format!("Error: {ENCRYPTED_KEY_ERROR}");
+                    [error.clone(), error]
                 };
-                assert_eq!(result, [expected.clone(), expected]);
+                assert_eq!(result, expected);
             })
         })
         .await;
@@ -1946,19 +1997,27 @@ mod tests {
                          Received {received}|ERR_INVALID_ARG_TYPE|||false"
                     )
                 };
-                let (bad_decrypt, too_long) = if cfg!(feature = "tls-openssl") {
-                    (
-                        "Error|error:1C800064:Provider routines::bad decrypt|ERR_OSSL_BAD_DECRYPT|\
-                         Provider routines|bad decrypt|true"
-                            .to_string(),
-                        "Error|error:07880109:common libcrypto routines::interrupted or cancelled|\
-                         ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED|common libcrypto routines|\
-                         interrupted or cancelled|false"
-                            .to_string(),
-                    )
+                let openssl = cfg!(feature = "tls-openssl");
+                let bad_decrypt = format!(
+                    "Error|error:1C800064:Provider routines::bad decrypt|ERR_OSSL_BAD_DECRYPT|\
+                     Provider routines|bad decrypt|{openssl}"
+                );
+                let too_long = "Error|error:07880109:common libcrypto routines::interrupted or cancelled|\
+                                ERR_OSSL_CRYPTO_INTERRUPTED_OR_CANCELLED|common libcrypto routines|\
+                                interrupted or cancelled|false"
+                    .to_string();
+                let (bad_decrypt, traditional_bad_decrypt, too_long) = if openssl {
+                    (bad_decrypt.clone(), bad_decrypt, too_long)
+                } else if DECRYPTS_SHA256 {
+                    let traditional = format!("Error|{TRADITIONAL_KEY_ERROR}||||false");
+                    (bad_decrypt, traditional, too_long)
+                } else if DECRYPTS {
+                    let sha256 = format!("Error|{SHA256_KEY_ERROR}||||false");
+                    let traditional = format!("Error|{TRADITIONAL_KEY_ERROR}||||false");
+                    (sha256, traditional, too_long)
                 } else {
                     let error = format!("Error|{ENCRYPTED_KEY_ERROR}||||false");
-                    (error.clone(), error)
+                    (error.clone(), error.clone(), error)
                 };
                 assert_eq!(
                     result,
@@ -1975,8 +2034,8 @@ mod tests {
                         "no error".to_string(),
                         "no error".to_string(),
                         bad_decrypt.clone(),
-                        bad_decrypt.clone(),
                         bad_decrypt,
+                        traditional_bad_decrypt,
                         too_long,
                     ]
                 );

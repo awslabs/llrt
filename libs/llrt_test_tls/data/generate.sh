@@ -1,7 +1,8 @@
 #! /bin/bash
 
-# Usage: ./generate.sh          regenerates the server and client certificates
+# Usage: ./generate.sh          regenerates the server and client certificates and the keys
 #        ./generate.sh client   regenerates only the client certificates
+#        ./generate.sh keys     regenerates only the encrypted key fixtures
 
 # Client certificates for mutual TLS tests. They have their own CA, so they
 # can be regenerated without changing the server certificates.
@@ -26,8 +27,40 @@ generate_client() {
   rm client.csr client-ca.key client-ca.srl client-extensions.cnf
 }
 
+# A small EC key, encrypted as PKCS#8 with each PBKDF2 PRF and AES key size,
+# with ciphers LLRT doesn't support yet, with an empty passphrase, and with
+# legacy algorithms
+generate_encrypted_keys() {
+  openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ec.key
+
+  : > ec-encrypted.pem
+  for options in \
+    "aes-256-cbc hmacWithSHA1" "aes-128-cbc hmacWithMD5" "aes-192-cbc hmac-md5" "aes-256-cbc hmac-sha1" \
+    "aes-128-cbc hmacWithSHA224" "aes-192-cbc hmacWithSHA256" "aes-256-cbc hmacWithSHA384" \
+    "aes-128-cbc hmacWithSHA512" "aes-192-cbc hmacWithSHA512-224" "aes-256-cbc hmacWithSHA512-256" \
+    "aes-128-cbc hmac-sha3-224" "aes-192-cbc hmac-sha3-256" "aes-256-cbc hmac-sha3-384" "aes-128-cbc hmac-sha3-512" \
+    "id-aes128-wrap-pad hmacWithSHA256" "des-ede hmacWithSHA256"; do
+    set -- $options
+    echo "$1 $2" >> ec-encrypted.pem
+    openssl pkcs8 -topk8 -in ec.key -v2 "$1" -v2prf "$2" -passout pass:pässphrase >> ec-encrypted.pem
+  done
+
+  openssl pkcs8 -topk8 -in ec.key -passout pass: -out ec-encrypted-empty.key
+
+  : > ec-encrypted-legacy.pem
+  for algorithm in PBE-MD5-DES PBE-SHA1-RC2-40 PBE-SHA1-RC4-128; do
+    echo "$algorithm" >> ec-encrypted-legacy.pem
+    openssl pkcs8 -topk8 -in ec.key -v1 "$algorithm" -provider legacy -provider default -passout pass:pässphrase >> ec-encrypted-legacy.pem
+  done
+}
+
 if [ "$1" = "client" ]; then
   generate_client
+  exit 0
+fi
+
+if [ "$1" = "keys" ]; then
+  generate_encrypted_keys
   exit 0
 fi
 
@@ -52,3 +85,4 @@ openssl x509 -req -in server.csr -CA root.pem -CAkey root.key -CAcreateserial -o
 rm server.csr root.key root.srl extensions.cnf
 
 generate_client
+generate_encrypted_keys

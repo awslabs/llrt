@@ -96,10 +96,10 @@ jobs:
         run: |
           case "${{ inputs.crypto }}" in
             graviola)
-              echo "cargo_features=--no-default-features --features macro,crypto-graviola-rust,tls-graviola" >> $GITHUB_OUTPUT
+              echo "cargo_features=--no-default-features --features macro,crypto-graviola-rust,tls-graviola,encrypted-keys" >> $GITHUB_OUTPUT
               ;;
             ring)
-              echo "cargo_features=--no-default-features --features macro,crypto-ring-rust,tls-ring" >> $GITHUB_OUTPUT
+              echo "cargo_features=--no-default-features --features macro,crypto-ring-rust,tls-ring,encrypted-keys" >> $GITHUB_OUTPUT
               ;;
             openssl)
               if [ "${{ inputs.platform }}" = "windows" ]; then
@@ -109,7 +109,7 @@ jobs:
               fi
               ;;
             aws-lc)
-              echo "cargo_features=--no-default-features --features macro,crypto-rust,tls-aws-lc" >> $GITHUB_OUTPUT
+              echo "cargo_features=--no-default-features --features macro,crypto-rust,tls-aws-lc,encrypted-keys" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "Unknown crypto: ${{ inputs.crypto }}"

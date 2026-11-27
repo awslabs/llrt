@@ -22,8 +22,9 @@ declare module "https" {
     /**
      * Private key for `cert`, in PEM format. Must be set together with
      * `cert`. Only one key is supported, so an array must have a single
-     * element. Encrypted keys, decrypted with `passphrase`, are supported
-     * only by the OpenSSL TLS backend.
+     * element. An encrypted key is decrypted with `passphrase`. With the
+     * rustls TLS backends, it must be a PKCS#8 key encrypted with PBES2 and
+     * AES-CBC, such as `openssl pkcs8 -topk8` writes.
      */
     key?: string | Buffer | Array<string | Buffer> | undefined;
     /**

@@ -5,14 +5,15 @@ use std::sync::{Arc, OnceLock};
 
 use once_cell::sync::Lazy;
 use rustls::{
-    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
+    pki_types::{pem::PemObject, CertificateDer},
     ClientConfig, RootCertStore, SupportedProtocolVersion,
 };
 #[cfg(feature = "webpki-roots")]
 use webpki_roots::TLS_SERVER_ROOTS;
 
-use crate::client_auth::{is_encrypted_pem_key, Invalid, ENCRYPTED_KEY, KEY_MISMATCH};
+use crate::client_auth::{Invalid, KEY_MISMATCH};
 use crate::no_verification::NoCertificateVerification;
+use crate::rustls_key::load_private_key;
 use crate::BuildClientConfigOptions;
 
 // Select the crypto provider based on feature flags
@@ -126,11 +127,7 @@ pub fn build_client_config(
             if cert_chain.is_empty() {
                 return Err("Invalid cert: no certificate found".into());
             }
-            if is_encrypted_pem_key(&key) {
-                return Err(ENCRYPTED_KEY.into());
-            }
-            let key =
-                PrivateKeyDer::from_pem_slice(&key).map_err(|e| Invalid("Invalid key: ", e))?;
+            let key = load_private_key(&key, options.passphrase.as_deref())?;
             builder
                 .with_client_auth_cert(cert_chain, key)
                 .map_err(|e| match e {

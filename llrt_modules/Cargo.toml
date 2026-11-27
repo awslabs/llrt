@@ -8,7 +8,7 @@ repository = "https://github.com/awslabs/llrt"
 readme = "README.md"
 
 [features]
-default = ["base", "console", "tls-ring", "crypto-rust", "pqc"]
+default = ["base", "console", "tls-ring", "encrypted-keys", "crypto-rust", "pqc"]
 lambda = ["base"]
 no-sdk = ["llrt_process?/no-sdk"]
 
@@ -28,6 +28,34 @@ tls-graviola = [
   "llrt_fetch?/tls-graviola",
 ]
 tls-openssl = ["llrt_http?/tls-openssl", "llrt_tls?/tls-openssl"]
+
+# Encrypted private keys on the rustls backends, by PBKDF2 PRF
+encrypted-keys = [
+  "encrypted-keys-hmac-sha1",
+  "encrypted-keys-hmac-sha2",
+  "encrypted-keys-hmac-sha3",
+  "encrypted-keys-hmac-md5",
+]
+encrypted-keys-hmac-sha1 = [
+  "llrt_http?/encrypted-keys-hmac-sha1",
+  "llrt_tls?/encrypted-keys-hmac-sha1",
+  "llrt_fetch?/encrypted-keys-hmac-sha1",
+]
+encrypted-keys-hmac-sha2 = [
+  "llrt_http?/encrypted-keys-hmac-sha2",
+  "llrt_tls?/encrypted-keys-hmac-sha2",
+  "llrt_fetch?/encrypted-keys-hmac-sha2",
+]
+encrypted-keys-hmac-sha3 = [
+  "llrt_http?/encrypted-keys-hmac-sha3",
+  "llrt_tls?/encrypted-keys-hmac-sha3",
+  "llrt_fetch?/encrypted-keys-hmac-sha3",
+]
+encrypted-keys-hmac-md5 = [
+  "llrt_http?/encrypted-keys-hmac-md5",
+  "llrt_tls?/encrypted-keys-hmac-md5",
+  "llrt_fetch?/encrypted-keys-hmac-md5",
+]
 
 # Crypto provider features
 crypto-rust = ["llrt_crypto?/crypto-rust"]

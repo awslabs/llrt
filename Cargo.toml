@@ -9,6 +9,7 @@ members = [
   "libs/llrt_json",
   "libs/llrt_net_policy",
   "libs/llrt_numbers",
+  "libs/llrt_pbe",
   "libs/llrt_test",
   "libs/llrt_test_tls",
   "libs/llrt_utils",
@@ -81,6 +82,7 @@ llrt_net_policy = { version = "0.10.0-beta", path = "libs/llrt_net_policy" }
 llrt_numbers = { version = "0.10.0-beta", path = "libs/llrt_numbers" }
 llrt_os = { version = "0.10.0-beta", default-features = false, path = "modules/llrt_os" }
 llrt_path = { version = "0.10.0-beta", path = "modules/llrt_path" }
+llrt_pbe = { version = "0.10.0-beta", default-features = false, path = "libs/llrt_pbe" }
 llrt_perf_hooks = { version = "0.10.0-beta", path = "modules/llrt_perf_hooks" }
 llrt_process = { version = "0.10.0-beta", path = "modules/llrt_process" }
 llrt_stream = { version = "0.10.0-beta", path = "modules/llrt_stream" }

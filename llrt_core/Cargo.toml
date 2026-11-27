@@ -14,7 +14,7 @@ include = [
 ]
 
 [features]
-default = ["macro", "tls-ring", "crypto-rust", "pqc"]
+default = ["macro", "tls-ring", "encrypted-keys", "crypto-rust", "pqc"]
 lambda = []
 no-sdk = ["llrt_modules/no-sdk"]
 uncompressed = []
@@ -29,6 +29,18 @@ tls-ring = ["rustls/ring", "llrt_modules/tls-ring"]
 tls-aws-lc = ["rustls/aws_lc_rs", "llrt_modules/tls-aws-lc"]
 tls-graviola = ["llrt_modules/tls-graviola"]
 tls-openssl = ["llrt_modules/tls-openssl", "dep:openssl"]
+
+# Encrypted private keys on the rustls backends, by PBKDF2 PRF
+encrypted-keys = [
+  "encrypted-keys-hmac-sha1",
+  "encrypted-keys-hmac-sha2",
+  "encrypted-keys-hmac-sha3",
+  "encrypted-keys-hmac-md5",
+]
+encrypted-keys-hmac-sha1 = ["llrt_modules/encrypted-keys-hmac-sha1"]
+encrypted-keys-hmac-sha2 = ["llrt_modules/encrypted-keys-hmac-sha2"]
+encrypted-keys-hmac-sha3 = ["llrt_modules/encrypted-keys-hmac-sha3"]
+encrypted-keys-hmac-md5 = ["llrt_modules/encrypted-keys-hmac-md5"]
 
 # Crypto provider features
 crypto-rust = ["llrt_modules/crypto-rust"]

@@ -572,6 +572,19 @@ LLRT supports multiple cryptographic backends for both the crypto module and TLS
 | `tls-graviola`       | rustls with graviola crypto                   |
 | `tls-openssl`        | OpenSSL for TLS                               |
 
+### Encrypted Key Features
+
+The rustls backends decrypt PKCS#8 keys (`https.Agent`'s `passphrase` option)
+whose PBKDF2 PRF is enabled. The OpenSSL backend supports every encrypted key.
+
+| Feature                    | Keys                                              |
+| -------------------------- | ------------------------------------------------- |
+| `encrypted-keys` (default) | All of the below                                  |
+| `encrypted-keys-hmac-sha1` | HMAC-SHA1, including keys that name no PRF        |
+| `encrypted-keys-hmac-sha2` | HMAC-SHA224/256/384/512, HMAC-SHA512-224 and -256 |
+| `encrypted-keys-hmac-sha3` | HMAC-SHA3-224/256/384/512                         |
+| `encrypted-keys-hmac-md5`  | HMAC-MD5                                          |
+
 ### Building with Different Backends
 
 ```bash
@@ -579,13 +592,16 @@ LLRT supports multiple cryptographic backends for both the crypto module and TLS
 cargo build --release
 
 # Using AWS-LC for TLS
-cargo build --release --no-default-features --features "macro,tls-aws-lc"
+cargo build --release --no-default-features --features "macro,tls-aws-lc,encrypted-keys"
 
 # Using OpenSSL for both crypto and TLS
 cargo build --release --no-default-features --features "macro,crypto-openssl,tls-openssl"
 
 # Using Graviola for both crypto and TLS
-cargo build --release --no-default-features --features "macro,crypto-graviola-rust,tls-graviola"
+cargo build --release --no-default-features --features "macro,crypto-graviola-rust,tls-graviola,encrypted-keys"
+
+# Encrypted keys with SHA-2 PRFs only, the default of `openssl pkcs8 -topk8`
+cargo build --release --no-default-features --features "macro,crypto-rust,tls-ring,encrypted-keys-hmac-sha2"
 ```
 
 ## Running Lambda emulator
