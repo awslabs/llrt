@@ -732,6 +732,9 @@ async function buildSdks() {
         "@aws-sdk/signature-v4-multi-region": path.resolve(
           "shims/@aws-sdk/signature-v4-multi-region.js"
         ),
+        "@smithy/fetch-http-handler": path.resolve(
+          "shims/@smithy/fetch-http-handler.js"
+        ),
         "@smithy/md5-js": "crypto",
         "@aws-sdk/credential-providers":
           path.dirname(

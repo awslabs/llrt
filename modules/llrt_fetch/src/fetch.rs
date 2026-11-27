@@ -102,6 +102,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                 let method_string = options.method.to_string();
                 let method = options.method;
                 let abort_receiver = options.abort_receiver;
+                let decompress = options.decompress;
 
                 ensure_url_access(&ctx, &uri)?;
 
@@ -117,6 +118,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                         options.headers.as_ref(),
                         start,
                         abort_receiver,
+                        decompress,
                     )
                     .await;
                 }
@@ -138,6 +140,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                     body.as_ref(),
                     abort_receiver.as_ref(),
                     &options.redirect,
+                    decompress,
                 )
                 .await?;
 
@@ -180,6 +183,7 @@ pub fn init(global_client: HyperClient, globals: &Object) -> Result<()> {
                     redirected,
                     abort_receiver,
                     guard,
+                    decompress,
                 )
             }
         })),
@@ -198,6 +202,7 @@ async fn send_stream<'js>(
     headers: Option<&Headers>,
     start: Instant,
     abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
+    decompress: bool,
 ) -> Result<Response<'js>> {
     let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(128);
     let (err_tx, err_rx) = tokio::sync::oneshot::channel::<String>();
@@ -265,7 +270,7 @@ async fn send_stream<'js>(
             req = req.header(header_name, value)
         }
     }
-    apply_default_headers(&mut req, &detected_headers);
+    apply_default_headers(&mut req, &detected_headers, decompress);
 
     let box_body: BoxBody<Bytes, Infallible> = BoxBody::new(stream_body);
     let mut request = req.body(box_body).or_throw(ctx)?;
@@ -302,6 +307,7 @@ async fn send_stream<'js>(
         false,
         abort_receiver,
         HeadersGuard::Response,
+        decompress,
     )
 }
 
@@ -408,6 +414,7 @@ async fn send<'js>(
     body: Option<&RequestBody<'js>>,
     abort_receiver: Option<&mc_oneshot::Receiver<Value<'js>>>,
     redirect: &str,
+    decompress: bool,
 ) -> Result<(hyper::Response<hyper::body::Incoming>, bool, HeadersGuard)> {
     let mut redirect_count = 0;
     let mut response_status = 0;
@@ -421,6 +428,7 @@ async fn send<'js>(
             body,
             &response_status,
             initial_uri,
+            decompress,
         )?;
 
         let res = dispatch(ctx, client, req, abort_receiver).await?;
@@ -441,6 +449,7 @@ async fn send<'js>(
                 body,
                 &response_status,
                 initial_uri,
+                decompress,
             )?;
             let retried = dispatch(ctx, &new_client, req, abort_receiver).await?;
             break (retried, guard);
@@ -502,11 +511,13 @@ fn resolve_redirect_url(
 fn apply_default_headers(
     req: &mut hyper::http::request::Builder,
     detected_headers: &HashSet<&str>,
+    decompress: bool,
 ) {
     if !detected_headers.contains(USER_AGENT.as_str()) {
         *req = std::mem::take(req).header(USER_AGENT, ["llrt ", VERSION].concat());
     }
-    if !detected_headers.contains(ACCEPT_ENCODING.as_str()) {
+    // Don't advertise encodings we won't decode.
+    if decompress && !detected_headers.contains(ACCEPT_ENCODING.as_str()) {
         *req = std::mem::take(req).header(ACCEPT_ENCODING, "zstd, br, gzip, deflate");
     }
     if !detected_headers.contains(ACCEPT_LANGUAGE.as_str()) {
@@ -567,6 +578,7 @@ fn parse_data_url<'js>(ctx: &Ctx<'js>, data_url: &str, method: &Method) -> Resul
     Response::new(ctx.clone(), Opt(Some(blob)), Opt(Some(options)))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_request<'js>(
     ctx: &Ctx<'js>,
     method: &hyper::Method,
@@ -575,6 +587,7 @@ fn build_request<'js>(
     body: Option<&RequestBody<'js>>,
     prev_status: &u16,
     initial_uri: &Uri,
+    decompress: bool,
 ) -> Result<(Request<BoxBody<Bytes, Infallible>>, HeadersGuard)> {
     if let Some(scheme) = uri.scheme_str() {
         if !matches!(scheme, "http" | "https") {
@@ -616,7 +629,7 @@ fn build_request<'js>(
         }
     }
 
-    apply_default_headers(&mut req, &detected_headers);
+    apply_default_headers(&mut req, &detected_headers, decompress);
 
     // `Content-Length: 0` is sent for POST/PUT/PATCH requests with no body.
     if body.is_none()
@@ -750,6 +763,7 @@ struct FetchOptions<'js> {
     redirect: String,
     agent: Option<Class<'js, Agent>>,
     integrity: Option<String>,
+    decompress: bool,
 }
 
 fn get_fetch_options<'js>(
@@ -851,14 +865,8 @@ fn get_fetch_options<'js>(
                         }
                     }
                 }
-                // Check if body is a ReadableStream
+
                 if let Ok(stream) = Class::<ReadableStream>::from_value(&body_opt) {
-                    // Per WHATWG Fetch spec, streaming request bodies on HTTP/1.x
-                    // require explicit `duplex: 'half'` (the client needs to know
-                    // it can't wait for the whole request before reading the
-                    // response). WPT `request-upload.any.js` "Streaming upload
-                    // shouldn't work on Http/1.1" expects rejection when duplex
-                    // is not set.
                     let duplex: Option<String> =
                         get_option::<String>("duplex", arg_opts.as_ref(), resource_opts.as_ref())?;
                     if duplex.as_deref() != Some("half") {
@@ -874,10 +882,6 @@ fn get_fetch_options<'js>(
                         let blob_ref = blob.borrow();
                         let mime = blob_ref.mime_type();
                         let ct = if mime.is_empty() { None } else { Some(mime) };
-                        // Zero-copy: borrow the Blob's ArrayBuffer instead of
-                        // materialising a Vec. `RequestBody::from_bytes` holds
-                        // the `ObjectBytes` alive for the duration of the
-                        // request, keeping the ArrayBuffer pinned.
                         let ab = blob_ref.array_buffer_ref();
                         let len = ab.len();
                         (ObjectBytes::DataView(ab, 0, len), ct)
@@ -948,11 +952,13 @@ fn get_fetch_options<'js>(
         }
     }
 
-    // Per WHATWG Fetch spec, integrity is a stringified SRI (subresource
-    // integrity) metadata. After the response body is received, the fetch
-    // machinery verifies one of the listed hashes matches; on failure the
-    // returned promise rejects with a TypeError.
     let integrity = get_option::<String>("integrity", arg_opts.as_ref(), resource_opts.as_ref())?;
+
+    // LLRT extension, also in Bun. Read from the init object, and from a
+    // Request instance, since the SDK's fetch handler builds one internally.
+    let decompress = get_option::<Value>("decompress", arg_opts.as_ref(), resource_opts.as_ref())?
+        .and_then(|v| v.as_bool().or_else(|| v.as_number().map(|n| n != 0.0)))
+        .unwrap_or(true);
 
     let url = match url {
         Some(url) => url,
@@ -968,6 +974,7 @@ fn get_fetch_options<'js>(
         redirect,
         agent,
         integrity,
+        decompress,
     })
 }
 
@@ -1464,6 +1471,14 @@ mod tests {
 
                     let response_promise: Promise = fetch.call((url, options.clone()))?;
                     let response: Class<Response> = response_promise.into_future().await?;
+                    {
+                        let headers: Class<Headers> = response.get("headers")?;
+                        let headers = headers.borrow();
+                        assert!(headers
+                            .get(ctx.clone(), "content-encoding".into())?
+                            .is_null());
+                        assert!(headers.get(ctx.clone(), "content-length".into())?.is_null());
+                    }
                     let response_text: String = Response::text(This(response), ctx.clone())?
                         .into_future()
                         .await?;

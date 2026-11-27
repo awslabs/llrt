@@ -80,6 +80,7 @@ pub struct Request<'js> {
     mode: RequestMode,
     keepalive: bool,
     agent: Option<Class<'js, Agent>>,
+    decompress: bool,
 }
 
 impl<'js> Trace<'js> for Request<'js> {
@@ -126,6 +127,7 @@ impl<'js> Request<'js> {
             mode: RequestMode::Cors,
             keepalive: false,
             agent: None,
+            decompress: true,
         };
 
         // If the input is a Request, we may need to tee its body at the very
@@ -173,6 +175,7 @@ impl<'js> Request<'js> {
                 request.keepalive = input_req.keepalive;
                 request.signal = input_req.signal.clone();
                 request.agent = input_req.agent.clone();
+                request.decompress = input_req.decompress;
                 if let Some(headers) = &input_req.headers {
                     request.headers = Some(Class::<Headers>::instance(
                         ctx.clone(),
@@ -377,6 +380,11 @@ impl<'js> Request<'js> {
     }
 
     #[qjs(get)]
+    fn decompress(&self) -> bool {
+        self.decompress
+    }
+
+    #[qjs(get)]
     fn redirect(&self) -> &'static str {
         "follow"
     }
@@ -570,6 +578,7 @@ impl<'js> Request<'js> {
                         mode: self.mode.clone(),
                         keepalive: self.keepalive,
                         agent: self.agent.clone(),
+                        decompress: self.decompress,
                     });
                 }
                 BodyVariant::Provided(Some(provided.clone()))
@@ -588,6 +597,7 @@ impl<'js> Request<'js> {
             mode: self.mode.clone(),
             keepalive: self.keepalive,
             agent: self.agent.clone(),
+            decompress: self.decompress,
         })
     }
 }
@@ -926,6 +936,15 @@ fn assign_request<'js>(request: &mut Request<'js>, ctx: Ctx<'js>, obj: &Object<'
 
     if let Some(agent_opt) = obj.get_optional("agent")? {
         request.agent = Some(agent_opt);
+    }
+
+    // LLRT extension: honored on Request as well as fetch init, so a fetch
+    // handler that builds a Request internally can disable decompression.
+    if let Some(value) = obj.get_optional::<_, Value>("decompress")? {
+        request.decompress = value
+            .as_bool()
+            .or_else(|| value.as_number().map(|n| n != 0.0))
+            .unwrap_or(true);
     }
 
     Ok(())

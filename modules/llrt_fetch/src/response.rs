@@ -16,7 +16,7 @@ use http_body::Body as _;
 use http_body_util::BodyExt;
 use hyper::{
     body::Incoming,
-    header::{CONTENT_ENCODING, CONTENT_TYPE, LOCATION},
+    header::{CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, LOCATION},
 };
 use llrt_abort::AbortSignal;
 use llrt_compression::streaming::StreamingDecoder;
@@ -798,22 +798,40 @@ impl<'js> Response<'js> {
         redirected: bool,
         abort_receiver: Option<mc_oneshot::Receiver<Value<'js>>>,
         guard: HeadersGuard,
+        decompress: bool,
     ) -> Result<Self> {
         let response_headers = response.headers();
 
+        // Only capture the encoding when we will actually decode the body.
+        // Leaving it unset passes bytes through while the header stays visible.
         let mut content_encoding = None;
-        if let Some(content_encoding_header) = response_headers.get(&CONTENT_ENCODING) {
-            if let Ok(content_encoding_header) = content_encoding_header.to_str() {
-                content_encoding = Some(content_encoding_header.to_owned())
+        if decompress {
+            if let Some(content_encoding_header) = response_headers.get(&CONTENT_ENCODING) {
+                if let Ok(content_encoding_header) = content_encoding_header.to_str() {
+                    content_encoding = Some(content_encoding_header.to_owned())
+                }
             }
         }
-
-        let headers = Headers::from_http_headers(response.headers(), guard)?;
-        let headers = Class::instance(ctx.clone(), headers)?;
 
         let status = response.status();
         let is_null_body = matches!(status.as_u16(), 101 | 103 | 204 | 205 | 304)
             || method.eq_ignore_ascii_case("HEAD");
+
+        let will_decode = !is_null_body
+            && content_encoding
+                .as_deref()
+                .is_some_and(|enc| !matches!(enc, "" | "identity"))
+            && content_encoding
+                .as_deref()
+                .is_some_and(|enc| StreamingDecoder::new(enc).is_ok());
+
+        let mut headers = Headers::from_http_headers(response.headers(), guard)?;
+        if will_decode {
+            // Decoded bytes no longer match the wire headers, so drop them.
+            headers.remove_internal(CONTENT_ENCODING.as_str());
+            headers.remove_internal(CONTENT_LENGTH.as_str());
+        }
+        let headers = Class::instance(ctx.clone(), headers)?;
 
         let body = if is_null_body {
             BodyVariant::Empty

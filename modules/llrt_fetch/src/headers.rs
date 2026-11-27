@@ -314,6 +314,11 @@ impl Headers {
 }
 
 impl Headers {
+    // During Response construction, before the object is exposed to JS.
+    pub(crate) fn remove_internal(&mut self, key: &str) {
+        self.headers.retain(|(k, _)| k.as_ref() != key);
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
         self.headers.iter().map(|(k, v)| (k.as_ref(), v.as_ref()))
     }

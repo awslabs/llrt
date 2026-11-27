@@ -862,6 +862,20 @@ Repeated response header values are combined with a comma and space when read th
 Fetch resolves relative `Location` headers against the current response URL when
 following redirects. With `redirect: "manual"`, the response retains its source URL.
 
+Fetch decodes `gzip`, `deflate`, `br` and `zstd` response bodies. When it does,
+`Content-Encoding` and `Content-Length` are removed from `Response.headers` because
+they describe the encoded bytes, not the decoded body. It sends
+`Accept-Encoding: zstd, br, gzip, deflate` unless the request sets its own.
+
+Pass `decompress: false` in the `fetch` options (an LLRT extension, also in Bun) to
+receive the body as sent and keep those headers. No default `Accept-Encoding` is sent
+in that case. The option is also accepted by `new Request()` and honored when that
+Request is passed to `fetch`, which lets a custom `requestHandler` disable decoding.
+
+The AWS SDK bundled into the std-sdk and full-sdk builds uses this to preserve stored
+object bytes, so `GetObject` behaves as it does on Node.js. The no-sdk build contains
+no SDK, and a `@smithy/fetch-http-handler` bundled into user code is not replaced.
+
 ## FILEAPI
 
 [Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
